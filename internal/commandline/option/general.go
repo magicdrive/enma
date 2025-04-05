@@ -11,6 +11,7 @@ type GeneralOption struct {
 	HelpFlag           bool
 	VersionFlag        bool
 	IndividualHelpFlag bool
+	FlagSet            *flag.FlagSet
 }
 
 func ParseGeneral(args []string) (*GeneralOption, error) {
@@ -34,6 +35,7 @@ func ParseGeneral(args []string) (*GeneralOption, error) {
 		ConfigFilePath: *configOpt,
 		HelpFlag:       *helpFlagOpt,
 		VersionFlag:    *versionFlagOpt,
+		FlagSet:        fs,
 	}
 
 	if err := options.Normalize(); err != nil {

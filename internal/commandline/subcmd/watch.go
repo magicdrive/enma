@@ -12,7 +12,10 @@ func Watch(args []string) error {
 	if err != nil {
 		return err
 	}
+	return RunWatch(opt)
+}
 
+func RunWatch(opt *option.WatchOption) error {
 	if opt.PidPathOpt != "" {
 		common.CreatePidFile(opt.PidPathOpt)
 		defer common.DeletePidFile(opt.PidPathOpt)

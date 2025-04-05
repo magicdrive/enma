@@ -9,6 +9,7 @@ import (
 const (
 	Hotload = "hotload"
 	Watch   = "watch"
+	Init    = "init"
 	General = ""
 )
 

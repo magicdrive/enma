@@ -7,13 +7,15 @@ import (
 )
 
 func Hotload(args []string) error {
-
 	opt, err := option.ParseHotload(args)
 
 	if err != nil {
 		return err
 	}
+	return RunHotload(opt)
+}
 
+func RunHotload(opt *option.HotloadOption) error {
 	if opt.PidPathOpt != "" {
 		common.CreatePidFile(opt.PidPathOpt)
 		defer common.DeletePidFile(opt.PidPathOpt)
@@ -26,4 +28,5 @@ func Hotload(args []string) error {
 	} else {
 		return nil
 	}
+
 }
