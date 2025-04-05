@@ -9,6 +9,7 @@ import (
 	"github.com/dlclark/regexp2"
 
 	"github.com/magicdrive/enma/internal/common"
+	"github.com/magicdrive/enma/internal/ignorerule"
 	"github.com/magicdrive/enma/internal/model"
 )
 
@@ -22,19 +23,24 @@ type WatchOption struct {
 	Delay                  model.TimeString
 	Retry                  int
 	WatchDir               string
+	WatchDirList           []string
 	PatternRegexpString    string
 	PatternRegexp          *regexp2.Regexp
 	IncludeExt             string
+	IncludeExtList         []string
 	IgnoreDirRegexpString  string
 	IgnoreDirRegexp        *regexp2.Regexp
 	IgnoreFileRegexpString string
 	IgnoreFileRegexp       *regexp2.Regexp
 	ExcludeExt             string
+	ExcludeExtList         []string
 	ExcludeDir             string
+	ExcludeDirList         []string
+	EnmaIgnoreString       string
+	EnmaIgnoreList         []string
+	EnmaIgnore             *ignorerule.GitIgnore
 	LogPathOpt             string
-	LogPath                string
 	PidPathOpt             string
-	PidPath                string
 }
 
 func (cr *WatchOption) Mode() string {
@@ -43,10 +49,6 @@ func (cr *WatchOption) Mode() string {
 
 func ParseWatch(args []string) (*WatchOption, error) {
 	fs := flag.NewFlagSet("hotload", flag.ExitOnError)
-
-	// --name
-	nameOpt := fs.String("name", "hotload", "Defines the enma process name (optional)")
-	fs.StringVar(nameOpt, "n", "hotload", "Defines the enma process name (optional)")
 
 	// --pre-command
 	preCmdOpt := fs.String("pre-command", "", "Defines the command to pre-command (optional)")
@@ -118,11 +120,15 @@ func ParseWatch(args []string) (*WatchOption, error) {
 	excludeDirOpt := fs.String("exclude-dir", "", "Specify watch exclude directory (optional)")
 	fs.StringVar(excludeDirOpt, "E", "", "Specify watch exclude directory (optional)")
 
-	// --pid-path
-	pidPathOpt := fs.String("pid-path", "", "Specify pid file path (optional)")
+	// --enmaignore
+	enmaIgnoreOpt := fs.String("enmaignore", "", "Defines the enmaignore paths allowed commma sepalated.(optional)")
+	fs.StringVar(enmaIgnoreOpt, "n", "", "Defines the enmaignore paths allowed commma sepalated.(optional)")
 
-	// --log-path
-	logPathOpt := fs.String("log-path", "", "Specify log file path (optional)")
+	// --pid
+	pidPathOpt := fs.String("pid", "", "Specify pid file path (optional)")
+
+	// --logs
+	logPathOpt := fs.String("logs", "", "Specify log file path (optional)")
 
 	fs.Usage = common.EnmaHelpFunc
 
@@ -130,7 +136,7 @@ func ParseWatch(args []string) (*WatchOption, error) {
 	fs.Parse(args)
 
 	// Validate required flags
-	if *nameOpt == "" || *cmdOpt == "" || *watchDirOpt == "" {
+	if *cmdOpt == "" || *watchDirOpt == "" {
 		fmt.Println("Missing required flags for watch")
 		fs.Usage()
 		os.Exit(1)
@@ -152,6 +158,7 @@ func ParseWatch(args []string) (*WatchOption, error) {
 		IgnoreDirRegexpString:  *ignoreDirRegexOpt,
 		ExcludeExt:             *excludeExtOpt,
 		ExcludeDir:             *excludeDirOpt,
+		EnmaIgnoreString:       *enmaIgnoreOpt,
 		PidPathOpt:             *pidPathOpt,
 		LogPathOpt:             *logPathOpt,
 	}
@@ -163,6 +170,31 @@ func ParseWatch(args []string) (*WatchOption, error) {
 
 func (cr *WatchOption) Normalize() error {
 	var errorMessages = []string{}
+
+	// comma sepalated to list.
+	if cr.WatchDir != "" {
+		cr.WatchDirList = common.CommaSeparated2StringList(cr.WatchDir)
+	}
+	if cr.IncludeExt != "" {
+		cr.IncludeExtList = common.CommaSeparated2StringList(cr.IncludeExt)
+	}
+	if cr.ExcludeExt != "" {
+		cr.ExcludeExtList = common.CommaSeparated2StringList(cr.ExcludeExt)
+	}
+	if cr.ExcludeDir != "" {
+		cr.ExcludeDirList = common.CommaSeparated2StringList(cr.ExcludeDir)
+	}
+	if cr.EnmaIgnoreString != "" {
+		cr.EnmaIgnoreList = common.CommaSeparated2StringList(cr.EnmaIgnoreString)
+
+		// enmaignore
+		if enmaIgnore, err := ignorerule.NewGitignore(cr.EnmaIgnoreList); err != nil {
+			e := fmt.Errorf("ennmaignore load error: %w", err)
+			errorMessages = append(errorMessages, e.Error())
+		} else {
+			cr.EnmaIgnore = enmaIgnore
+		}
+	}
 
 	if cr.PatternRegexpString != "" {
 		re, err := regexp2.Compile(cr.PatternRegexpString, 0)

@@ -62,9 +62,9 @@ func (r *WatchRunner) SetWatcher(watcher *fsnotify.Watcher) {
 }
 
 func (r *WatchRunner) Start() error {
-	if r.Options.LogPath != "" {
-		createErr := common.CreateFileWithDirs(r.Options.LogPath, "")
-		f, openErr := os.OpenFile(r.Options.LogPath, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0644)
+	if r.Options.LogPathOpt != "" {
+		createErr := common.CreateFileWithDirs(r.Options.LogPathOpt, "")
+		f, openErr := os.OpenFile(r.Options.LogPathOpt, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0644)
 		if createErr == nil && openErr == nil {
 			log.SetOutput(f)
 			defer f.Close()
@@ -90,9 +90,7 @@ func (r *WatchRunner) Start() error {
 	r.watcher = watcher
 	defer watcher.Close()
 
-	watchDirs := strings.Split(r.Options.WatchDir, ",")
-
-	for _, dir := range watchDirs {
+	for _, dir := range r.Options.WatchDirList {
 		err := filepath.Walk(dir, func(path string, info os.FileInfo, err error) error {
 			if err != nil {
 				return err
@@ -144,8 +142,7 @@ func (r *WatchRunner) Start() error {
 }
 
 func (r *WatchRunner) IsExcludedDir(path string) bool {
-	excludeDirs := strings.Split(r.Options.ExcludeDir, ",")
-	for _, d := range excludeDirs {
+	for _, d := range r.Options.ExcludeDirList {
 		if d != "" && strings.Contains(path, d) {
 			return true
 		}
@@ -154,13 +151,20 @@ func (r *WatchRunner) IsExcludedDir(path string) bool {
 }
 
 func (r *WatchRunner) ShouldTrigger(event fsnotify.Event) bool {
-	absPath, _ := filepath.Abs(event.Name)
+	path := event.Name
+	absPath, _ := filepath.Abs(path)
 
 	if event.Op == fsnotify.Chmod {
 		return false
 	}
 
-	if r.Options.ExcludeDir != "" && r.IsExcludedDir(event.Name) {
+	if r.Options.EnmaIgnore != nil {
+		if r.Options.EnmaIgnore.Matches(common.TrimDotSlash(path)) {
+			return false
+		}
+	}
+
+	if r.Options.ExcludeDir != "" && r.IsExcludedDir(path) {
 		return false
 	}
 
@@ -185,10 +189,9 @@ func (r *WatchRunner) ShouldTrigger(event fsnotify.Event) bool {
 	}
 
 	if r.Options.IncludeExt != "" {
-		exts := strings.Split(r.Options.IncludeExt, ",")
 		ext := filepath.Ext(absPath)
 		found := false
-		for _, incl := range exts {
+		for _, incl := range r.Options.IncludeExtList {
 			if ext == incl {
 				found = true
 				break
@@ -200,9 +203,8 @@ func (r *WatchRunner) ShouldTrigger(event fsnotify.Event) bool {
 	}
 
 	if r.Options.ExcludeExt != "" {
-		exts := strings.Split(r.Options.ExcludeExt, ",")
 		ext := filepath.Ext(absPath)
-		for _, excl := range exts {
+		for _, excl := range r.Options.ExcludeExtList {
 			if ext == excl {
 				return false
 			}

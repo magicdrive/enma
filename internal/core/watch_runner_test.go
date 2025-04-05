@@ -28,6 +28,10 @@ func TestWatchRunnerRunCmd_Success(t *testing.T) {
 		},
 	}
 
+	if err := r.Options.Normalize(); err != nil {
+		t.Errorf("WatchOption normalize error: %v", err)
+	}
+
 	err := r.RunCmd(context.Background(), "./main.go")
 	if err != nil {
 		t.Fatalf("expected no error, got: %v", err)
@@ -47,6 +51,10 @@ func TestWatchRunnerRunBuild_Timeout(t *testing.T) {
 		},
 	}
 
+	if err := r.Options.Normalize(); err != nil {
+		t.Errorf("WatchOption normalize error: %v", err)
+	}
+
 	err := r.RunBuild(context.Background(), "./main.go")
 	if err == nil {
 		t.Fatal("expected timeout error, got nil")
@@ -64,6 +72,10 @@ func TestWatchRunnerRunCmd_MockFailure(t *testing.T) {
 		},
 	}
 
+	if err := r.Options.Normalize(); err != nil {
+		t.Errorf("WatchOption normalize error: %v", err)
+	}
+
 	err := r.RunCmd(context.Background(), "./main.go")
 	if err == nil {
 		t.Fatal("expected error, got nil")
@@ -75,6 +87,10 @@ func TestWatchRunnerIsExcludedDir(t *testing.T) {
 		Options: &option.WatchOption{
 			ExcludeDir: "node_modules,tmp",
 		},
+	}
+
+	if err := r.Options.Normalize(); err != nil {
+		t.Errorf("WatchOption normalize error: %v", err)
 	}
 
 	tests := []struct {
@@ -99,6 +115,10 @@ func TestWatchRunnerShouldTrigger(t *testing.T) {
 			IncludeExt: ".go",
 			ExcludeExt: ".tmp",
 		},
+	}
+
+	if err := r.Options.Normalize(); err != nil {
+		t.Errorf("WatchOption normalize error: %v", err)
 	}
 
 	tests := []struct {
@@ -130,6 +150,10 @@ func TestWatchRunnerShouldTrigger_Regex(t *testing.T) {
 			},
 		}
 
+		if err := r.Options.Normalize(); err != nil {
+			t.Errorf("WatchOption normalize error: %v", err)
+		}
+
 		event := fsnotify.Event{Name: "main_test.go"}
 		if !r.ShouldTrigger(event) {
 			t.Errorf("expected PatternRegexp match to trigger")
@@ -145,6 +169,10 @@ func TestWatchRunnerShouldTrigger_Regex(t *testing.T) {
 			Options: &option.WatchOption{
 				PatternRegexp: re,
 			},
+		}
+
+		if err := r.Options.Normalize(); err != nil {
+			t.Errorf("WatchOption normalize error: %v", err)
 		}
 
 		event := fsnotify.Event{Name: "other.txt"}
@@ -164,6 +192,10 @@ func TestWatchRunnerShouldTrigger_Regex(t *testing.T) {
 			},
 		}
 
+		if err := r.Options.Normalize(); err != nil {
+			t.Errorf("WatchOption normalize error: %v", err)
+		}
+
 		event := fsnotify.Event{Name: "vendor/main.go"}
 		if r.ShouldTrigger(event) {
 			t.Errorf("expected IgnoreDirRegexp match to prevent triggering")
@@ -179,6 +211,10 @@ func TestWatchRunnerShouldTrigger_Regex(t *testing.T) {
 			Options: &option.WatchOption{
 				IgnoreFileRegexp: re,
 			},
+		}
+
+		if err := r.Options.Normalize(); err != nil {
+			t.Errorf("WatchOption normalize error: %v", err)
 		}
 
 		event := fsnotify.Event{Name: "file_gen.go"}
@@ -210,6 +246,10 @@ func TestWatchRunnerRunPreCmd_Empty(t *testing.T) {
 			return nil
 		},
 	}
+	if err := r.Options.Normalize(); err != nil {
+		t.Errorf("WatchOption normalize error: %v", err)
+	}
+
 	err := r.RunPreCmd(context.Background(), "./file.go")
 	if err != nil {
 		t.Fatalf("expected nil, got %v", err)
@@ -226,6 +266,10 @@ func TestWatchRunnerRunPostCmd_Empty(t *testing.T) {
 			return nil
 		},
 	}
+	if err := r.Options.Normalize(); err != nil {
+		t.Errorf("WatchOption normalize error: %v", err)
+	}
+
 	err := r.RunPostCmd(context.Background(), "./file.go")
 	if err != nil {
 		t.Fatalf("expected nil, got %v", err)
@@ -238,6 +282,10 @@ func TestWatchRunnerReplacePlaceholders(t *testing.T) {
 			Placeholder: ":path",
 		},
 	}
+	if err := r.Options.Normalize(); err != nil {
+		t.Errorf("WatchOption normalize error: %v", err)
+	}
+
 	cmd := r.ReplacePlaceholders("echo watching :path", "/tmp/foo.go")
 	expected := "echo watching /tmp/foo.go"
 	if cmd != expected {
@@ -251,6 +299,10 @@ func TestWatchRunnerIsExcludedDir_EmptyExclude(t *testing.T) {
 			ExcludeDir: "",
 		},
 	}
+	if err := r.Options.Normalize(); err != nil {
+		t.Errorf("WatchOption normalize error: %v", err)
+	}
+
 	if r.IsExcludedDir("/foo/bar") {
 		t.Errorf("expected false when ExcludeDir is empty")
 	}
@@ -264,6 +316,10 @@ func TestWatchRunnerShouldTrigger_Chmod(t *testing.T) {
 		Name: "main.go",
 		Op:   fsnotify.Chmod,
 	}
+	if err := r.Options.Normalize(); err != nil {
+		t.Errorf("WatchOption normalize error: %v", err)
+	}
+
 	if r.ShouldTrigger(event) {
 		t.Errorf("expected false for Chmod event")
 	}

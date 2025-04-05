@@ -160,17 +160,17 @@ func (r *HotloadRunner) ShouldTrigger(event fsnotify.Event) bool {
 	path := event.Name
 	absPath, _ := filepath.Abs(path)
 
+	if event.Op == fsnotify.Chmod {
+		return false
+	}
+
 	if r.Options.EnmaIgnore != nil {
 		if r.Options.EnmaIgnore.Matches(common.TrimDotSlash(path)) {
 			return false
 		}
 	}
 
-	if event.Op == fsnotify.Chmod {
-		return false
-	}
-
-	if r.Options.ExcludeDir != "" && r.IsExcludedDir(event.Name) {
+	if r.Options.ExcludeDir != "" && r.IsExcludedDir(path) {
 		return false
 	}
 

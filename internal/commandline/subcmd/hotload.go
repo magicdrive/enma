@@ -14,8 +14,10 @@ func Hotload(args []string) error {
 		return err
 	}
 
-	common.CreatePidFile(opt.PidPathOpt)
-	defer common.DeletePidFile(opt.PidPathOpt)
+	if opt.PidPathOpt != "" {
+		common.CreatePidFile(opt.PidPathOpt)
+		defer common.DeletePidFile(opt.PidPathOpt)
+	}
 
 	runner := core.NewHotloadRunner(opt)
 

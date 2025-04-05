@@ -13,8 +13,10 @@ func Watch(args []string) error {
 		return err
 	}
 
-	common.CreatePidFile(opt.PidPath)
-	defer common.DeletePidFile(opt.PidPath)
+	if opt.PidPathOpt != "" {
+		common.CreatePidFile(opt.PidPathOpt)
+		defer common.DeletePidFile(opt.PidPathOpt)
+	}
 
 	runner := core.NewWatchRunner(opt)
 
