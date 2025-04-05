@@ -1,13 +1,9 @@
 package commandline
 
 import (
-	"fmt"
-	"os"
-
 	_ "embed"
 
 	"github.com/magicdrive/enma/internal/commandline/subcmd"
-	"github.com/magicdrive/enma/internal/text"
 )
 
 const (
@@ -19,11 +15,6 @@ const (
 var HelpMessage string
 
 func Execute(version string, args []string) error {
-	if len(args) < 1 {
-		fmt.Println(text.HelpMessage)
-		os.Exit(1)
-	}
-
 	subcommand := args[0]
 
 	switch subcommand {

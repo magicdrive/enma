@@ -166,7 +166,9 @@ func ParseHotload(args []string) (*HotloadOption, error) {
 		LogPathOpt:             *logPathOpt,
 	}
 
-	options.Normalize()
+	if err := options.Normalize(); err != nil {
+		return nil, err
+	}
 
 	return options, nil
 }

@@ -4,10 +4,28 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"path/filepath"
 	"strings"
 
 	"github.com/pelletier/go-toml/v2"
 )
+
+func FindEnmaConfigFile() (string, error) {
+	candidates := []string{
+		"Enma.toml",
+		".enma.toml",
+		filepath.Join(".enma", "enma.toml"),
+		filepath.Join(".config", "enma.toml"),
+	}
+
+	for _, path := range candidates {
+		if _, err := os.Stat(path); err == nil {
+			return path, nil
+		}
+	}
+
+	return "", os.ErrNotExist
+}
 
 func fallback(val, def string) string {
 	if strings.TrimSpace(val) == "" {

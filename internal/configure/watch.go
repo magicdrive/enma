@@ -20,6 +20,7 @@ type tomlWatchConf struct {
 	IgnoreRegex   string `toml:"ignore_regex"`
 	ExcludeExt    string `toml:"exclude_ext"`
 	ExcludeDir    string `toml:"exclude_dir"`
+	EnmaIgnore    string `toml:"enmaignore"`
 	LogPath       string `toml:"logs"`
 	PidPath       string `toml:"pid"`
 }
@@ -50,6 +51,7 @@ func NewWatchOptionFromTOMLConfig(h tomlWatchConf) (*option.WatchOption, error) 
 		IgnoreFileRegexpString: h.IgnoreRegex,
 		ExcludeExt:             h.ExcludeExt,
 		ExcludeDir:             h.ExcludeDir,
+		EnmaIgnoreString:       h.EnmaIgnore,
 		LogPathOpt:             h.LogPath,
 		PidPathOpt:             h.PidPath,
 	}

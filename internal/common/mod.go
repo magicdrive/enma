@@ -140,5 +140,33 @@ func CommaSeparated2StringList(s string) []string {
 }
 
 func TrimDotSlash(path string) string {
-    return strings.TrimPrefix(path, "./")
+	return strings.TrimPrefix(path, "./")
+}
+
+func FileExists(path string) (bool, error) {
+	_, err := os.Stat(path)
+	if err == nil {
+		return true, nil
+	}
+	if os.IsNotExist(err) {
+		return false, nil
+	}
+	return false, err
+}
+
+func FindEnmaConfigFile() (string, error) {
+	candidates := []string{
+		"Enma.toml",
+		".enma.toml",
+		filepath.Join(".enma", "enma.toml"),
+		filepath.Join(".config", "enma.toml"),
+	}
+
+	for _, path := range candidates {
+		if _, err := os.Stat(path); err == nil {
+			return path, nil
+		}
+	}
+
+	return "", os.ErrNotExist
 }

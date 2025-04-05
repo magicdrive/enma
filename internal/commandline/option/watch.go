@@ -163,7 +163,9 @@ func ParseWatch(args []string) (*WatchOption, error) {
 		LogPathOpt:             *logPathOpt,
 	}
 
-	options.Normalize()
+	if err := options.Normalize(); err != nil {
+		return nil, err
+	}
 
 	return options, nil
 }
