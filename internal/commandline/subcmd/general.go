@@ -18,7 +18,7 @@ func General(version string, args []string) error {
 	}
 
 	if opt.VersionFlag {
-		fmt.Printf("kirke version %s\n", version)
+		fmt.Printf("enma version %s\n", version)
 		os.Exit(0)
 	}
 
