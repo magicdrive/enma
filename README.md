@@ -36,7 +36,7 @@ This generates `Enma.toml` and `.enmaignore`.
 > You can specify the mode or config file name:
 >
 > ```bash
-> enma init --mode watch --file ./myconfig.toml
+> enma init --mode watch --file ./myconfig.enma.toml
 > ```
 
 ---
