@@ -50,7 +50,7 @@ Use this when you want to automate build and daemon restarts.
 name = "my-app"
 daemon = "./my-app"
 build = "go build -o my-app main.go"
-watch-dir = "./cmd,./internal"
+watch-dir = ["./cmd", "./internal"]
 ```
 
 ### Run
@@ -69,7 +69,7 @@ Executes commands on file changes without restarting daemons.
 
 ```toml
 command = "make test"
-watch-dir = "./pkg,./lib"
+watch-dir = ["./pkg", "./lib"]
 ```
 
 ### Run

@@ -6,7 +6,7 @@ use = "hotload"
 # Basic process configuration
 daemon = "./daemon.sh"
 pre_build = "echo pre-build step. event by {}"
-build = "echo build step. event by {}"
+build = "echo pre-build step. event by {}"
 post_build = "echo post-build done event by {}"
 placeholder = "{}"
 absolute_path = false
@@ -17,16 +17,17 @@ delay = "1s"
 retry = 1
 
 # Watch target configuration
-watch_dir = "./"
+watch_dir = ["./"]
 pattern_regex = ".*\\.txt$"
-include_ext = ".go,.mod,.txt"
+include_ext = [".go", ".mod", ".txt"]
 ignore_regex = "_test.go$"
-exclude_ext = ".tmp"
-exclude_dir = ".git,tmp,vendor"
+exclude_ext = [".tmp"]
+exclude_dir = [".git", "tmp", "vendor"]
+enmaignore = [".enmaignore"]
 
 # File paths
 ## logs = "" # should be logging off.
-logs = "./.enma/log/enma_hotloadlog"
+logs = "./.enma/log/enma_hotload.log"
 ## pid = "" # should be pid output off.
-pid = "./.enma/run/enma_hotload.pid"
+pid = "./.enma/run/enma_watch.pid"
 

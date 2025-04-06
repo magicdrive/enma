@@ -8,31 +8,31 @@ import (
 )
 
 type tomlWatchConf struct {
-	PreCmd        string `toml:"pre_command"`
-	Cmd           string `toml:"command"`
-	PostCmd       string `toml:"post_command"`
-	Timeout       string `toml:"timeout"`
-	Delay         string `toml:"delay"`
-	Retry         int    `toml:"retry"`
-	WatchDir      string `toml:"watch_dir"`
-	PatternRegexp string `toml:"pattern_regex"`
-	IncludeExt    string `toml:"include_ext"`
-	IgnoreRegex   string `toml:"ignore_regex"`
-	ExcludeExt    string `toml:"exclude_ext"`
-	ExcludeDir    string `toml:"exclude_dir"`
-	EnmaIgnore    string `toml:"enmaignore"`
-	LogPath       string `toml:"logs"`
-	PidPath       string `toml:"pid"`
+	PreCmd        string   `toml:"pre_command"`
+	Cmd           string   `toml:"command"`
+	PostCmd       string   `toml:"post_command"`
+	Timeout       string   `toml:"timeout"`
+	Delay         string   `toml:"delay"`
+	Retry         int      `toml:"retry"`
+	WatchDir      []string `toml:"watch_dir"`
+	PatternRegexp string   `toml:"pattern_regex"`
+	IncludeExt    []string `toml:"include_ext"`
+	IgnoreRegex   string   `toml:"ignore_regex"`
+	ExcludeExt    []string `toml:"exclude_ext"`
+	ExcludeDir    []string `toml:"exclude_dir"`
+	EnmaIgnore    []string `toml:"enmaignore"`
+	LogPath       string   `toml:"logs"`
+	PidPath       string   `toml:"pid"`
 }
 
 func NewWatchOptionFromTOMLConfig(h tomlWatchConf) (*option.WatchOption, error) {
 	cmd := fallback(h.Cmd, "")
-	watchDir := fallback(h.WatchDir, "")
+	watchDir := fallbackArray(h.WatchDir, []string{})
 	placeholder := "{}"
 	timeout := fallback(h.Timeout, "5sec")
 	delay := fallback(h.Delay, "1sec")
 
-	if cmd == "" || watchDir == "" {
+	if cmd == "" || len(watchDir) == 0 {
 		return nil, fmt.Errorf("required fields missing in watch config")
 	}
 
@@ -45,13 +45,13 @@ func NewWatchOptionFromTOMLConfig(h tomlWatchConf) (*option.WatchOption, error) 
 		Timeout:                model.TimeString(timeout),
 		Delay:                  model.TimeString(delay),
 		Retry:                  h.Retry,
-		WatchDir:               watchDir,
+		WatchDir:               JoinComma(watchDir),
 		PatternRegexpString:    fallback(h.PatternRegexp, ".*"),
-		IncludeExt:             h.IncludeExt,
+		IncludeExt:             JoinComma(h.IncludeExt),
 		IgnoreFileRegexpString: h.IgnoreRegex,
-		ExcludeExt:             h.ExcludeExt,
-		ExcludeDir:             h.ExcludeDir,
-		EnmaIgnoreString:       h.EnmaIgnore,
+		ExcludeExt:             JoinComma(h.ExcludeExt),
+		ExcludeDir:             JoinComma(h.ExcludeDir),
+		EnmaIgnoreString:       JoinComma(h.EnmaIgnore),
 		LogPathOpt:             h.LogPath,
 		PidPathOpt:             h.PidPath,
 	}

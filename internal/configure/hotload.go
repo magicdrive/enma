@@ -8,33 +8,33 @@ import (
 )
 
 type tomlHotloadConf struct {
-	Daemon        string `toml:"daemon"`
-	PreBuild      string `toml:"pre_build"`
-	Build         string `toml:"build"`
-	PostBuild     string `toml:"post_build"`
-	Timeout       string `toml:"timeout"`
-	Delay         string `toml:"delay"`
-	Retry         int    `toml:"retry"`
-	WatchDir      string `toml:"watch_dir"`
-	PatternRegexp string `toml:"pattern_regex"`
-	IncludeExt    string `toml:"include_ext"`
-	IgnoreRegex   string `toml:"ignore_regex"`
-	ExcludeExt    string `toml:"exclude_ext"`
-	ExcludeDir    string `toml:"exclude_dir"`
-	EnmaIgnore    string `toml:"enmaignore"`
-	LogPath       string `toml:"logs"`
-	PidPath       string `toml:"pid"`
+	Daemon        string   `toml:"daemon"`
+	PreBuild      string   `toml:"pre_build"`
+	Build         string   `toml:"build"`
+	PostBuild     string   `toml:"post_build"`
+	Timeout       string   `toml:"timeout"`
+	Delay         string   `toml:"delay"`
+	Retry         int      `toml:"retry"`
+	WatchDir      []string `toml:"watch_dir"`
+	PatternRegexp string   `toml:"pattern_regex"`
+	IncludeExt    []string `toml:"include_ext"`
+	IgnoreRegex   string   `toml:"ignore_regex"`
+	ExcludeExt    []string `toml:"exclude_ext"`
+	ExcludeDir    []string `toml:"exclude_dir"`
+	EnmaIgnore    []string `toml:"enmaignore"`
+	LogPath       string   `toml:"logs"`
+	PidPath       string   `toml:"pid"`
 }
 
 func NewHotloadOptionFromTOMLConfig(h tomlHotloadConf) (*option.HotloadOption, error) {
 	daemon := fallback(h.Daemon, "")
 	build := fallback(h.Build, "")
-	watchDir := fallback(h.WatchDir, "")
+	watchDir := fallbackArray(h.WatchDir, []string{})
 	placeholder := "{}"
 	timeout := fallback(h.Timeout, "5sec")
 	delay := fallback(h.Delay, "1sec")
 
-	if daemon == "" || build == "" || watchDir == "" {
+	if daemon == "" || build == "" || len(watchDir) == 0 {
 		return nil, fmt.Errorf("required fields missing in hotload config")
 	}
 
@@ -48,13 +48,13 @@ func NewHotloadOptionFromTOMLConfig(h tomlHotloadConf) (*option.HotloadOption, e
 		Timeout:                model.TimeString(timeout),
 		Delay:                  model.TimeString(delay),
 		Retry:                  h.Retry,
-		WatchDir:               watchDir,
+		WatchDir:               JoinComma(watchDir),
 		PatternRegexpString:    fallback(h.PatternRegexp, ".*"),
-		IncludeExt:             h.IncludeExt,
+		IncludeExt:             JoinComma(h.IncludeExt),
 		IgnoreFileRegexpString: h.IgnoreRegex,
-		ExcludeExt:             h.ExcludeExt,
-		ExcludeDir:             h.ExcludeDir,
-		EnmaIgnoreString:       h.EnmaIgnore,
+		ExcludeExt:             JoinComma(h.ExcludeExt),
+		ExcludeDir:             JoinComma(h.ExcludeDir),
+		EnmaIgnoreString:       JoinComma(h.EnmaIgnore),
 		LogPathOpt:             h.LogPath,
 		PidPathOpt:             h.PidPath,
 	}

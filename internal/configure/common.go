@@ -34,6 +34,36 @@ func fallback(val, def string) string {
 	return val
 }
 
+func TrimSpaceAndUniq(values []string) []string {
+	seen := make(map[string]struct{})
+	var result []string
+
+	for _, v := range values {
+		trimmed := strings.TrimSpace(v)
+		if _, ok := seen[trimmed]; !ok {
+			seen[trimmed] = struct{}{}
+			result = append(result, trimmed)
+		}
+	}
+	return result
+}
+
+func JoinComma(values []string) string {
+	uniqValues := TrimSpaceAndUniq(values)
+	if uniqValues == nil || len(uniqValues) == 0 {
+		return ""
+	}
+	return strings.Join(uniqValues, ",")
+}
+
+func fallbackArray(val, def []string) []string {
+	uniqVal := TrimSpaceAndUniq(val)
+	if len(uniqVal) == 0 {
+		return def
+	}
+	return val
+}
+
 type Optioner interface {
 	Mode() string
 }

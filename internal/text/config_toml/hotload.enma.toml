@@ -17,12 +17,13 @@ delay = "1s"
 retry = 1
 
 # Watch target configuration
-watch_dir = "./"
+watch_dir = ["./"]
 pattern_regex = ".*\\.go$"
-include_ext = ".go,.mod"
+include_ext = [".go", ".mod"]
 ignore_regex = "_test.go$"
-exclude_ext = ".tmp"
-exclude_dir = ".git,tmp,vendor"
+exclude_ext = [".tmp"]
+exclude_dir = [".git", "tmp", "vendor"]
+enmaignore = [".enmaignore"]
 
 # File paths
 ## logs = "" # should be logging off.
