@@ -19,7 +19,6 @@ init options:
   -f --file <filename>               Specify filename of config file to be created. (optional. :default: ./Enma.toml)
 
 hotload options:
-  -n, --name <name>                  Defines the enma process name. (require)
   -d, --daemon <command>             Defines the daemon command. (require)
   -b, --build <command>              Defines the commnad to build daemon. (require)
   -w, --watch-dir <dir_name>         Specify watch directlies. Allows comma separated list.(require)

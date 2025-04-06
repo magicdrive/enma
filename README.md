@@ -50,13 +50,13 @@ Use this when you want to automate build and daemon restarts.
 name = "my-app"
 daemon = "./my-app"
 build = "go build -o my-app main.go"
-watch-dir = ["./cmd", "./internal"]
+watch-dir = "./cmd,./internal"
 ```
 
 ### Run
 
 ```bash
-enma hotload --name my-app --daemon ./my-app --build "go build -o my-app main.go" --watch-dir ./cmd,./internal
+enma hotload --daemon ./my-app --build "go build -o my-app main.go" --watch-dir ./cmd,./internal
 ```
 
 ---
@@ -105,7 +105,6 @@ enma watch --command "make test" --watch-dir ./pkg,./lib
 
 | Option                                | Description                                                                 |
 |---------------------------------------|-----------------------------------------------------------------------------|
-| `-n`, `--name <name>`                 | Defines the enma process name (required)                                   |
 | `-d`, `--daemon <command>`            | Daemon command to run (required)                                           |
 | `-b`, `--build <command>`             | Command to build the daemon (required)                                     |
 | `-w`, `--watch-dir <dir_name>`        | Watch directories (comma-separated, required)                              |
@@ -175,6 +174,6 @@ vendor/
 
 ---
 
-## 📄 License
+## License
 
 [MIT](https://github.com/magicdrive/enma/blob/main/LICENSE)
