@@ -8,9 +8,9 @@ import (
 )
 
 type tomlWatchConf struct {
-	PreCmd        string `toml:"pre_build"`
-	Cmd           string `toml:"build"`
-	PostCmd       string `toml:"post_build"`
+	PreCmd        string `toml:"pre_command"`
+	Cmd           string `toml:"command"`
+	PostCmd       string `toml:"post_command"`
 	Timeout       string `toml:"timeout"`
 	Delay         string `toml:"delay"`
 	Retry         int    `toml:"retry"`
@@ -33,7 +33,7 @@ func NewWatchOptionFromTOMLConfig(h tomlWatchConf) (*option.WatchOption, error) 
 	delay := fallback(h.Delay, "1sec")
 
 	if cmd == "" || watchDir == "" {
-		return nil, fmt.Errorf("required fields missing in hotload config")
+		return nil, fmt.Errorf("required fields missing in watch config")
 	}
 
 	opt := &option.WatchOption{

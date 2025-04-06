@@ -1,13 +1,12 @@
 [subcommand]
 # Which subcommand this config should use
-use = "hotload"
+use = "watch"
 
-[subcommand.hotload]
+[subcommand.watch]
 # Basic process configuration
-daemon = "./myapp"
-pre_build = "echo pre-build step. event by {}"
-build = "go build -o ./myapp ./cmd/myapp"
-post_build = "echo post-build done event by {}"
+pre_command = "echo pre-command done."
+command = "echo Changed {}"
+post_command = "echo post-command done."
 placeholder = "{}"
 absolute_path = false
 
@@ -18,15 +17,15 @@ retry = 1
 
 # Watch target configuration
 watch_dir = "./"
-pattern_regex = ".*\\.go$"
-include_ext = ".go,.mod"
+pattern_regex = ".*\\.txt$"
+include_ext = ".go,.mod,.txt"
 ignore_regex = "_test.go$"
 exclude_ext = ".tmp"
 exclude_dir = ".git,tmp,vendor"
 
 # File paths
 ## logs = "" # should be logging off.
-logs = "./.enma/log/enma_hotload.log"
+logs = "./.enma/log/enma_watch.log"
 ## pid = "" # should be pid output off.
 pid = "./.enma/run/enma_watch.pid"
 

@@ -1,0 +1,157 @@
+# =============================
+# VCS / Version Control
+# =============================
+.git/
+.hg/
+.svn/
+
+# =============================
+# OS / System files
+# =============================
+.DS_Store
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+
+# =============================
+# Logs / Temp files
+# =============================
+*.log
+*.tmp
+*.bak
+*.swp
+*.swo
+*.pid
+*.pid.lock
+*.lock
+*.seed
+*.orig
+
+# =============================
+# Editors / IDEs
+# =============================
+.idea/
+.vscode/
+*.code-workspace
+*.sublime-project
+*.sublime-workspace
+
+# =============================
+# Go (Golang)
+# =============================
+vendor/
+*.test
+*.coverprofile
+*.modcache
+*.prof
+*.out
+
+# =============================
+# Node.js / JavaScript / TypeScript
+# =============================
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.pnpm-store/
+.cache/
+.next/
+.nuxt/
+.eslintcache
+*.tsbuildinfo
+
+# =============================
+# Python
+# =============================
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+*.egg
+*.egg-info/
+dist/
+build/
+htmlcov/
+.mypy_cache/
+.pytest_cache/
+.coverage
+.tox/
+.cache/
+env/
+venv/
+ENV/
+Pipfile.lock
+
+# =============================
+# Java / Kotlin
+# =============================
+*.class
+*.jar
+*.war
+*.ear
+target/
+out/
+.gradle/
+build/
+
+# =============================
+# PHP / Composer
+# =============================
+vendor/
+composer.lock
+*.log
+*.cache
+*.tmp
+
+# =============================
+# Ruby
+# =============================
+*.gem
+.bundle/
+vendor/bundle/
+log/
+tmp/
+coverage/
+
+# =============================
+# Docker
+# =============================
+.docker/
+Dockerfile.*
+docker-compose.override.yml
+
+# =============================
+# CI/CD
+# =============================
+.env
+.env.*
+.secret
+secrets.*
+
+# =============================
+# Web Frontend / Tools
+# =============================
+.browserslistrc
+postcss.config.js
+tailwind.config.js
+webpack.config.js
+vite.config.*
+.storybook/
+coverage/
+
+# =============================
+# Miscellaneous
+# =============================
+*.exe
+*.dll
+*.so
+*.dylib
+*.a
+*.o
+*.obj
+*.db
+*.sqlite
+*.sqlite3
+*.iml
+*.log.*
+

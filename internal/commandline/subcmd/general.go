@@ -27,11 +27,11 @@ func General(version string, args []string) error {
 		os.Exit(0)
 	}
 
-	return RunViaConfigfile(opt)
+	return RunViaOptionConfigfile(opt)
 }
 
-func RunViaConfigfile(opt *option.GeneralOption) error {
-	data, err := os.ReadFile(opt.ConfigFilePath)
+func RunViaConfigfile(config_file_path string) error {
+	data, err := os.ReadFile(config_file_path)
 	if err != nil {
 		return err
 	}
@@ -54,8 +54,11 @@ func RunViaConfigfile(opt *option.GeneralOption) error {
 			return RunWatch(watchOpt)
 		}
 	default:
-		fmt.Errorf("unsupported subcommand: %s", cfg.Subcommand.Use)
+		return fmt.Errorf("unsupported subcommand: %s", cfg.Subcommand.Use)
 	}
-	return nil
-
 }
+
+func RunViaOptionConfigfile(opt *option.GeneralOption) error {
+	return RunViaConfigfile(opt.ConfigFilePath)
+}
+

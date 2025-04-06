@@ -5,12 +5,15 @@ import (
 	"os"
 
 	"github.com/magicdrive/enma/internal/commandline"
+	"github.com/magicdrive/enma/internal/commandline/subcmd"
 	"github.com/magicdrive/enma/internal/common"
 )
 
 func Execute(version string) {
 	if len(os.Args) <= 1 {
-		common.EnmaHelpFunc()
+		if err := Default(); err != nil {
+			common.EnmaHelpFunc()
+		}
 		os.Exit(0)
 	}
 
@@ -19,4 +22,15 @@ func Execute(version string) {
 		fmt.Println(err)
 		os.Exit(1)
 	}
+}
+
+func Default() error {
+	if path, err := common.FindEnmaConfigFile(); err != nil {
+		return err
+	} else {
+		if err := subcmd.RunViaConfigfile(path); err != nil {
+			return err
+		}
+	}
+	return nil
 }
