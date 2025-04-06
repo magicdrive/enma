@@ -46,20 +46,66 @@ func (r *HotloadRunner) ReplacePlaceholders(command, path string) string {
 	return common.ReplacePlaceholders(command, r.Options.Placeholder, path)
 }
 
-func (r *HotloadRunner) AddWatchRecursive(path string) error {
-	return filepath.Walk(path, func(p string, info os.FileInfo, err error) error {
+func (r *HotloadRunner) CollectWatchDirs(root string) ([]string, error) {
+	var result []string
+	visited := make(map[string]bool)
+
+	return result, filepath.WalkDir(root, func(path string, d os.DirEntry, err error) error {
 		if err != nil {
 			return err
 		}
-		if info.IsDir() && !r.IsExcludedDir(p) {
-			return r.watcher.Add(p)
+
+		abs, err := filepath.Abs(path)
+		if err != nil {
+			return err
 		}
+
+		real, err := filepath.EvalSymlinks(abs)
+		if err != nil {
+			// 無視してスキップ（壊れたリンクなど）
+			return nil
+		}
+
+		// ディレクトリのみ対象
+		if !d.IsDir() {
+			return nil
+		}
+
+		if r.IsExcludedDir(real) {
+			return filepath.SkipDir
+		}
+
+		if visited[real] {
+			return filepath.SkipDir
+		}
+
+		visited[real] = true
+		result = append(result, real)
 		return nil
 	})
 }
 
-func (r *HotloadRunner) SetWatcher(watcher *fsnotify.Watcher) {
-	r.watcher = watcher
+func (r *HotloadRunner) AddWatchDirs(dirs []string) {
+	for _, dir := range dirs {
+		if err := r.watcher.Add(dir); err != nil {
+			log.Printf("⚠️  Failed to watch %s: %v", dir, err)
+		} else {
+			log.Printf("👀 Watching %s", dir)
+		}
+	}
+}
+
+func (r *HotloadRunner) AddWatchRecursive(path string) error {
+	dirs, err := r.CollectWatchDirs(path)
+	if err != nil {
+		return err
+	}
+	r.AddWatchDirs(dirs)
+	return nil
+}
+
+func (r *HotloadRunner) SetWatcher(w *fsnotify.Watcher) {
+	r.watcher = w
 }
 
 func (r *HotloadRunner) Start() error {
@@ -93,16 +139,7 @@ func (r *HotloadRunner) Start() error {
 	defer watcher.Close()
 
 	for _, dir := range r.Options.WatchDirList {
-		err := filepath.Walk(dir, func(path string, info os.FileInfo, err error) error {
-			if err != nil {
-				return err
-			}
-			if info.IsDir() && !r.IsExcludedDir(path) {
-				return watcher.Add(path)
-			}
-			return nil
-		})
-		if err != nil {
+		if err := r.AddWatchRecursive(dir); err != nil {
 			return err
 		}
 	}
@@ -130,9 +167,31 @@ func (r *HotloadRunner) Start() error {
 
 	for _event := range eventChan {
 		if _event.Op&fsnotify.Create == fsnotify.Create {
-			info, err := os.Stat(_event.Name)
-			if err == nil && info.IsDir() && !r.IsExcludedDir(_event.Name) {
-				_ = r.AddWatchRecursive(_event.Name)
+			info, err := os.Lstat(_event.Name)
+			if err != nil {
+				continue
+			}
+
+			var dirPath string
+			if info.Mode()&os.ModeSymlink != 0 {
+				resolved, err := filepath.EvalSymlinks(_event.Name)
+				if err != nil {
+					log.Printf("⚠️  Could not resolve symlink %s: %v", _event.Name, err)
+					continue
+				}
+				info, err = os.Stat(resolved)
+				if err != nil || !info.IsDir() {
+					continue
+				}
+				dirPath = resolved
+			} else if info.IsDir() {
+				dirPath = _event.Name
+			} else {
+				continue
+			}
+
+			if !r.IsExcludedDir(dirPath) {
+				_ = r.AddWatchRecursive(dirPath)
 			}
 		}
 
@@ -178,7 +237,7 @@ func (r *HotloadRunner) ShouldTrigger(event fsnotify.Event) bool {
 		dir := filepath.Dir(absPath)
 		result, err := r.Options.IgnoreDirRegexp.MatchString(dir)
 		if err != nil {
-			log.Fatalf("Faital error: %s", err)
+			log.Fatalf("Fatal error: %s", err)
 		} else {
 			return !result
 		}
@@ -188,7 +247,7 @@ func (r *HotloadRunner) ShouldTrigger(event fsnotify.Event) bool {
 		baseName := filepath.Base(absPath)
 		result, err := r.Options.PatternRegexp.MatchString(baseName)
 		if err != nil {
-			log.Fatalf("Faital error: %s", err)
+			log.Fatalf("Fatal error: %s", err)
 		} else {
 			return result
 		}
@@ -221,7 +280,7 @@ func (r *HotloadRunner) ShouldTrigger(event fsnotify.Event) bool {
 		baseName := filepath.Base(absPath)
 		result, err := r.Options.IgnoreFileRegexp.MatchString(baseName)
 		if err != nil {
-			log.Fatalf("Faital error: %s", err)
+			log.Fatalf("Fatal error: %s", err)
 		} else {
 			return !result
 		}
