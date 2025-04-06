@@ -2,154 +2,179 @@
 
 > Yet another integration software with file monitoring.
 
-`enma` is a flexible command-line tool that monitors file system events and automatically executes defined actions. It can be used to reload daemons, run builds, or trigger custom scripts whenever your files change.
+`enma` is a file-watching tool that monitors specified files or directories and automatically executes commands or rebuilds and restarts daemons.  
+It's designed to supercharge your development and automation workflows.
+
+## ✨ Features
+
+- 📂 Realtime monitoring for directories or files
+- 🛠️ Execute build or custom commands on file changes
+- 🔁 Hot-reload support with build success detection
+- 🧩 Flexible configuration using TOML files
+- 🔍 Ignore patterns with `.enmaignore`
+- 🧪 Ideal for CI/CD and local development
 
 ---
 
-## 🚀 Features
+## 🚀 Quick Start
 
-- Hot reloading with build & restart for daemons
-- Flexible file watching with include/exclude filters
-- Command execution on file events
-- TOML-based configuration
-- Cross-platform support (Linux, macOS, Windows)
-
----
-
-## 📦 Installation
+### 1. Installation
 
 ```bash
-# Install via Go
 go install github.com/magicdrive/enma@latest
 ```
 
----
-
-## 🧭 Usage
+### 2. Initialize project
 
 ```bash
-enma [SUBCOMMAND] [OPTIONS]
+enma init
 ```
 
-### 🔧 Subcommands
+This generates `Enma.toml` and `.enmaignore`.
 
-| Command   | Description                                                       |
-|-----------|-------------------------------------------------------------------|
-| `init`    | Create a new configuration file                                   |
-| `hotload` | Watch files and reload the daemon on changes                      |
-| `watch`   | Watch files and execute a command on changes                      |
-
-### 🌐 Global Options
-
-| Option              | Description                                                         |
-|---------------------|---------------------------------------------------------------------|
-| `-h`, `--help`       | Show help message and exit                                          |
-| `-v`, `--version`    | Show version                                                        |
-| `-c`, `--config`     | Specify config file (default: `./.enma.toml`, `./.enma/enma.toml`) |
+> You can specify the mode or config file name:
+>
+> ```bash
+> enma init --mode watch --file ./myconfig.toml
+> ```
 
 ---
 
-## ⚙️ Subcommand: `init`
+## 🔥 Hotload Mode
 
-Create a configuration file for `hotload` or `watch` modes.
+Use this when you want to automate build and daemon restarts.
 
-| Option                    | Description                                                |
-|---------------------------|------------------------------------------------------------|
-| `-m`, `--mode`            | Mode: `hotload` or `watch` (default: `hotload`)            |
-| `-f`, `--file`            | Output filename (default: `./Enma.toml`)                  |
+### Example Config (`Enma.toml`)
 
----
+```toml
+name = "my-app"
+daemon = "./my-app"
+build = "go build -o my-app main.go"
+watch-dir = ["./cmd", "./internal"]
+```
 
-## 🔥 Subcommand: `hotload`
-
-Watches directories and reloads a daemon after running a build process.
-
-### Required Options
-
-- `-n`, `--name <name>` — Process name
-- `-d`, `--daemon <command>` — Daemon command
-- `-b`, `--build <command>` — Build command
-- `-w`, `--watch-dir <dir>` — Directories to watch (comma-separated)
-
-### Optional Options
-
-| Option                          | Description                                                                 |
-|---------------------------------|-----------------------------------------------------------------------------|
-| `-p`, `--pre-build`             | Command to run before build                                                 |
-| `-P`, `--post-build`            | Command to run after build                                                  |
-| `-I`, `--placeholder`           | Placeholder in commands (default: `{}`)                                     |
-| `-A`, `--abs`                   | Use absolute path for placeholder                                           |
-| `-t`, `--timeout <duration>`    | Timeout for build command (default: `5s`)                                   |
-| `-l`, `--delay <duration>`      | Delay after successful build (default: `5s`)                                |
-| `-r`, `--retry <count>`         | Number of build retries (default: `0`)                                      |
-| `-x`, `--pattern-regex <regex>` | Regex pattern to match file names                                           |
-| `-i`, `--include-ext <ext>`     | File extensions to include (comma-separated, e.g., `.go,.ts`)              |
-| `-g`, `--ignore-dir-regex`      | Regex to ignore directory paths                                             |
-| `-G`, `--ignore-file-regex`     | Regex to ignore file names                                                  |
-| `-e`, `--exclude-ext <ext>`     | File extensions to exclude                                                  |
-| `-E`, `--exclude-dir <dir>`     | Directory names to exclude                                                  |
-| `--log-path`                    | Log file path (default: `./.enma/log/enma_<name>.log`)                      |
-| `--pid-path`                    | PID file path (default: `./.enma/run/enma_<name>.pid`)                      |
-
----
-
-## 👀 Subcommand: `watch`
-
-Watches directories and executes a command when a change is detected.
-
-### Required Options
-
-- `-n`, `--name <name>` — Process name
-- `-c`, `--command <cmd>` — Command to run
-- `-w`, `--watch-dir <dir>` — Directories to watch
-
-### Optional Options
-
-| Option                          | Description                                                                 |
-|---------------------------------|-----------------------------------------------------------------------------|
-| `-p`, `--pre-cmd`               | Command to run before execution                                             |
-| `-P`, `--post-cmd`              | Command to run after execution                                              |
-| `-I`, `--placeholder`           | Placeholder in commands (default: `{}`)                                     |
-| `-A`, `--abs`                   | Use absolute path for placeholder                                           |
-| `-t`, `--timeout <duration>`    | Timeout for command (default: `5s`)                                         |
-| `-l`, `--delay <duration>`      | Delay after execution (default: `5s`)                                       |
-| `-r`, `--retry <count>`         | Number of retries (default: `0`)                                            |
-| `-x`, `--pattern-regex <regex>` | Regex pattern to match file names                                           |
-| `-i`, `--include-ext <ext>`     | File extensions to include                                                  |
-| `-g`, `--ignore-dir-regex`      | Regex to ignore directory paths                                             |
-| `-G`, `--ignore-file-regex`     | Regex to ignore file names                                                  |
-| `-e`, `--exclude-ext <ext>`     | File extensions to exclude                                                  |
-| `-E`, `--exclude-dir <dir>`     | Directory names to exclude                                                  |
-| `--log-path`                    | Log file path (default: `./.enma/log/enma_<name>.log`)                      |
-| `--pid-path`                    | PID file path (default: `./.enma/run/enma_<name>.pid`)                      |
-
----
-
-## 📄 Configuration File
-
-You can use a `TOML` file to persist configuration. Run `enma init` to scaffold a new file.
-
----
-
-## 📚 See Also
-
-- Documentation: [GitHub README](https://github.com/magicdrive/enma/README.md)
-
----
-
-## 🧪 Example
+### Run
 
 ```bash
-enma hotload \
-  --name myapp \
-  --watch-dir ./src \
-  --build "go build -o bin/app ./cmd/app" \
-  --daemon "./bin/app"
+enma hotload --name my-app --daemon ./my-app --build "go build -o my-app main.go" --watch-dir ./cmd,./internal
 ```
 
 ---
 
-## 🛠 License
+## 👀 Watch Mode
 
-MIT © [magicdrive](https://github.com/magicdrive)
+Executes commands on file changes without restarting daemons.
 
+### Example Config (`Enma.toml`)
+
+```toml
+command = "make test"
+watch-dir = ["./pkg", "./lib"]
+```
+
+### Run
+
+```bash
+enma watch --command "make test" --watch-dir ./pkg,./lib
+```
+
+---
+
+## 🧾 Full Command Reference
+
+### Global Options
+
+| Option                         | Description                                                                                     |
+|--------------------------------|-------------------------------------------------------------------------------------------------|
+| `-h`, `--help`                 | Show help message and exit                                                                      |
+| `-v`, `--version`              | Show version                                                                                    |
+| `-c`, `--config`               | Specify config file. Default: `./Enma.toml`, `./.enma.toml`, or `./.enma/enma.toml`            |
+
+---
+
+### `enma init`
+
+| Option                        | Description                                               |
+|-------------------------------|-----------------------------------------------------------|
+| `-m`, `--mode`                | Mode for config file: `hotload` or `watch` (default: `hotload`) |
+| `-f`, `--file <filename>`     | Config filename to create (default: `./Enma.toml`)        |
+
+---
+
+### `enma hotload`
+
+| Option                                | Description                                                                 |
+|---------------------------------------|-----------------------------------------------------------------------------|
+| `-n`, `--name <name>`                 | Defines the enma process name (required)                                   |
+| `-d`, `--daemon <command>`            | Daemon command to run (required)                                           |
+| `-b`, `--build <command>`             | Command to build the daemon (required)                                     |
+| `-w`, `--watch-dir <dir_name>`        | Watch directories (comma-separated, required)                              |
+| `-p`, `--pre-build <command>`         | Command to run before build (optional)                                     |
+| `-P`, `--post-build <command>`        | Command to run after build (optional)                                      |
+| `-I`, `--placeholder`                 | Placeholder in command for changed file (default: `{}`)                    |
+| `-A`, `--abs`, `--absolute-path`      | Use absolute path in placeholder (optional)                                |
+| `-t`, `--timeout <time>`             | Timeout for build command (default: `5sec`)                                |
+| `-l`, `--delay <time>`               | Delay after build command (default: `5sec`)                                |
+| `-r`, `--retry <number>`             | Retry count (default: `0`)                                                 |
+| `-x`, `--pattern-regex <regex>`      | Regex pattern to watch (optional)                                          |
+| `-i`, `--include-ext <ext>`          | File extensions to include (comma-separated, optional)                     |
+| `-g`, `--ignore-dir-regex <regex>`   | Regex to ignore directories (optional)                                     |
+| `-G`, `--ignore-file-regex <regex>`  | Regex to ignore files (optional)                                           |
+| `-e`, `--exclude-ext <ext>`          | File extensions to exclude (comma-separated, optional)                     |
+| `-E`, `--exclude-dir <dir_name>`     | Directories to exclude (comma-separated, optional)                         |
+| `-n`, `--enmaignore <filename>`      | enma ignore file(s) (comma-separated, optional. default: `./.enmaignore`)  |
+| `--logs <log_file_path>`             | Log file path (optional)                                                   |
+| `--pid <pid_file_path>`              | PID file path (optional)                                                   |
+
+---
+
+### `enma watch`
+
+| Option                                | Description                                                                 |
+|---------------------------------------|-----------------------------------------------------------------------------|
+| `-c`, `--command`, `--cmd <command>`  | Command to run on file change (required)                                   |
+| `-w`, `--watch-dir <dir_name>`        | Watch directories (comma-separated, required)                              |
+| `-p`, `--pre-cmd <command>`           | Command to run before main command (optional)                              |
+| `-P`, `--post-cmd <command>`          | Command to run after main command (optional)                               |
+| `-I`, `--placeholder`                 | Placeholder in command for changed file (default: `{}`)                    |
+| `-A`, `--abs`, `--absolute-path`      | Use absolute path in placeholder (optional)                                |
+| `-t`, `--timeout <time>`             | Timeout for command (default: `5sec`)                                      |
+| `-l`, `--delay <time>`               | Delay after command (default: `5sec`)                                      |
+| `-r`, `--retry <number>`             | Retry count (default: `0`)                                                 |
+| `-x`, `--pattern-regex <regex>`      | Regex pattern to watch (optional)                                          |
+| `-i`, `--include-ext <ext>`          | File extensions to include (comma-separated, optional)                     |
+| `-g`, `--ignore-dir-regex <regex>`   | Regex to ignore directories (optional)                                     |
+| `-G`, `--ignore-file-regex <regex>`  | Regex to ignore files (optional)                                           |
+| `-e`, `--exclude-ext <ext>`          | File extensions to exclude (comma-separated, optional)                     |
+| `-E`, `--exclude-dir <dir_name>`     | Directories to exclude (comma-separated, optional)                         |
+| `-n`, `--enmaignore <filename>`      | enma ignore file(s) (comma-separated, optional. default: `./.enmaignore`)  |
+| `--logs <log_file_path>`             | Log file path (optional)                                                   |
+| `--pid <pid_file_path>`              | PID file path (optional)                                                   |
+
+---
+
+## 🗂 Example `.enmaignore`
+
+```
+*.log
+tmp/
+vendor/
+```
+
+---
+
+## 📚 Documentation
+
+- Full documentation: [https://github.com/magicdrive/enma/README.md](https://github.com/magicdrive/enma/README.md)
+
+---
+
+## Author
+
+[magicdrive](https://github.com/magicdrive)
+
+---
+
+## 📄 License
+
+[MIT](https://github.com/magicdrive/enma/blob/main/LICENSE)
