@@ -46,19 +46,52 @@ func (r *WatchRunner) ReplacePlaceholders(command, path string) string {
 }
 
 func (r *WatchRunner) AddWatchRecursive(path string) error {
-	return filepath.Walk(path, func(p string, info os.FileInfo, err error) error {
-		if err != nil {
-			return err
+	dirs, err := r.CollectWatchDirs(path)
+	if err != nil {
+		return err
+	}
+	for _, d := range dirs {
+		if err := r.watcher.Add(d); err != nil {
+			log.Printf("⚠️  Failed to add watch: %s (%v)", d, err)
 		}
-		if info.IsDir() && !r.IsExcludedDir(p) {
-			return r.watcher.Add(p)
-		}
-		return nil
-	})
+	}
+	return nil
 }
 
 func (r *WatchRunner) SetWatcher(watcher *fsnotify.Watcher) {
 	r.watcher = watcher
+}
+
+func (r *WatchRunner) CollectWatchDirs(root string) ([]string, error) {
+	var result []string
+	visited := make(map[string]bool)
+
+	err := filepath.Walk(root, func(p string, info os.FileInfo, err error) error {
+		if err != nil {
+			return err
+		}
+
+		abs, err := filepath.Abs(p)
+		if err != nil {
+			return err
+		}
+
+		real, err := filepath.EvalSymlinks(abs)
+		if err != nil {
+			return nil // skip broken link
+		}
+
+		if info.IsDir() && !r.IsExcludedDir(real) {
+			if visited[real] {
+				return filepath.SkipDir
+			}
+			visited[real] = true
+			result = append(result, real)
+		}
+		return nil
+	})
+
+	return result, err
 }
 
 func (r *WatchRunner) Start() error {
@@ -91,17 +124,14 @@ func (r *WatchRunner) Start() error {
 	defer watcher.Close()
 
 	for _, dir := range r.Options.WatchDirList {
-		err := filepath.Walk(dir, func(path string, info os.FileInfo, err error) error {
-			if err != nil {
-				return err
-			}
-			if info.IsDir() && !r.IsExcludedDir(path) {
-				return watcher.Add(path)
-			}
-			return nil
-		})
+		dirs, err := r.CollectWatchDirs(dir)
 		if err != nil {
 			return err
+		}
+		for _, d := range dirs {
+			if err := watcher.Add(d); err != nil {
+				log.Printf("⚠️  Failed to watch: %s (%v)", d, err)
+			}
 		}
 	}
 
@@ -172,7 +202,7 @@ func (r *WatchRunner) ShouldTrigger(event fsnotify.Event) bool {
 		dir := filepath.Dir(absPath)
 		result, err := r.Options.IgnoreDirRegexp.MatchString(dir)
 		if err != nil {
-			log.Fatalf("Faital error: %s", err)
+			log.Fatalf("Fatal error: %s", err)
 		} else {
 			return !result
 		}
@@ -182,7 +212,7 @@ func (r *WatchRunner) ShouldTrigger(event fsnotify.Event) bool {
 		baseName := filepath.Base(absPath)
 		result, err := r.Options.PatternRegexp.MatchString(baseName)
 		if err != nil {
-			log.Fatalf("Faital error: %s", err)
+			log.Fatalf("Fatal error: %s", err)
 		} else {
 			return result
 		}
@@ -215,7 +245,7 @@ func (r *WatchRunner) ShouldTrigger(event fsnotify.Event) bool {
 		baseName := filepath.Base(absPath)
 		result, err := r.Options.IgnoreFileRegexp.MatchString(baseName)
 		if err != nil {
-			log.Fatalf("Faital error: %s", err)
+			log.Fatalf("Fatal error: %s", err)
 		} else {
 			return !result
 		}
@@ -269,6 +299,7 @@ func (r *WatchRunner) RunPreCmd(ctx context.Context, path string) error {
 	cmd := r.ExecCommand(ctx, "sh", "-c", r.ReplacePlaceholders(r.Options.PreCmd, path))
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
+	r.currentCmd = cmd
 	return cmd.Run()
 }
 
@@ -276,6 +307,7 @@ func (r *WatchRunner) RunCmd(ctx context.Context, path string) error {
 	cmd := r.ExecCommand(ctx, "sh", "-c", r.ReplacePlaceholders(r.Options.Cmd, path))
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
+	r.currentCmd = cmd
 	return cmd.Run()
 }
 
@@ -286,6 +318,7 @@ func (r *WatchRunner) RunPostCmd(ctx context.Context, path string) error {
 	cmd := r.ExecCommand(ctx, "sh", "-c", r.ReplacePlaceholders(r.Options.PostCmd, path))
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
+	r.currentCmd = cmd
 	return cmd.Run()
 }
 
@@ -301,3 +334,4 @@ func (r *WatchRunner) stopCurrentCmd() {
 		r.currentCmd = nil
 	}
 }
+

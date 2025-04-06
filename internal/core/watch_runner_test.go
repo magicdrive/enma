@@ -6,6 +6,7 @@ import (
 	"log"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"strings"
 	"testing"
 	"time"
@@ -335,5 +336,80 @@ func TestWatchRunnerLoggingOutput(t *testing.T) {
 
 	if !strings.Contains(output, "hello test log") {
 		t.Errorf("expected log to contain message, got: %q", output)
+	}
+}
+
+func TestWatchRunner_CollectWatchDirs_SymlinkResolution(t *testing.T) {
+	tmp := t.TempDir()
+
+	// tmp/
+	//   a/ <- entity
+	//   b/
+	//     link_to_a -> ../a  (symlink)
+
+	aDir := filepath.Join(tmp, "a")
+	bDir := filepath.Join(tmp, "b")
+
+	if err := os.MkdirAll(aDir, 0755); err != nil {
+		t.Fatalf("failed to create aDir: %v", err)
+	}
+	if err := os.MkdirAll(bDir, 0755); err != nil {
+		t.Fatalf("failed to create bDir: %v", err)
+	}
+
+	linkPath := filepath.Join(bDir, "link_to_a")
+	if err := os.Symlink("../a", linkPath); err != nil {
+		t.Fatalf("failed to create symlink: %v", err)
+	}
+
+	r := &core.WatchRunner{
+		Options: &option.WatchOption{},
+	}
+
+	if err := r.Options.Normalize(); err != nil {
+		t.Fatalf("WatchOption normalize error: %v", err)
+	}
+
+	dirs, err := r.CollectWatchDirs(tmp)
+	if err != nil {
+		t.Fatalf("CollectWatchDirs failed: %v", err)
+	}
+
+	// normalize paths
+	normalize := func(path string) string {
+		abs, err := filepath.Abs(path)
+		if err != nil {
+			t.Fatalf("Abs error: %v", err)
+		}
+		real, err := filepath.EvalSymlinks(abs)
+		if err != nil {
+			t.Fatalf("EvalSymlinks error: %v", err)
+		}
+		return real
+	}
+
+	got := map[string]bool{}
+	for _, d := range dirs {
+		log.Printf("got dir: %s", normalize(d))
+		got[normalize(d)] = true
+	}
+
+	// expected: tmp, a, b (not tmp/b/link_to_a again)
+	expect := []string{
+		filepath.Join(tmp),
+		filepath.Join(tmp, "a"),
+		filepath.Join(tmp, "b"),
+	}
+
+	for _, path := range expect {
+		norm := normalize(path)
+		if !got[norm] {
+			t.Errorf("expected dir missing: %s", norm)
+		}
+		delete(got, norm)
+	}
+
+	for extra := range got {
+		t.Errorf("unexpected dir in result: %s", extra)
 	}
 }
