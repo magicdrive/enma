@@ -12,7 +12,7 @@ It's designed to supercharge your development and automation workflows.
 - 🔁 Hot-reload support with build success detection
 - 🔗 Supports symlinks
 - 🧩 Flexible configuration using TOML files
-- 🔍 Ignore patterns with `.enmaignor` (`.gitignore` compatible syntax)
+- 🔍 Ignore patterns with `.enmaignor` ([`.gitignore`](This project is licensed under the) compatible syntax)
 - 🧪 Ideal for CI/CD and local development
 
 ---
@@ -154,7 +154,7 @@ enma watch --command "make test" --watch-dir ./pkg,./lib
 ---
 
 ## 🗂 Example `.enmaignore`
-(.gitignore compatible syntax.)
+([.gitignore](https://git-scm.com/docs/gitignore) compatible syntax.)
 
 ```
 *.log
@@ -172,4 +172,4 @@ vendor/
 
 ## License
 
-[MIT](https://github.com/magicdrive/enma/blob/main/LICENSE)
+This project is licensed under the [MIT License](https://github.com/magicdrive/enma/blob/main/LICENSE)
