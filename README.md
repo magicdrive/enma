@@ -12,7 +12,7 @@ It's designed to supercharge your development and automation workflows.
 - 🔁 Hot-reload support with build success detection
 - 🔗 Supports symlinks
 - 🧩 Flexible configuration using TOML files
-- 🔍 Ignore patterns with `.enmaignore`(`gitignore` compatible)
+- 🔍 Ignore patterns with `.enmaignor` (`.gitignore` compatible syntax)
 - 🧪 Ideal for CI/CD and local development
 
 ---
@@ -154,18 +154,13 @@ enma watch --command "make test" --watch-dir ./pkg,./lib
 ---
 
 ## 🗂 Example `.enmaignore`
+(.gitignore compatible syntax.)
 
 ```
 *.log
 tmp/
 vendor/
 ```
-
----
-
-## 📚 Documentation
-
-- Full documentation: [https://github.com/magicdrive/enma/README.md](https://github.com/magicdrive/enma/README.md)
 
 ---
 
