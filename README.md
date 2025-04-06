@@ -69,7 +69,7 @@ Executes commands on file changes without restarting daemons.
 
 ```toml
 command = "make test"
-watch-dir = ["./pkg", "./lib"]
+watch-dir = "./pkg,./lib"
 ```
 
 ### Run
