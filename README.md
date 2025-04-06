@@ -12,7 +12,7 @@ It's designed to supercharge your development and automation workflows.
 - 🔁 Hot-reload support with build success detection
 - 🔗 Supports symlinks
 - 🧩 Flexible configuration using TOML files
-- 🔍 Ignore patterns with `.enmaignore`
+- 🔍 Ignore patterns with `.enmaignore`(`gitignore` compatible)
 - 🧪 Ideal for CI/CD and local development
 
 ---
