@@ -2,6 +2,7 @@ package subcmd
 
 import (
 	"fmt"
+	"os"
 
 	"github.com/magicdrive/enma/internal/commandline/option"
 	"github.com/magicdrive/enma/internal/common"
@@ -14,6 +15,12 @@ func Init(args []string) error {
 	if err != nil {
 		return err
 	}
+
+	if opt.HelpFlag {
+		opt.FlagSet.Usage()
+		os.Exit(0)
+	}
+
 	return RunInit(opt)
 }
 

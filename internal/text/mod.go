@@ -5,6 +5,15 @@ import _ "embed"
 //go:embed help.txt
 var HelpMessage string
 
+//go:embed individual_help/enma_hotload_help.txt
+var HotloadHelpMessage string
+
+//go:embed individual_help/enma_watch_help.txt
+var WatchHelpMessage string
+
+//go:embed individual_help/enma_init_help.txt
+var InitHelpMessage string
+
 //go:embed config_toml/hotload.enma.toml
 var DefaultHotloadEnmaToml string
 

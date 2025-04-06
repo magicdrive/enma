@@ -12,6 +12,7 @@ type InitOption struct {
 	FileNameOpt    string
 	EnmaIgnoreName string
 	FlagSet        *flag.FlagSet
+	HelpFlag       bool
 }
 
 func ParseInit(args []string) (*InitOption, error) {
@@ -25,11 +26,20 @@ func ParseInit(args []string) (*InitOption, error) {
 	fileNameOpt := fs.String("file-name", "./Enma.toml", "Specicy create enma.toml file-name.")
 	fs.StringVar(fileNameOpt, "f", "./Enma.toml", "Specicy create enma.toml file-name.")
 
+	// --help
+	helpFlagOpt := fs.Bool("help", false, "Show help message.")
+	fs.BoolVar(helpFlagOpt, "h", false, "Show help message.")
+
+	fs.Usage = common.EnmaHelpFunc
+
 	fs.Parse(args)
+
+	fs.Usage = common.EnmaInitHelpFunc
 
 	options := &InitOption{
 		ModeOpt:     *modeOpt,
 		FileNameOpt: *fileNameOpt,
+		HelpFlag:    *helpFlagOpt,
 		FlagSet:     fs,
 	}
 

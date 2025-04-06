@@ -29,6 +29,8 @@ func ParseGeneral(args []string) (*GeneralOption, error) {
 	versionFlagOpt := fs.Bool("version", false, "Show version.")
 	fs.BoolVar(versionFlagOpt, "v", false, "Show version.")
 
+	fs.Usage = common.EnmaHelpFunc
+
 	fs.Parse(args)
 
 	options := &GeneralOption{
@@ -54,9 +56,7 @@ func (cr *GeneralOption) Normalize() error {
 	}
 
 	if cr.HelpFlag == false && cr.VersionFlag == false && cr.ConfigFilePath == "" {
-		if path, err := common.FindEnmaConfigFile(); err != nil {
-			cr.IndividualHelpFlag = true
-		} else {
+		if path, err := common.FindEnmaConfigFile(); err == nil {
 			cr.ConfigFilePath = path
 		}
 	}

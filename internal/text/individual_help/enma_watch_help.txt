@@ -1,0 +1,26 @@
+Usage: enma watch [OPTIONS]
+
+Detects file changes and executes specified commands.
+
+Required Options:
+  -c, --command, --cmd <command>  Command to execute on file change. (required)
+  -w, --watch-dir <dir_name>      Directories to watch (comma-separated). (required)
+
+Optional Options:
+  -p, --pre-cmd <command>         Command to execute before main command.
+  -P, --post-cmd <command>        Command to execute after main command.
+  -I, --placeholder               Placeholder for changed filename. Default: {}
+  -A, --abs, --absolute-path      Use absolute path in placeholder.
+  -t, --timeout <time>            Timeout for command. Default: 5sec
+  -l, --delay <time>              Delay after command. Default: 5sec
+  -r, --retry <number>            Retry count. Default: 0
+  -x, --pattern-regex <regex>     Regex pattern of file paths to watch.
+  -i, --include-ext <ext>         File extensions to include (comma-separated).
+  -g, --ignore-dir-regex <regex>  Regex for directories to ignore.
+  -G, --ignore-file-regex <regex> Regex for files to ignore.
+  -e, --exclude-ext <ext>         File extensions to exclude (comma-separated).
+  -E, --exclude-dir <dir_name>    Directories to exclude (comma-separated).
+  -n, --enmaignore <filename>     Ignore file(s) to use (comma-separated).
+                                  Default: ./.enmaignore
+  --logs <log_file_path>          Path to enma log file.
+  --pid <pid_file_path>           Path to enma PID file.

@@ -1,6 +1,8 @@
 package subcmd
 
 import (
+	"os"
+
 	"github.com/magicdrive/enma/internal/commandline/option"
 	"github.com/magicdrive/enma/internal/common"
 	"github.com/magicdrive/enma/internal/core"
@@ -12,6 +14,12 @@ func Hotload(args []string) error {
 	if err != nil {
 		return err
 	}
+
+	if opt.HelpFlag {
+		opt.FlagSet.Usage()
+		os.Exit(0)
+	}
+
 	return RunHotload(opt)
 }
 

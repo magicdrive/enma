@@ -41,6 +41,8 @@ type WatchOption struct {
 	EnmaIgnore             *ignorerule.GitIgnore
 	LogPathOpt             string
 	PidPathOpt             string
+	HelpFlag               bool
+	FlagSet                *flag.FlagSet
 }
 
 func (cr *WatchOption) Mode() string {
@@ -130,10 +132,16 @@ func ParseWatch(args []string) (*WatchOption, error) {
 	// --logs
 	logPathOpt := fs.String("logs", "", "Specify log file path (optional)")
 
+	// --help
+	helpFlagOpt := fs.Bool("help", false, "Show help message.")
+	fs.BoolVar(helpFlagOpt, "h", false, "Show help message.")
+
 	fs.Usage = common.EnmaHelpFunc
 
 	// Parse flags
 	fs.Parse(args)
+
+	fs.Usage = common.EnmaWatchHelpFunc
 
 	// Validate required flags
 	if *cmdOpt == "" || *watchDirOpt == "" {
@@ -161,6 +169,8 @@ func ParseWatch(args []string) (*WatchOption, error) {
 		EnmaIgnoreString:       *enmaIgnoreOpt,
 		PidPathOpt:             *pidPathOpt,
 		LogPathOpt:             *logPathOpt,
+		HelpFlag:               *helpFlagOpt,
+		FlagSet:                fs,
 	}
 
 	if err := options.Normalize(); err != nil {

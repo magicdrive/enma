@@ -1,0 +1,29 @@
+Usage: enma hotload [OPTIONS]
+
+Detects file changes, builds, and loads the daemon.
+
+Required Options:
+  -n, --name <name>               Defines the enma process name. (required)
+  -d, --daemon <command>          Defines the daemon command. (required)
+  -b, --build <command>           Defines the command to build daemon. (required)
+  -w, --watch-dir <dir_name>      Specify watch directories (comma-separated). (required)
+
+Optional Options:
+  -p, --pre-build <command>       Defines the command to pre-build daemon.
+  -P, --post-build <command>      Defines the command to post-build daemon.
+  -I, --placeholder               Defines placeholder replaced with the changed filename.
+                                  Default: {}
+  -A, --abs, --absolute-path      Use absolute path in placeholder.
+  -t, --timeout <time>            Timeout for build command. Default: 5sec
+  -l, --delay <time>              Delay after build command. Default: 5sec
+  -r, --retry <number>            Retry count. Default: 0
+  -x, --pattern-regex <regex>     Regex pattern of file paths to watch.
+  -i, --include-ext <ext>         File extensions to include (comma-separated).
+  -g, --ignore-dir-regex <regex>  Regex for directories to ignore.
+  -G, --ignore-file-regex <regex> Regex for files to ignore.
+  -e, --exclude-ext <ext>         File extensions to exclude (comma-separated).
+  -E, --exclude-dir <dir_name>    Directories to exclude (comma-separated).
+  -n, --enmaignore <filename>     Ignore file(s) to use (comma-separated).
+                                  Default: ./.enmaignore
+  --logs <log_file_path>          Path to enma log file.
+  --pid <pid_file_path>           Path to enma PID file.

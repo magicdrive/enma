@@ -49,6 +49,18 @@ func EnmaHelpFunc() {
 	GracefulPrintOut(text.HelpMessage, false)
 }
 
+func EnmaHotloadHelpFunc() {
+	GracefulPrintOut(text.HotloadHelpMessage, false)
+}
+
+func EnmaWatchHelpFunc() {
+	GracefulPrintOut(text.WatchHelpMessage, false)
+}
+
+func EnmaInitHelpFunc() {
+	GracefulPrintOut(text.InitHelpMessage, false)
+}
+
 func CreateFileWithDirs(path string, content string) error {
 	dir := filepath.Dir(path)
 

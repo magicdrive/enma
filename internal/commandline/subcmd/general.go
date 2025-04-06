@@ -21,6 +21,7 @@ func General(version string, args []string) error {
 		fmt.Printf("kirke version %s\n", version)
 		os.Exit(0)
 	}
+
 	if opt.HelpFlag {
 		opt.FlagSet.Usage()
 		os.Exit(0)
