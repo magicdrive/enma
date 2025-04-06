@@ -17,7 +17,7 @@ retry = 1
 
 # Watch target configuration
 watch_dir = ["./"]
-pattern_regex = ".*\\.go$"
+pattern_regex = ".*"
 include_ext = [".go", ".mod"]
 ignore_regex = "_test.go$"
 exclude_ext = [".tmp"]
