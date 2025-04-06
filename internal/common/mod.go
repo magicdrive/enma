@@ -172,7 +172,7 @@ func FindEnmaConfigFile() (string, error) {
 }
 
 func CreateNewFileWithContent(filename string, content string) error {
-	if stat, err := FileExists(filename); err != nil || !stat {
+	if stat, err := FileExists(filename); err != nil || stat {
 		return fmt.Errorf("already exists or parmission error: %s. %v", filename, err)
 	}
 	return CreateFileWithDirs(filename, content)

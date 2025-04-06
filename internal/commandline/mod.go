@@ -25,6 +25,9 @@ func Execute(version string, args []string) error {
 	case Watch:
 		err := subcmd.Watch(args[1:])
 		return err
+	case Init:
+		err := subcmd.Init(args[1:])
+		return err
 	default:
 		err := subcmd.General(version, args)
 		return err

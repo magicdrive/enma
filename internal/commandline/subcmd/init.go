@@ -19,6 +19,7 @@ func Init(args []string) error {
 
 func RunInit(opt *option.InitOption) error {
 	var tomlString string
+
 	switch opt.ModeOpt {
 	case "hotload":
 		tomlString = text.DefaultHotloadEnmaToml
@@ -29,7 +30,7 @@ func RunInit(opt *option.InitOption) error {
 	}
 
 	if err := common.CreateNewFileWithContent(opt.FileNameOpt, tomlString); err != nil {
-		return err
+		fmt.Printf("%s already exists\n", opt.FileNameOpt)
 	}
 
 	common.CreateNewFileWithContent(opt.EnmaIgnoreName, text.DefaultEnmaIgnore)

@@ -44,7 +44,7 @@ func (cr *InitOption) Normalize() error {
 
 	if stat, err := common.FileExists(cr.FileNameOpt); err != nil {
 		return fmt.Errorf("File parmission error: %v", err)
-	} else if !stat {
+	} else if stat {
 		return fmt.Errorf("file already exists.: %s", cr.FileNameOpt)
 	}
 	cr.EnmaIgnoreName = ".enmaignore"
