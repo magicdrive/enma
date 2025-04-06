@@ -10,7 +10,7 @@ It's designed to supercharge your development and automation workflows.
 - 📂 Realtime monitoring for directories or files
 - 🛠️ Execute build or custom commands on file changes
 - 🔁 Hot-reload support with build success detection
-- 🔗Supports symlinks
+- 🔗 Supports symlinks
 - 🧩 Flexible configuration using TOML files
 - 🔍 Ignore patterns with `.enmaignore`
 - 🧪 Ideal for CI/CD and local development
