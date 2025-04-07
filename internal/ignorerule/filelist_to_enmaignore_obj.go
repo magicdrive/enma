@@ -3,12 +3,15 @@ package ignorerule
 import (
 	"bufio"
 	"os"
+	"strings"
 )
 
-func ReadFilesAsLines(files []string) ([]string, error) {
+func ReadFilesAsLines(workingDir string, files []string) ([]string, error) {
 	var lines []string
+	normalizedWorkingDir := ensureTrailingSlash(workingDir)
 	for _, path := range files {
-		f, err := os.Open(path)
+		loadPath := normalizedWorkingDir + removeLeadingSlash(path)
+		f, err := os.Open(loadPath)
 		if err != nil {
 			return nil, err
 		}
@@ -26,14 +29,30 @@ func ReadFilesAsLines(files []string) ([]string, error) {
 	return lines, nil
 }
 
-func NewGitignore(fileList []string) (*GitIgnore, error) {
+func NewGitignore(workingDir string, fileList []string) (*GitIgnore, error) {
 	var fileLine []string
 	var err error
-	fileLine, err = ReadFilesAsLines(fileList)
+	fileLine, err = ReadFilesAsLines(workingDir, fileList)
 
 	if err != nil {
 		return nil, err
 	}
 	return CompileIgnoreLines(fileLine...)
+}
 
+func ensureTrailingSlash(path string) string {
+	if path == "" {
+		return path
+	}
+	if strings.HasSuffix(path, "/") {
+		return path
+	}
+	return path + "/"
+}
+
+func removeLeadingSlash(path string) string {
+	if strings.HasPrefix(path, "/") {
+		return path[1:]
+	}
+	return path
 }

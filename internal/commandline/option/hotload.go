@@ -210,7 +210,7 @@ func (cr *HotloadOption) Normalize() error {
 		cr.EnmaIgnoreList = common.CommaSeparated2StringList(cr.EnmaIgnoreString)
 
 		// enmaignore
-		if enmaIgnore, err := ignorerule.NewGitignore(cr.EnmaIgnoreList); err != nil {
+		if enmaIgnore, err := ignorerule.NewGitignore(cr.WorkingDir, cr.EnmaIgnoreList); err != nil {
 			e := fmt.Errorf("ennmaignore load error: %w", err)
 			errorMessages = append(errorMessages, e.Error())
 		} else {
