@@ -62,11 +62,9 @@ func (r *HotloadRunner) CollectWatchDirs(root string) ([]string, error) {
 
 		real, err := filepath.EvalSymlinks(abs)
 		if err != nil {
-			// 無視してスキップ（壊れたリンクなど）
 			return nil
 		}
 
-		// ディレクトリのみ対象
 		if !d.IsDir() {
 			return nil
 		}

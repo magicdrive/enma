@@ -78,7 +78,7 @@ func (r *WatchRunner) CollectWatchDirs(root string) ([]string, error) {
 
 		real, err := filepath.EvalSymlinks(abs)
 		if err != nil {
-			return nil // skip broken link
+			return nil
 		}
 
 		if info.IsDir() && !r.IsExcludedDir(real) {
