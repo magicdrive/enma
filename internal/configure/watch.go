@@ -4,6 +4,7 @@ import (
 	"fmt"
 
 	"github.com/magicdrive/enma/internal/commandline/option"
+	"github.com/magicdrive/enma/internal/common"
 	"github.com/magicdrive/enma/internal/model"
 )
 
@@ -11,6 +12,8 @@ type tomlWatchConf struct {
 	PreCmd        string   `toml:"pre_command"`
 	Cmd           string   `toml:"command"`
 	PostCmd       string   `toml:"post_command"`
+	WorkingDir    string   `toml:"working_dir"`
+	Placeholder   string   `toml:"placeholder"`
 	Timeout       string   `toml:"timeout"`
 	Delay         string   `toml:"delay"`
 	Retry         int      `toml:"retry"`
@@ -28,7 +31,8 @@ type tomlWatchConf struct {
 func NewWatchOptionFromTOMLConfig(h tomlWatchConf) (*option.WatchOption, error) {
 	cmd := fallback(h.Cmd, "")
 	watchDir := fallbackArray(h.WatchDir, []string{})
-	placeholder := "{}"
+	workingDir := fallback(h.WorkingDir, common.GetCurrentDir())
+	placeholder := fallback(h.Placeholder, "{}")
 	timeout := fallback(h.Timeout, "5sec")
 	delay := fallback(h.Delay, "1sec")
 
@@ -40,6 +44,7 @@ func NewWatchOptionFromTOMLConfig(h tomlWatchConf) (*option.WatchOption, error) 
 		PreCmd:                 h.PreCmd,
 		Cmd:                    cmd,
 		PostCmd:                h.PostCmd,
+		WorkingDir:             workingDir,
 		Placeholder:            placeholder,
 		AbsolutePathFlag:       false,
 		Timeout:                model.TimeString(timeout),

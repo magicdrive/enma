@@ -24,6 +24,12 @@ func Hotload(args []string) error {
 }
 
 func RunHotload(opt *option.HotloadOption) error {
+	if opt.WatchDir != "" {
+		if err := os.Chdir(opt.WatchDir); err != nil {
+			return err
+		}
+	}
+
 	if opt.PidPathOpt != "" {
 		common.CreatePidFile(opt.PidPathOpt)
 		defer common.DeletePidFile(opt.PidPathOpt)

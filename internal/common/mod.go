@@ -36,6 +36,14 @@ func GracefulPrintOut(message string, noPagerFlag bool) {
 	}
 }
 
+func GetCurrentDir() string {
+	cwd, err := os.Getwd()
+	if err != nil {
+		return ""
+	}
+	return cwd
+}
+
 func GetExecutableDir() (string, error) {
 	exePath, err := os.Executable()
 	if err != nil {
@@ -185,7 +193,7 @@ func FindEnmaConfigFile() (string, error) {
 
 func CreateNewFileWithContent(filename string, content string) error {
 	if stat, err := FileExists(filename); err != nil || stat {
-		return fmt.Errorf("already exists or parmission error: %s. %v", filename, err)
+		return fmt.Errorf("already exists or permission error: %s. %v", filename, err)
 	}
 	return CreateFileWithDirs(filename, content)
 }

@@ -24,6 +24,12 @@ func Watch(args []string) error {
 }
 
 func RunWatch(opt *option.WatchOption) error {
+	if opt.WatchDir != "" {
+		if err := os.Chdir(opt.WatchDir); err != nil {
+			return err
+		}
+	}
+
 	if opt.PidPathOpt != "" {
 		common.CreatePidFile(opt.PidPathOpt)
 		defer common.DeletePidFile(opt.PidPathOpt)

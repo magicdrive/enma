@@ -18,6 +18,7 @@ type HotloadOption struct {
 	PreBuild               string
 	Build                  string
 	PostBuild              string
+	WorkingDir             string
 	Placeholder            string
 	AbsolutePathFlag       bool
 	Timeout                model.TimeString
@@ -68,6 +69,11 @@ func ParseHotload(args []string) (*HotloadOption, error) {
 	// --post-build
 	postBuildOpt := fs.String("post-build", "", "Defines the command to post-build daemon (optional)")
 	fs.StringVar(postBuildOpt, "P", "", "Defines the command to post-build daemon (optional)")
+
+	// --working-dir
+	currentDir := common.GetCurrentDir()
+	workingDirOpt := fs.String("working-dir", currentDir, "Defines working directory (optional)")
+	fs.StringVar(workingDirOpt, "W", currentDir, "Defines working directory (optional)")
 
 	// --placeholder
 	placeholderOpt :=
@@ -157,6 +163,7 @@ func ParseHotload(args []string) (*HotloadOption, error) {
 		PreBuild:               *preBuildOpt,
 		Build:                  *buildOpt,
 		PostBuild:              *postBuildOpt,
+		WorkingDir:             *workingDirOpt,
 		Placeholder:            *placeholderOpt,
 		AbsolutePathFlag:       *absolutePathFlagOpt,
 		Timeout:                timeoutOpt,

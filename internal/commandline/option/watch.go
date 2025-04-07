@@ -17,6 +17,7 @@ type WatchOption struct {
 	PreCmd                 string
 	Cmd                    string
 	PostCmd                string
+	WorkingDir             string
 	Placeholder            string
 	AbsolutePathFlag       bool
 	Timeout                model.TimeString
@@ -66,6 +67,11 @@ func ParseWatch(args []string) (*WatchOption, error) {
 	postCmdOpt := fs.String("post-command", "", "Defines the command to post-command (optional)")
 	fs.StringVar(postCmdOpt, "post-cmd", "", "Defines the command to post-command (optional)")
 	fs.StringVar(postCmdOpt, "P", "", "Defines the command to post-command (optional)")
+
+	// --working-dir
+	currentDir := common.GetCurrentDir()
+	workingDirOpt := fs.String("working-dir", currentDir, "Defines working directory (optional)")
+	fs.StringVar(workingDirOpt, "W", currentDir, "Defines working directory (optional)")
 
 	// --placeholder
 	placeholderOpt :=
@@ -154,6 +160,7 @@ func ParseWatch(args []string) (*WatchOption, error) {
 		PreCmd:                 *preCmdOpt,
 		Cmd:                    *cmdOpt,
 		PostCmd:                *postCmdOpt,
+		WorkingDir:             *workingDirOpt,
 		Placeholder:            *placeholderOpt,
 		AbsolutePathFlag:       *absolutePathFlagOpt,
 		Timeout:                timeoutOpt,

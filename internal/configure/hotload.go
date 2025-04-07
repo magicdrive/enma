@@ -4,6 +4,7 @@ import (
 	"fmt"
 
 	"github.com/magicdrive/enma/internal/commandline/option"
+	"github.com/magicdrive/enma/internal/common"
 	"github.com/magicdrive/enma/internal/model"
 )
 
@@ -12,6 +13,8 @@ type tomlHotloadConf struct {
 	PreBuild      string   `toml:"pre_build"`
 	Build         string   `toml:"build"`
 	PostBuild     string   `toml:"post_build"`
+	WorkingDir    string   `toml:"working_dir"`
+	Placeholder   string   `toml:"placeholder"`
 	Timeout       string   `toml:"timeout"`
 	Delay         string   `toml:"delay"`
 	Retry         int      `toml:"retry"`
@@ -30,7 +33,8 @@ func NewHotloadOptionFromTOMLConfig(h tomlHotloadConf) (*option.HotloadOption, e
 	daemon := fallback(h.Daemon, "")
 	build := fallback(h.Build, "")
 	watchDir := fallbackArray(h.WatchDir, []string{})
-	placeholder := "{}"
+	workingDir := fallback(h.WorkingDir, common.GetCurrentDir())
+	placeholder := fallback(h.Placeholder, "{}")
 	timeout := fallback(h.Timeout, "5sec")
 	delay := fallback(h.Delay, "1sec")
 
@@ -44,6 +48,7 @@ func NewHotloadOptionFromTOMLConfig(h tomlHotloadConf) (*option.HotloadOption, e
 		Build:                  build,
 		PostBuild:              h.PostBuild,
 		Placeholder:            placeholder,
+		WorkingDir:             workingDir,
 		AbsolutePathFlag:       false,
 		Timeout:                model.TimeString(timeout),
 		Delay:                  model.TimeString(delay),
