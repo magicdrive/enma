@@ -113,7 +113,7 @@ enma watch --command "make test" --watch-dir ./pkg,./lib
 | `-w`, `--watch-dir <dir_name>`        | Watch directories (comma-separated, required)                              |
 | `-p`, `--pre-build <command>`         | Command to run before build (optional)                                     |
 | `-P`, `--post-build <command>`        | Command to run after build (optional)                                      |
-| `-W`, `--working-dir`                 | Working directory (default: `$PWD`)                                        |
+| `-W`, `--working-dir <dir_name>`      | Working directory (default: `$PWD`)                                        |
 | `-I`, `--placeholder`                 | Placeholder in command for changed file (default: `{}`)                    |
 | `-A`, `--abs`, `--absolute-path`      | Use absolute path in placeholder (optional)                                |
 | `-t`, `--timeout <time>`              | Timeout for build command (default: `5sec`)                                |
@@ -140,7 +140,7 @@ enma watch --command "make test" --watch-dir ./pkg,./lib
 | `-w`, `--watch-dir <dir_name>`        | Watch directories (comma-separated, required)                              |
 | `-p`, `--pre-cmd <command>`           | Command to run before main command (optional)                              |
 | `-P`, `--post-cmd <command>`          | Command to run after main command (optional)                               |
-| `-W`, `--working-dir`                 | Working directory (default: `$PWD`)                                        |
+| `-W`, `--working-dir <dir_name>`      | Working directory (default: `$PWD`)                                        |
 | `-I`, `--placeholder`                 | Placeholder in command for changed file (default: `{}`)                    |
 | `-A`, `--abs`, `--absolute-path`      | Use absolute path in placeholder (optional)                                |
 | `-t`, `--timeout <time>`              | Timeout for command (default: `5sec`)                                      |

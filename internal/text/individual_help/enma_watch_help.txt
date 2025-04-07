@@ -9,6 +9,7 @@ Required Options:
 Optional Options:
   -p, --pre-cmd <command>         Command to execute before main command.
   -P, --post-cmd <command>        Command to execute after main command.
+  -W, --working-dir <dir_name>    Defines working directory. (optional. default: $PWD)
   -I, --placeholder               Placeholder for changed filename. Default: {}
   -A, --abs, --absolute-path      Use absolute path in placeholder.
   -t, --timeout <time>            Timeout for command. Default: 5sec

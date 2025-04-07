@@ -11,8 +11,8 @@ Required Options:
 Optional Options:
   -p, --pre-build <command>       Defines the command to pre-build daemon.
   -P, --post-build <command>      Defines the command to post-build daemon.
-  -I, --placeholder               Defines placeholder replaced with the changed filename.
-                                  Default: {}
+  -W, --working-dir <dir_name>    Defines working directory. (optional. default: $PWD)
+  -I, --placeholder               Defines placeholder replaced with the changed filename. Default: {}
   -A, --abs, --absolute-path      Use absolute path in placeholder.
   -t, --timeout <time>            Timeout for build command. Default: 5sec
   -l, --delay <time>              Delay after build command. Default: 5sec
