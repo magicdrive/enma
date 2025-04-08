@@ -2,6 +2,8 @@ package core
 
 import (
 	"context"
+	"fmt"
+	"io"
 	"log"
 	"os"
 	"os/exec"
@@ -17,6 +19,7 @@ import (
 
 	"github.com/magicdrive/enma/internal/commandline/option"
 	"github.com/magicdrive/enma/internal/common"
+	"github.com/magicdrive/enma/internal/text"
 )
 
 type WatchRunner struct {
@@ -98,11 +101,15 @@ func (r *WatchRunner) Start() error {
 	if r.Options.LogPathOpt != "" {
 		createErr := common.CreateFileWithDirs(r.Options.LogPathOpt, "")
 		f, openErr := os.OpenFile(r.Options.LogPathOpt, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0644)
+		multi := io.MultiWriter(os.Stdout, f)
 		if createErr == nil && openErr == nil {
-			log.SetOutput(f)
+			log.SetOutput(multi)
 			defer f.Close()
 		}
 	}
+
+	fmt.Println(text.StartMessage)
+	fmt.Printf("Start Watch mode.\n\n\n")
 
 	signalChan := make(chan os.Signal, 1)
 	if runtime.GOOS != "windows" {
@@ -127,6 +134,9 @@ func (r *WatchRunner) Start() error {
 		dirs, err := r.CollectWatchDirs(dir)
 		if err != nil {
 			return err
+		} else {
+			absPath, _ := filepath.Abs(dir)
+			log.Printf("👀 Watching %s", absPath)
 		}
 		for _, d := range dirs {
 			if err := watcher.Add(d); err != nil {
@@ -134,6 +144,8 @@ func (r *WatchRunner) Start() error {
 			}
 		}
 	}
+
+	log.Println("🚀 Start file monitor daemon")
 
 	eventChan := make(chan fsnotify.Event, 1)
 	go func() {
@@ -156,7 +168,10 @@ func (r *WatchRunner) Start() error {
 		if _event.Op&fsnotify.Create == fsnotify.Create {
 			info, err := os.Stat(_event.Name)
 			if err == nil && info.IsDir() && !r.IsExcludedDir(_event.Name) {
-				_ = r.AddWatchRecursive(_event.Name)
+				if err = r.AddWatchRecursive(_event.Name); err == nil {
+					absPath, _ := filepath.Abs(_event.Name)
+					log.Printf("👀 Watching %s" , absPath)
+				}
 			}
 		}
 
@@ -340,4 +355,3 @@ func (r *WatchRunner) stopCurrentCmd() {
 		r.currentCmd = nil
 	}
 }
-

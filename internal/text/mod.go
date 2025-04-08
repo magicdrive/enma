@@ -2,6 +2,9 @@ package text
 
 import _ "embed"
 
+//go:embed start_message.txt
+var StartMessage string
+
 //go:embed help.txt
 var HelpMessage string
 

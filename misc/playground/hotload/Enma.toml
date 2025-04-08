@@ -23,7 +23,7 @@ pattern_regex = ".*\\.txt$"
 include_ext = [".go", ".mod", ".txt"]
 ignore_regex = "_test.go$"
 exclude_ext = [".tmp"]
-exclude_dir = [".git", "tmp", "vendor"]
+exclude_dir = [".git", "tmp", "vendor", ".enma"]
 enmaignore = [".enmaignore"]
 
 # File paths

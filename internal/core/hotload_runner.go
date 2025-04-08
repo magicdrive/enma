@@ -2,6 +2,8 @@ package core
 
 import (
 	"context"
+	"fmt"
+	"io"
 	"log"
 	"os"
 	"os/exec"
@@ -17,6 +19,7 @@ import (
 
 	"github.com/magicdrive/enma/internal/commandline/option"
 	"github.com/magicdrive/enma/internal/common"
+	"github.com/magicdrive/enma/internal/text"
 )
 
 type HotloadRunner struct {
@@ -88,7 +91,8 @@ func (r *HotloadRunner) AddWatchDirs(dirs []string) {
 		if err := r.watcher.Add(dir); err != nil {
 			log.Printf("⚠️  Failed to watch %s: %v", dir, err)
 		} else {
-			log.Printf("👀 Watching %s", dir)
+			absPath, _ := filepath.Abs(dir)
+			log.Printf("👀 Watching %s" ,absPath)
 		}
 	}
 }
@@ -110,11 +114,15 @@ func (r *HotloadRunner) Start() error {
 	if r.Options.LogPathOpt != "" {
 		createErr := common.CreateFileWithDirs(r.Options.LogPathOpt, "")
 		f, openErr := os.OpenFile(r.Options.LogPathOpt, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0644)
+		multi := io.MultiWriter(os.Stdout, f)
 		if createErr == nil && openErr == nil {
-			log.SetOutput(f)
+			log.SetOutput(multi)
 			defer f.Close()
 		}
 	}
+
+	fmt.Println(text.StartMessage)
+	fmt.Printf("Start Hotload mode.\n\n\n")
 
 	signalChan := make(chan os.Signal, 1)
 	if runtime.GOOS != "windows" {
