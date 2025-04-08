@@ -221,34 +221,20 @@ func (r *HotloadRunner) ShouldTrigger(event fsnotify.Event) bool {
 		return false
 	}
 
-	if r.Options.EnmaIgnore != nil {
-		if r.Options.EnmaIgnore.Matches(common.TrimDotSlash(path)) {
-			return false
-		}
-	}
-
-	if r.Options.ExcludeDir != "" && r.IsExcludedDir(path) {
-		return false
-	}
-
-	if r.Options.IgnoreDirRegexp != nil {
-		dir := filepath.Dir(absPath)
-		result, err := r.Options.IgnoreDirRegexp.MatchString(dir)
-		if err != nil {
-			log.Fatalf("Fatal error: %s", err)
-		} else {
-			return !result
-		}
-	}
-
 	if r.Options.PatternRegexp != nil {
 		baseName := filepath.Base(absPath)
 		result, err := r.Options.PatternRegexp.MatchString(baseName)
 		if err != nil {
 			log.Fatalf("Fatal error: %s", err)
 		} else {
-			return result
+			if result == false {
+				return false
+			}
 		}
+	}
+
+	if r.Options.ExcludeDir != "" && r.IsExcludedDir(path) {
+		return false
 	}
 
 	if r.Options.IncludeExt != "" {
@@ -265,10 +251,13 @@ func (r *HotloadRunner) ShouldTrigger(event fsnotify.Event) bool {
 		}
 	}
 
-	if r.Options.ExcludeExt != "" {
-		ext := filepath.Ext(absPath)
-		for _, excl := range r.Options.ExcludeExtList {
-			if ext == excl {
+	if r.Options.IgnoreDirRegexp != nil {
+		dir := filepath.Dir(absPath)
+		result, err := r.Options.IgnoreDirRegexp.MatchString(dir)
+		if err != nil {
+			log.Fatalf("Fatal error: %s", err)
+		} else {
+			if result == true {
 				return false
 			}
 		}
@@ -280,9 +269,27 @@ func (r *HotloadRunner) ShouldTrigger(event fsnotify.Event) bool {
 		if err != nil {
 			log.Fatalf("Fatal error: %s", err)
 		} else {
-			return !result
+			if result == true {
+				return false
+			}
 		}
 	}
+
+	if r.Options.EnmaIgnore != nil {
+		if r.Options.EnmaIgnore.Matches(common.TrimDotSlash(path)) {
+			return false
+		}
+	}
+
+	if r.Options.ExcludeExt != "" {
+		ext := filepath.Ext(absPath)
+		for _, excl := range r.Options.ExcludeExtList {
+			if ext == excl {
+				return false
+			}
+		}
+	}
+
 
 	return true
 }
