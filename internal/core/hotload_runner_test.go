@@ -406,4 +406,3 @@ func TestHotloadRunner_CollectWatchDirs_SymlinkResolution(t *testing.T) {
 		t.Errorf("unexpected dir in result: %s", extra)
 	}
 }
-

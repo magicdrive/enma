@@ -92,7 +92,7 @@ func (r *HotloadRunner) AddWatchDirs(dirs []string) {
 			log.Printf("⚠️  Failed to watch %s: %v", dir, err)
 		} else {
 			absPath, _ := filepath.Abs(dir)
-			log.Printf("👀 Watching %s" ,absPath)
+			log.Printf("👀 Watching %s", absPath)
 		}
 	}
 }

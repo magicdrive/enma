@@ -170,7 +170,7 @@ func (r *WatchRunner) Start() error {
 			if err == nil && info.IsDir() && !r.IsExcludedDir(_event.Name) {
 				if err = r.AddWatchRecursive(_event.Name); err == nil {
 					absPath, _ := filepath.Abs(_event.Name)
-					log.Printf("👀 Watching %s" , absPath)
+					log.Printf("👀 Watching %s", absPath)
 				}
 			}
 		}

@@ -78,23 +78,23 @@ func TestGitIgnore_ExtraCases(t *testing.T) {
 	}
 
 	tests := map[string]bool{
-		"debug.log":                 true,
-		"temp-a.txt":                true,
-		"secrets.txt":               true,
-		"src/secrets.txt":           false,
-		"logs/error.log":            true,
-		"keep.log":                  false,
-		"docs/README.md":            true,
-		"docs/api/README.md":        true,
-		"build/index.html":          true,
-		"build/js/app.js":           true,
-		"main.go.swp":               true,
-		".vimrc.swp":                true,
-		"tmp/old.bak":               true,
-		"src/foo/bar.bak":           true,
-		"lib/test/foo.go":           true,
-		"lib/x/test/bar.go":         true,
-		"lib/x/y/test/baz.go":       true,
+		"debug.log":           true,
+		"temp-a.txt":          true,
+		"secrets.txt":         true,
+		"src/secrets.txt":     false,
+		"logs/error.log":      true,
+		"keep.log":            false,
+		"docs/README.md":      true,
+		"docs/api/README.md":  true,
+		"build/index.html":    true,
+		"build/js/app.js":     true,
+		"main.go.swp":         true,
+		".vimrc.swp":          true,
+		"tmp/old.bak":         true,
+		"src/foo/bar.bak":     true,
+		"lib/test/foo.go":     true,
+		"lib/x/test/bar.go":   true,
+		"lib/x/y/test/baz.go": true,
 	}
 
 	for path, want := range tests {
@@ -104,4 +104,3 @@ func TestGitIgnore_ExtraCases(t *testing.T) {
 		}
 	}
 }
-

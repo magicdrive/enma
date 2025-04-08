@@ -61,4 +61,3 @@ func RunViaConfigfile(config_file_path string) error {
 func RunViaOptionConfigfile(opt *option.GeneralOption) error {
 	return RunViaConfigfile(opt.ConfigFilePath)
 }
-
