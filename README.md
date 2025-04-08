@@ -187,7 +187,8 @@ This layered approach ensures clarity in behavior while keeping Enma fast and cu
 ---
 
 ## 🗂 Example `.enmaignore`
-([.gitignore](https://git-scm.com/docs/gitignore) compatible syntax.)
+
+The syntax of .enmaignore is a compatible syntax of [.gitignore](https://git-scm.com/docs/gitignore).
 
 ```
 # =============================
