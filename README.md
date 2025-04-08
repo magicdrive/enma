@@ -94,9 +94,8 @@ When monitoring file changes, Enma filters target files based on the following o
 5. If `--include-ext` is specified and the file **does not match any of the extensions**, it is excluded.
 6. Files that pass all the above filters are considered as **watch targets**.
 
----
 
-## 💡 Why This Order Makes Sense
+### 💡 Why This Order Makes Sense
 
 This filtering order is designed to be both **efficient** and **intuitive**:
 
