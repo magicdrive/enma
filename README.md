@@ -81,6 +81,33 @@ enma watch --command "make test" --watch-dir ./pkg,./lib
 
 ---
 
+## 🔍 File Filtering Order
+
+When monitoring file changes, Enma filters target files based on the following order:
+
+1. If the file does **not match `--pattern-regex`**, it is excluded.
+2. If the file **matches `--exclude-dir` or `--exclude-ext`**, it is excluded.
+3. If the file **matches `--ignore-dir-regex` or `--ignore-file-regex`**, it is excluded.
+4. If the file is **listed in the `.enmaignore` file**, it is excluded.
+5. If `--include-ext` is specified and the file **does not match any of the extensions**, it is excluded.
+6. Files that pass all the above filters are considered as **watch targets**.
+
+---
+
+## 💡 Why This Order Makes Sense
+
+This filtering order is designed to be both **efficient** and **intuitive**:
+
+- **Early exclusion improves performance** by skipping unnecessary processing for files that obviously shouldn't be watched.
+- `--pattern-regex` acts as a **top-level filter**, giving users full control over what files are even considered.
+- `--exclude-*` and `--ignore-*` rules eliminate unwanted files using both simple and flexible patterns.
+- The `.enmaignore` file gives users a familiar, Git-style way to exclude files explicitly.
+- Finally, `--include-ext` allows users to **narrow down** the remaining files by extension, but only if they choose to use it.
+
+This layered approach ensures clarity in behavior while keeping Enma fast and customizable.
+
+---
+
 ## 🧾 Full Command Reference
 
 ### Global Options
@@ -117,7 +144,7 @@ enma watch --command "make test" --watch-dir ./pkg,./lib
 | `-I`, `--placeholder`                 | Placeholder in command for changed file (default: `{}`)                    |
 | `-A`, `--abs`, `--absolute-path`      | Use absolute path in placeholder (optional)                                |
 | `-t`, `--timeout <time>`              | Timeout for build command (default: `5sec`)                                |
-| `-l`, `--delay <time>`                | Delay after build command (default: `5sec`)                                |
+| `-l`, `--delay <time>`                | Delay after build command (default: `1sec`)                                |
 | `-r`, `--retry <number>`              | Retry count (default: `0`)                                                 |
 | `-x`, `--pattern-regex <regex>`       | Regex pattern to watch (optional)                                          |
 | `-i`, `--include-ext <ext>`           | File extensions to include (comma-separated, optional)                     |
@@ -144,7 +171,7 @@ enma watch --command "make test" --watch-dir ./pkg,./lib
 | `-I`, `--placeholder`                 | Placeholder in command for changed file (default: `{}`)                    |
 | `-A`, `--abs`, `--absolute-path`      | Use absolute path in placeholder (optional)                                |
 | `-t`, `--timeout <time>`              | Timeout for command (default: `5sec`)                                      |
-| `-l`, `--delay <time>`                | Delay after command (default: `5sec`)                                      |
+| `-l`, `--delay <time>`                | Delay after command (default: `1sec`)                                      |
 | `-r`, `--retry <number>`              | Retry count (default: `0`)                                                 |
 | `-x`, `--pattern-regex <regex>`       | Regex pattern to watch (optional)                                          |
 | `-i`, `--include-ext <ext>`           | File extensions to include (comma-separated, optional)                     |
@@ -162,9 +189,21 @@ enma watch --command "make test" --watch-dir ./pkg,./lib
 ([.gitignore](https://git-scm.com/docs/gitignore) compatible syntax.)
 
 ```
-*.log
-tmp/
-vendor/
+# =============================
+# VCS / Version Control
+# =============================
+.git/
+.hg/
+.svn/
+
+# =============================
+# Editors / IDEs
+# =============================
+.idea/
+.vscode/
+*.code-workspace
+*.sublime-project
+*.sublime-workspace
 ```
 
 ---

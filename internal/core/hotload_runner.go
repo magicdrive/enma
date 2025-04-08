@@ -290,7 +290,6 @@ func (r *HotloadRunner) ShouldTrigger(event fsnotify.Event) bool {
 		}
 	}
 
-
 	return true
 }
 
