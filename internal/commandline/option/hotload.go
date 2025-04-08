@@ -1,6 +1,7 @@
 package option
 
 import (
+	"errors"
 	"flag"
 	"fmt"
 	"os"
@@ -252,6 +253,6 @@ func (cr *HotloadOption) Normalize() error {
 	if len(errorMessages) == 0 {
 		return nil
 	} else {
-		return fmt.Errorf(strings.Join(errorMessages, "\n"))
+		return errors.New(strings.Join(errorMessages, "\n"))
 	}
 }
