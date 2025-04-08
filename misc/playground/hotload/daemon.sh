@@ -6,6 +6,7 @@ cat "${CURRENT}/test.txt"
 
 while : ;do
     :;
+    sleep 360
 done
 
 
