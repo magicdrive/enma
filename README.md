@@ -146,7 +146,7 @@ This layered approach ensures clarity in behavior while keeping Enma fast and cu
 | `-I`, `--placeholder`                 | Placeholder in command for changed file (default: `{}`)                    |
 | `-A`, `--abs`, `--absolute-path`      | Use absolute path in placeholder (optional)                                |
 | `-t`, `--timeout <time>`              | Timeout for build command (default: `5sec`)                                |
-| `-l`, `--delay <time>`                | Delay after build command (default: `1sec`)                                |
+| `-l`, `--delay <time>`                | Delay after build command (default: `0sec`)                                |
 | `-r`, `--retry <number>`              | Retry count (default: `0`)                                                 |
 | `-x`, `--pattern-regex <regex>`       | Regex pattern to watch (optional)                                          |
 | `-i`, `--include-ext <ext>`           | File extensions to include (comma-separated, optional)                     |
@@ -173,7 +173,7 @@ This layered approach ensures clarity in behavior while keeping Enma fast and cu
 | `-I`, `--placeholder`                 | Placeholder in command for changed file (default: `{}`)                    |
 | `-A`, `--abs`, `--absolute-path`      | Use absolute path in placeholder (optional)                                |
 | `-t`, `--timeout <time>`              | Timeout for command (default: `5sec`)                                      |
-| `-l`, `--delay <time>`                | Delay after command (default: `1sec`)                                      |
+| `-l`, `--delay <time>`                | Delay after command (default: `0sec`)                                      |
 | `-r`, `--retry <number>`              | Retry count (default: `0`)                                                 |
 | `-x`, `--pattern-regex <regex>`       | Regex pattern to watch (optional)                                          |
 | `-i`, `--include-ext <ext>`           | File extensions to include (comma-separated, optional)                     |

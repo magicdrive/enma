@@ -94,7 +94,7 @@ func ParseHotload(args []string) (*HotloadOption, error) {
 	fs.Var(&timeoutOpt, "t", "Specify the build command timeout (optional)")
 
 	// --delay
-	delayOpt := model.TimeString("1sec")
+	delayOpt := model.TimeString("0sec")
 	fs.Var(&delayOpt, "delay", "Specify delay time after the build command (optional)")
 	fs.Var(&delayOpt, "l", "Specify delay time after the build command (optional)")
 

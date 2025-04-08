@@ -13,7 +13,7 @@ absolute_path = false
 
 # Timing and retry
 timeout = "5s"
-delay = "1s"
+delay = "0s"
 retry = 1
 
 # Watch target configuration
