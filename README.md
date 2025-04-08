@@ -25,6 +25,8 @@ It's designed to supercharge your development and automation workflows.
 go install github.com/magicdrive/enma@latest
 ```
 
+Alternatively, you can download a pre-built binary from the Releases page.
+
 ### 2. Initialize project
 
 ```bash
