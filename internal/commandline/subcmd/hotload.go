@@ -24,8 +24,8 @@ func Hotload(args []string) error {
 }
 
 func RunHotload(opt *option.HotloadOption) error {
-	if opt.WatchDir != "" {
-		if err := os.Chdir(opt.WatchDir); err != nil {
+	if opt.WorkingDir != "" {
+		if err := os.Chdir(opt.WorkingDir); err != nil {
 			return err
 		}
 	}

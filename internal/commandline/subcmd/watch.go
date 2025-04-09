@@ -24,8 +24,8 @@ func Watch(args []string) error {
 }
 
 func RunWatch(opt *option.WatchOption) error {
-	if opt.WatchDir != "" {
-		if err := os.Chdir(opt.WatchDir); err != nil {
+	if opt.WorkingDir != "" {
+		if err := os.Chdir(opt.WorkingDir); err != nil {
 			return err
 		}
 	}

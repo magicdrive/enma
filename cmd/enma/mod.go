@@ -12,7 +12,9 @@ import (
 func Execute(version string) {
 	if len(os.Args) <= 1 {
 		if err := Default(); err != nil {
-			common.EnmaHelpFunc()
+			fmt.Fprintln(os.Stderr, err)
+			fmt.Fprintln(os.Stderr, "\nHelpOption:")
+			fmt.Fprintln(os.Stderr, "    enma --help")
 		}
 		os.Exit(0)
 	}
