@@ -1,6 +1,7 @@
 package cmd
 
 import (
+	"errors"
 	"fmt"
 	"os"
 
@@ -28,7 +29,7 @@ func Execute(version string) {
 
 func Default() error {
 	if path, err := common.FindEnmaConfigFile(); err != nil {
-		return err
+		return errors.New("Cann't find enma config file. (Enma.toml, .enma.toml, .enma/enma.toml)")
 	} else {
 		if err := subcmd.RunViaConfigfile(path); err != nil {
 			return err
