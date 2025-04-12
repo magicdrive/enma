@@ -1,4 +1,4 @@
-package text
+package textbank
 
 import _ "embed"
 

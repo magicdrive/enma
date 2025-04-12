@@ -19,7 +19,7 @@ import (
 
 	"github.com/magicdrive/enma/internal/commandline/option"
 	"github.com/magicdrive/enma/internal/common"
-	"github.com/magicdrive/enma/internal/text"
+	"github.com/magicdrive/enma/internal/textbank"
 )
 
 type WatchRunner struct {
@@ -108,14 +108,14 @@ func (r *WatchRunner) Start() error {
 		}
 	}
 
-	fmt.Println(text.StartMessage)
+	fmt.Println(textbank.StartMessage)
 	fmt.Printf("Start Watch mode.\n\n\n")
 
 	signalChan := make(chan os.Signal, 1)
 	if runtime.GOOS != "windows" {
-		signal.Notify(signalChan, syscall.SIGINT, syscall.SIGTERM)
+		signal.Notify(signalChan, syscall.SIGINT, syscall.SIGTERM, syscall.SIGHUP)
 	} else {
-		signal.Notify(signalChan, os.Interrupt)
+		signal.Notify(signalChan, os.Interrupt, os.Kill)
 	}
 	go func() {
 		<-signalChan

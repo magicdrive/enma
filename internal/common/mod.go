@@ -6,7 +6,7 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/magicdrive/enma/internal/text"
+	"github.com/magicdrive/enma/internal/textbank"
 )
 
 func CountLines(message string) int {
@@ -54,19 +54,19 @@ func GetExecutableDir() (string, error) {
 }
 
 func EnmaHelpFunc() {
-	GracefulPrintOut(text.HelpMessage, false)
+	GracefulPrintOut(textbank.HelpMessage, false)
 }
 
 func EnmaHotloadHelpFunc() {
-	GracefulPrintOut(text.HotloadHelpMessage, false)
+	GracefulPrintOut(textbank.HotloadHelpMessage, false)
 }
 
 func EnmaWatchHelpFunc() {
-	GracefulPrintOut(text.WatchHelpMessage, false)
+	GracefulPrintOut(textbank.WatchHelpMessage, false)
 }
 
 func EnmaInitHelpFunc() {
-	GracefulPrintOut(text.InitHelpMessage, false)
+	GracefulPrintOut(textbank.InitHelpMessage, false)
 }
 
 func CreateFileWithDirs(path string, content string) error {

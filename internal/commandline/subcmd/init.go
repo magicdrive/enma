@@ -6,7 +6,7 @@ import (
 
 	"github.com/magicdrive/enma/internal/commandline/option"
 	"github.com/magicdrive/enma/internal/common"
-	"github.com/magicdrive/enma/internal/text"
+	"github.com/magicdrive/enma/internal/textbank"
 )
 
 func Init(args []string) error {
@@ -29,9 +29,9 @@ func RunInit(opt *option.InitOption) error {
 
 	switch opt.ModeOpt {
 	case "hotload":
-		tomlString = text.DefaultHotloadEnmaToml
+		tomlString = textbank.DefaultHotloadEnmaToml
 	case "watch":
-		tomlString = text.DefaultWatchEnmaToml
+		tomlString = textbank.DefaultWatchEnmaToml
 	default:
 		return fmt.Errorf("Invalid --mode: %s", opt.ModeOpt)
 	}
@@ -40,7 +40,7 @@ func RunInit(opt *option.InitOption) error {
 		fmt.Printf("%s already exists\n", opt.FileNameOpt)
 	}
 
-	common.CreateNewFileWithContent(opt.EnmaIgnoreName, text.DefaultEnmaIgnore)
+	common.CreateNewFileWithContent(opt.EnmaIgnoreName, textbank.DefaultEnmaIgnore)
 
 	return nil
 }
