@@ -8,14 +8,15 @@ import (
 	"github.com/magicdrive/enma/internal/commandline"
 	"github.com/magicdrive/enma/internal/commandline/subcmd"
 	"github.com/magicdrive/enma/internal/common"
+	"github.com/magicdrive/enma/internal/textbank"
 )
 
 func Execute(version string) {
 	if len(os.Args) <= 1 {
 		if err := Default(); err != nil {
 			fmt.Fprintln(os.Stderr, err)
-			fmt.Fprintln(os.Stderr, "\nHelpOption:")
-			fmt.Fprintln(os.Stderr, "    enma --help")
+			fmt.Fprintln(os.Stderr)
+			fmt.Fprintln(os.Stderr, textbank.ShortHelpMessage)
 		}
 		os.Exit(0)
 	}

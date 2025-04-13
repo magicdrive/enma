@@ -8,8 +8,11 @@ pre_command = "echo pre-command done."
 command = "echo Changed {}"
 post_command = "echo post-command done."
 working_dir = "./"
+
+# command args
 placeholder = "{}"
 absolute_path = false
+args_path_style = "dirname,basename,ext"
 
 # Timing and retry
 timeout = "5s"
