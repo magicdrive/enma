@@ -40,13 +40,13 @@ func (m *TimeString) String() string {
 }
 
 func (m *TimeString) TimeDuration() (time.Duration, error) {
-	match := TimeStringRegexp.FindAllString(m.String(), -1)
-	if len(match) != 2 {
+	matches := TimeStringRegexp.FindStringSubmatch(m.String())
+	if len(matches) != 4 {
 		return 0, errors.New("invalid duration format")
 	}
 
-	numStr := match[0]
-	unit := match[1]
+	numStr := matches[1] // e.g. "1.5"
+	unit := matches[3]   // e.g. "s"
 
 	normalizedUnit, ok := unitMap[unit]
 	if !ok {
