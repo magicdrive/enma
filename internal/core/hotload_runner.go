@@ -292,7 +292,7 @@ func (r *HotloadRunner) ShouldTrigger(event fsnotify.Event) bool {
 func (r *HotloadRunner) handleChange(event fsnotify.Event) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
-	path := common.ToAbsolutePath(event.Name)
+	path := r.applyArgsPathStyle(event.Name)
 
 	for i := 0; i <= r.Options.Retry; i++ {
 		if r.RunBuildSequence(i, path) {
@@ -398,4 +398,17 @@ func (r *HotloadRunner) stopCurrentCmd() {
 		_ = r.currentCmd.Wait()
 		r.currentCmd = nil
 	}
+}
+
+func (r *HotloadRunner) applyArgsPathStyle(path string) string {
+	var target = path
+	if r.Options.AbsolutePathFlag {
+		target = common.ToAbsolutePath(target)
+	}
+
+	if r.Options.ArgsPathStyleString != "" {
+		return r.Options.ArgsPathStyle.ArgsPathString(target)
+	}
+
+	return target
 }

@@ -14,6 +14,7 @@ type tomlWatchConf struct {
 	PostCmd       string   `toml:"post_command"`
 	WorkingDir    string   `toml:"working_dir"`
 	Placeholder   string   `toml:"placeholder"`
+	ArgsPathStyle string   `toml:"args_path_style"`
 	Timeout       string   `toml:"timeout"`
 	Delay         string   `toml:"delay"`
 	Retry         int      `toml:"retry"`
@@ -33,6 +34,7 @@ func NewWatchOptionFromTOMLConfig(h tomlWatchConf) (*option.WatchOption, error) 
 	watchDir := fallbackArray(h.WatchDir, []string{})
 	workingDir := fallback(h.WorkingDir, common.GetCurrentDir())
 	placeholder := fallback(h.Placeholder, "{}")
+	argPathStyle := fallback(h.ArgsPathStyle, "dirname,basename,extension")
 	timeout := fallback(h.Timeout, "5sec")
 	delay := fallback(h.Delay, "1sec")
 
@@ -46,6 +48,7 @@ func NewWatchOptionFromTOMLConfig(h tomlWatchConf) (*option.WatchOption, error) 
 		PostCmd:                h.PostCmd,
 		WorkingDir:             workingDir,
 		Placeholder:            placeholder,
+		ArgsPathStyleString:    model.ArgsPathStyleString(argPathStyle),
 		AbsolutePathFlag:       false,
 		Timeout:                model.TimeString(timeout),
 		Delay:                  model.TimeString(delay),

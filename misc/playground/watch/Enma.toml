@@ -10,6 +10,7 @@ post_command = "echo post-command done."
 working_dir = "./"
 placeholder = "{}"
 absolute_path = false
+args_path_style = "dirname,basename,ext"
 
 # Timing and retry
 timeout = "5s"

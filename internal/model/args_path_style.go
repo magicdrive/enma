@@ -27,9 +27,17 @@ var styleNameUnitMap = map[string]string{
 	"d":         DIRNAME,
 	"dir":       DIRNAME,
 	"dirname":   DIRNAME,
+	"dirName":   DIRNAME,
+	"DirName":   DIRNAME,
+	"Dirname":   DIRNAME,
+	"dir_name":  DIRNAME,
 	"b":         BASENAME,
 	"base":      BASENAME,
 	"basename":  BASENAME,
+	"baseName":  BASENAME,
+	"BaseName":  BASENAME,
+	"Basename":  BASENAME,
+	"base_name": BASENAME,
 	"e":         EXTENSION,
 	"extension": EXTENSION,
 	"ext":       EXTENSION,
@@ -60,7 +68,7 @@ func (m *ArgsPathStyleString) String() string {
 	return string(*m)
 }
 
-func (m *ArgsPathStyleString) ArgsPathStyleObj() *ArgsPathStyleObj {
+func (m *ArgsPathStyleString) ArgsPathStyleObj() (*ArgsPathStyleObj, error) {
 	result := &ArgsPathStyleObj{}
 	for part := range strings.SplitSeq(m.String(), ",") {
 		if styleName, ok := styleNameUnitMap[part]; ok {
@@ -72,11 +80,11 @@ func (m *ArgsPathStyleString) ArgsPathStyleObj() *ArgsPathStyleObj {
 			case EXTENSION:
 				result.ExtensionFlag = true
 			default:
-				panic(fmt.Sprintf("invalid stylename: %s", styleName))
+				return nil, fmt.Errorf("invalid args-path-style name: %s", styleName)
 			}
 		}
 	}
-	return result
+	return result, nil
 }
 
 func (m *ArgsPathStyleObj) ArgsPathString(path string) string {

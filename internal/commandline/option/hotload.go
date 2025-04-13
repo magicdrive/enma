@@ -20,6 +20,8 @@ type HotloadOption struct {
 	PostBuild              string
 	WorkingDir             string
 	Placeholder            string
+	ArgsPathStyleString    model.ArgsPathStyleString
+	ArgsPathStyle          *model.ArgsPathStyleObj
 	AbsolutePathFlag       bool
 	Timeout                model.TimeString
 	Delay                  model.TimeString
@@ -81,6 +83,13 @@ func ParseHotload(args []string) (*HotloadOption, error) {
 			"Defines placeholder that will be replaced with file name where event occurred in command. (optional)")
 	fs.StringVar(placeholderOpt, "I", "",
 		"Defines placeholder that will be replaced with file name where event occurred in command. (optional)")
+
+	// --args-path-style
+	argsPathStyleOpt := model.ArgsPathStyleString("dirname,basename,extension")
+	fs.Var(&argsPathStyleOpt, "args-path-style",
+		"Defines args path-style string that will be use in file name where event occurred in command. (optional)")
+	fs.Var(&argsPathStyleOpt, "s",
+		"Defines args path-style string that will be use in file name where event occurred in command. (optional)")
 
 	// --absolute-path
 	absolutePathFlagOpt :=
@@ -165,6 +174,7 @@ func ParseHotload(args []string) (*HotloadOption, error) {
 		PostBuild:              *postBuildOpt,
 		WorkingDir:             *workingDirOpt,
 		Placeholder:            *placeholderOpt,
+		ArgsPathStyleString:    argsPathStyleOpt,
 		AbsolutePathFlag:       *absolutePathFlagOpt,
 		Timeout:                timeoutOpt,
 		Delay:                  delayOpt,
@@ -192,6 +202,16 @@ func ParseHotload(args []string) (*HotloadOption, error) {
 
 func (cr *HotloadOption) Normalize() error {
 	var errorMessages = []string{}
+
+	// args path style
+	if cr.ArgsPathStyleString != "" {
+		obj, err := cr.ArgsPathStyleString.ArgsPathStyleObj()
+		if err != nil {
+			errorMessages = append(errorMessages, err.Error())
+		} else {
+			cr.ArgsPathStyle = obj
+		}
+	}
 
 	// comma sepalated to list.
 	if cr.WatchDir != "" {

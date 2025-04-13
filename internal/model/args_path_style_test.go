@@ -12,6 +12,10 @@ func TestArgsPathStyleString_Set_Valid(t *testing.T) {
 		"d,b,e",
 		"dir,base,ext",
 		"dirname,basename,extension",
+		"dirName,baseName,extension",
+		"DirName,BaseName,extension",
+		"Dirname,Basename,extension",
+		"dir_name,base_name,extension",
 		"b",
 		"e,d",
 	}
@@ -41,7 +45,10 @@ func TestArgsPathStyleString_Set_Invalid(t *testing.T) {
 
 func TestArgsPathStyleString_ArgsPathStyleObj(t *testing.T) {
 	var s model.ArgsPathStyleString = "d,b,e"
-	obj := s.ArgsPathStyleObj()
+	obj, err := s.ArgsPathStyleObj()
+	if err != nil {
+		t.Errorf("expected success for %q, got error: %v", s, err)
+	}
 
 	if !obj.DirNameFlag || !obj.BaseNameFlag || !obj.ExtensionFlag {
 		t.Errorf("expected all flags true, got %+v", obj)
@@ -76,7 +83,10 @@ func TestArgsPathString(t *testing.T) {
 		if err := style.Set(c.styleStr); err != nil {
 			t.Fatalf("unexpected error: %v", err)
 		}
-		obj := style.ArgsPathStyleObj()
+		obj, err := style.ArgsPathStyleObj()
+		if err != nil {
+			t.Errorf("expected success for %q, got error: %v", c.styleStr, err)
+		}
 		output := obj.ArgsPathString(c.path)
 		if output != c.expected {
 			t.Errorf("for style=%q path=%q expected=%q, got=%q",
