@@ -6,6 +6,9 @@ import _ "embed"
 var StartMessage string
 
 //go:embed help.txt
+var ShortHelpMessage string
+
+//go:embed help.txt
 var HelpMessage string
 
 //go:embed individual_help/enma_hotload_help.txt

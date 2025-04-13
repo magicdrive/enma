@@ -1,0 +1,2 @@
+HelpOption:
+	enma --help
