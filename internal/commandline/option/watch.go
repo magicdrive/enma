@@ -5,9 +5,8 @@ import (
 	"flag"
 	"fmt"
 	"os"
+	"regexp"
 	"strings"
-
-	"github.com/dlclark/regexp2"
 
 	"github.com/magicdrive/enma/internal/common"
 	"github.com/magicdrive/enma/internal/ignorerule"
@@ -27,13 +26,13 @@ type WatchOption struct {
 	WatchDir               string
 	WatchDirList           []string
 	PatternRegexpString    string
-	PatternRegexp          *regexp2.Regexp
+	PatternRegexp          *regexp.Regexp
 	IncludeExt             string
 	IncludeExtList         []string
 	IgnoreDirRegexpString  string
-	IgnoreDirRegexp        *regexp2.Regexp
+	IgnoreDirRegexp        *regexp.Regexp
 	IgnoreFileRegexpString string
-	IgnoreFileRegexp       *regexp2.Regexp
+	IgnoreFileRegexp       *regexp.Regexp
 	ExcludeExt             string
 	ExcludeExtList         []string
 	ExcludeDir             string
@@ -217,7 +216,7 @@ func (cr *WatchOption) Normalize() error {
 	}
 
 	if cr.PatternRegexpString != "" {
-		re, err := regexp2.Compile(cr.PatternRegexpString, 0)
+		re, err := regexp.Compile(cr.PatternRegexpString)
 		if err != nil {
 			e := fmt.Errorf("failed to compile pattern-regexp: %w", err)
 			errorMessages = append(errorMessages, e.Error())
@@ -227,7 +226,7 @@ func (cr *WatchOption) Normalize() error {
 	}
 
 	if cr.IgnoreFileRegexpString != "" {
-		re, err := regexp2.Compile(cr.IgnoreFileRegexpString, 0)
+		re, err := regexp.Compile(cr.IgnoreFileRegexpString)
 		if err != nil {
 			e := fmt.Errorf("failed to compile ignore-file-regexp: %w", err)
 			errorMessages = append(errorMessages, e.Error())
@@ -237,7 +236,7 @@ func (cr *WatchOption) Normalize() error {
 	}
 
 	if cr.IgnoreDirRegexpString != "" {
-		re, err := regexp2.Compile(cr.IgnoreDirRegexpString, 0)
+		re, err := regexp.Compile(cr.IgnoreDirRegexpString)
 		if err != nil {
 			e := fmt.Errorf("failed to compile ignore-dir-regexp: %w", err)
 			errorMessages = append(errorMessages, e.Error())

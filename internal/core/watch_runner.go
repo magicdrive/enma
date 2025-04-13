@@ -205,13 +205,9 @@ func (r *WatchRunner) ShouldTrigger(event fsnotify.Event) bool {
 
 	if r.Options.PatternRegexp != nil {
 		baseName := filepath.Base(absPath)
-		result, err := r.Options.PatternRegexp.MatchString(baseName)
-		if err != nil {
-			log.Fatalf("Fatal error: %s", err)
-		} else {
-			if result == false {
-				return false
-			}
+		result := r.Options.PatternRegexp.MatchString(baseName)
+		if result == false {
+			return false
 		}
 	}
 
@@ -235,25 +231,17 @@ func (r *WatchRunner) ShouldTrigger(event fsnotify.Event) bool {
 
 	if r.Options.IgnoreDirRegexp != nil {
 		dir := filepath.Dir(absPath)
-		result, err := r.Options.IgnoreDirRegexp.MatchString(dir)
-		if err != nil {
-			log.Fatalf("Fatal error: %s", err)
-		} else {
-			if result == true {
-				return false
-			}
+		result := r.Options.IgnoreDirRegexp.MatchString(dir)
+		if result == true {
+			return false
 		}
 	}
 
 	if r.Options.IgnoreFileRegexp != nil {
 		baseName := filepath.Base(absPath)
-		result, err := r.Options.IgnoreFileRegexp.MatchString(baseName)
-		if err != nil {
-			log.Fatalf("Fatal error: %s", err)
-		} else {
-			if result == true {
-				return false
-			}
+		result := r.Options.IgnoreFileRegexp.MatchString(baseName)
+		if result == true {
+			return false
 		}
 	}
 

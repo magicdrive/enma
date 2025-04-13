@@ -7,11 +7,11 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"regexp"
 	"strings"
 	"testing"
 	"time"
 
-	"github.com/dlclark/regexp2"
 	"github.com/fsnotify/fsnotify"
 
 	"github.com/magicdrive/enma/internal/commandline/option"
@@ -141,7 +141,7 @@ func TestHotloadRunnerShouldTrigger(t *testing.T) {
 
 func TestHotloadRunnerShouldTrigger_Regex(t *testing.T) {
 	t.Run("PatternRegexp match", func(t *testing.T) {
-		re, err := regexp2.Compile(`main_.*\.go$`, 0)
+		re, err := regexp.Compile(`main_.*\.go$`)
 		if err != nil {
 			t.Fatalf("failed to compile regex: %v", err)
 		}
@@ -161,7 +161,7 @@ func TestHotloadRunnerShouldTrigger_Regex(t *testing.T) {
 	})
 
 	t.Run("PatternRegexp no match", func(t *testing.T) {
-		re, err := regexp2.Compile(`^main.*\.go$`, 0)
+		re, err := regexp.Compile(`^main.*\.go$`)
 		if err != nil {
 			t.Fatalf("failed to compile regex: %v", err)
 		}
@@ -181,7 +181,7 @@ func TestHotloadRunnerShouldTrigger_Regex(t *testing.T) {
 	})
 
 	t.Run("IgnoreDirRegexp match", func(t *testing.T) {
-		re, err := regexp2.Compile(`vendor`, 0)
+		re, err := regexp.Compile(`vendor`)
 		if err != nil {
 			t.Fatalf("failed to compile regex: %v", err)
 		}
@@ -201,7 +201,7 @@ func TestHotloadRunnerShouldTrigger_Regex(t *testing.T) {
 	})
 
 	t.Run("IgnoreFileRegexp match", func(t *testing.T) {
-		re, err := regexp2.Compile(`_gen\.go$`, 0)
+		re, err := regexp.Compile(`_gen\.go$`)
 		if err != nil {
 			t.Fatalf("failed to compile regex: %v", err)
 		}
