@@ -195,12 +195,18 @@ func (r *WatchRunner) Start() error {
 						for _, change := range pendingWatch {
 							r.mu.Lock()
 							resolvedPath := r.applyArgsPathStyle(change.path)
-							if r.hasChanged(change.path) {
-								log.Printf("🔔 Change confirmed in: %s", change.path)
-								r.handleChangeDirect(resolvedPath)
-							} else {
-								log.Printf("🔁 Skipped: %s has no content change", change.path)
+
+							if r.Options.CheckContentDiff {
+								if !r.hasChanged(change.path) {
+									log.Printf("🔁 Skipped: %s has no content change", change.path)
+									r.mu.Unlock()
+									continue
+								} else {
+									log.Printf("🔔 Change confirmed in: %s", change.path)
+								}
 							}
+
+							r.handleChangeDirect(resolvedPath)
 							r.mu.Unlock()
 						}
 						pendingWatch = make(map[string]pendingChangeWatch)

@@ -191,6 +191,9 @@ func (r *HotloadRunner) Start() error {
 				}
 
 				if r.ShouldTrigger(event) {
+					if r.Options.CheckContentDiff {
+
+					}
 					absPath := filepath.Clean(event.Name)
 					pendingMuHotload.Lock()
 					pendingHotload[absPath] = pendingChangeHotload{path: absPath, time: time.Now()}
@@ -204,12 +207,18 @@ func (r *HotloadRunner) Start() error {
 						for _, change := range pendingHotload {
 							r.mu.Lock()
 							resolvedPath := r.applyArgsPathStyle(change.path)
-							if r.hasChanged(change.path) {
-								log.Printf("🔔 Change confirmed in: %s", change.path)
-								r.handleChangeDirect(resolvedPath)
-							} else {
-								log.Printf("🔁 Skipped: %s has no content change", change.path)
+
+							if r.Options.CheckContentDiff {
+								if !r.hasChanged(change.path) {
+									log.Printf("🔁 Skipped: %s has no content change", change.path)
+									r.mu.Unlock()
+									continue
+								} else {
+									log.Printf("🔔 Change confirmed in: %s", change.path)
+								}
 							}
+
+							r.handleChangeDirect(resolvedPath)
 							r.mu.Unlock()
 						}
 						pendingHotload = make(map[string]pendingChangeHotload)

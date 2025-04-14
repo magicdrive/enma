@@ -144,6 +144,7 @@ This layered approach ensures clarity in behavior while keeping Enma fast and cu
 | `-W`, `--working-dir <dir_name>`      | Working directory (default: `$PWD`)                                        |
 | `-I`, `--placeholder`                 | Placeholder in command for changed file (default: `{}`)                    |
 | `-s`, `--args-path-style <style>`     | filepath-style where event in command. (optional. default: `dir,base,ext`) |
+| `--check-content-diff`                | Fires only when the file contents are changed. (optional)                  |
 | `-A`, `--abs`, `--absolute-path`      | Use absolute path in placeholder (optional)                                |
 | `-t`, `--timeout <time>`              | Timeout for build command (default: `5sec`)                                |
 | `-l`, `--delay <time>`                | Delay after build command (default: `0sec`)                                |
@@ -172,6 +173,7 @@ This layered approach ensures clarity in behavior while keeping Enma fast and cu
 | `-W`, `--working-dir <dir_name>`      | Working directory (default: `$PWD`)                                        |
 | `-I`, `--placeholder`                 | Placeholder in command for changed file (default: `{}`)                    |
 | `-s`, `--args-path-style <style>`     | filepath-style where event in command. (optional. default: `dir,base,ext`) |
+| `--check-content-diff`                | Fires only when the file contents are changed. (optional)                  |
 | `-A`, `--abs`, `--absolute-path`      | Use absolute path in placeholder (optional)                                |
 | `-t`, `--timeout <time>`              | Timeout for command (default: `5sec`)                                      |
 | `-l`, `--delay <time>`                | Delay after command (default: `0sec`)                                      |
