@@ -1,7 +1,9 @@
 package core
 
 import (
+	"bytes"
 	"context"
+	"crypto/sha256"
 	"fmt"
 	"io"
 	"log"
@@ -31,7 +33,18 @@ type WatchRunner struct {
 	currentCmd    *exec.Cmd
 	mu            sync.Mutex
 	debounceTimer *time.Timer
+	fileHashes    sync.Map
 }
+
+type pendingChangeWatch struct {
+	path string
+	time time.Time
+}
+
+var (
+	pendingWatch   = make(map[string]pendingChangeWatch)
+	pendingMuWatch sync.Mutex
+)
 
 func NewWatchRunner(opt *option.WatchOption) *WatchRunner {
 	timeout, _ := opt.Timeout.TimeDuration()
@@ -48,16 +61,23 @@ func (r *WatchRunner) ReplacePlaceholders(command, path string) string {
 	return common.ReplacePlaceholders(command, r.Options.Placeholder, path)
 }
 
+func (r *WatchRunner) AddWatchDirs(dirs []string) {
+	for _, dir := range dirs {
+		if err := r.watcher.Add(dir); err != nil {
+			log.Printf("⚠️  Failed to watch %s: %v", dir, err)
+		} else {
+			absPath, _ := filepath.Abs(dir)
+			log.Printf("👀 Watching %s", absPath)
+		}
+	}
+}
+
 func (r *WatchRunner) AddWatchRecursive(path string) error {
 	dirs, err := r.CollectWatchDirs(path)
 	if err != nil {
 		return err
 	}
-	for _, d := range dirs {
-		if err := r.watcher.Add(d); err != nil {
-			log.Printf("⚠️  Failed to add watch: %s (%v)", d, err)
-		}
-	}
+	r.AddWatchDirs(dirs)
 	return nil
 }
 
@@ -131,32 +151,61 @@ func (r *WatchRunner) Start() error {
 	defer watcher.Close()
 
 	for _, dir := range r.Options.WatchDirList {
-		dirs, err := r.CollectWatchDirs(dir)
-		if err != nil {
+		if err := r.AddWatchRecursive(dir); err != nil {
 			return err
-		} else {
-			absPath, _ := filepath.Abs(dir)
-			log.Printf("👀 Watching %s", absPath)
-		}
-		for _, d := range dirs {
-			if err := watcher.Add(d); err != nil {
-				log.Printf("⚠️  Failed to watch: %s (%v)", d, err)
-			}
 		}
 	}
 
 	log.Println("🚀 Start file monitor daemon")
 
-	eventChan := make(chan fsnotify.Event, 1)
 	go func() {
 		for {
 			select {
 			case event := <-watcher.Events:
-				if r.ShouldTrigger(event) {
-					select {
-					case eventChan <- event:
-					default:
+				if event.Op&fsnotify.Create == fsnotify.Create {
+					info, err := os.Lstat(event.Name)
+					if err == nil {
+						if info.Mode()&os.ModeSymlink != 0 {
+							resolved, err := filepath.EvalSymlinks(event.Name)
+							if err == nil {
+								info, err = os.Stat(resolved)
+								if err == nil && info.IsDir() && !r.IsExcludedDir(resolved) {
+									_ = r.AddWatchRecursive(resolved)
+									log.Printf("👀 Watching symlinked dir: %s", resolved)
+								}
+							}
+						} else if info.IsDir() && !r.IsExcludedDir(event.Name) {
+							_ = r.AddWatchRecursive(event.Name)
+							log.Printf("👀 Watching new dir: %s", event.Name)
+						}
 					}
+				}
+
+				if r.ShouldTrigger(event) {
+					absPath := filepath.Clean(event.Name)
+					pendingMuWatch.Lock()
+					pendingWatch[absPath] = pendingChangeWatch{path: absPath, time: time.Now()}
+					pendingMuWatch.Unlock()
+
+					if r.debounceTimer != nil {
+						r.debounceTimer.Stop()
+					}
+					r.debounceTimer = time.AfterFunc(300*time.Millisecond, func() {
+						pendingMuWatch.Lock()
+						for _, change := range pendingWatch {
+							r.mu.Lock()
+							resolvedPath := r.applyArgsPathStyle(change.path)
+							if r.hasChanged(change.path) {
+								log.Printf("🔔 Change confirmed in: %s", change.path)
+								r.handleChangeDirect(resolvedPath)
+							} else {
+								log.Printf("🔁 Skipped: %s has no content change", change.path)
+							}
+							r.mu.Unlock()
+						}
+						pendingWatch = make(map[string]pendingChangeWatch)
+						pendingMuWatch.Unlock()
+					})
 				}
 			case err := <-watcher.Errors:
 				log.Println("Watcher error:", err)
@@ -164,26 +213,43 @@ func (r *WatchRunner) Start() error {
 		}
 	}()
 
-	for _event := range eventChan {
-		if _event.Op&fsnotify.Create == fsnotify.Create {
-			info, err := os.Stat(_event.Name)
-			if err == nil && info.IsDir() && !r.IsExcludedDir(_event.Name) {
-				if err = r.AddWatchRecursive(_event.Name); err == nil {
-					absPath, _ := filepath.Abs(_event.Name)
-					log.Printf("👀 Watching %s", absPath)
-				}
-			}
-		}
+	select {}
 
-		if r.debounceTimer != nil {
-			r.debounceTimer.Stop()
+}
+
+func (r *WatchRunner) handleChangeDirect(path string) {
+	pathStyled := r.applyArgsPathStyle(path)
+	for i := 0; i <= r.Options.Retry; i++ {
+		if r.RunBuildSequence(i, pathStyled) {
+			log.Println("✅  Command Action success")
+			time.Sleep(r.Delay)
+			return
 		}
-		r.debounceTimer = time.AfterFunc(300*time.Millisecond, func() {
-			r.handleChange(_event)
-		})
+		time.Sleep(1 * time.Second)
 	}
+}
 
-	return nil
+func (r *WatchRunner) hasChanged(path string) bool {
+	hash, err := r.computeHash(path)
+	if err != nil {
+		return true
+	}
+	if prev, ok := r.fileHashes.Load(path); ok {
+		if bytes.Equal(prev.([]byte), hash) {
+			return false
+		}
+	}
+	r.fileHashes.Store(path, hash)
+	return true
+}
+
+func (r *WatchRunner) computeHash(path string) ([]byte, error) {
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return nil, err
+	}
+	h := sha256.Sum256(data)
+	return h[:], nil
 }
 
 func (r *WatchRunner) IsExcludedDir(path string) bool {
@@ -263,21 +329,6 @@ func (r *WatchRunner) ShouldTrigger(event fsnotify.Event) bool {
 	return true
 }
 
-func (r *WatchRunner) handleChange(event fsnotify.Event) {
-	r.mu.Lock()
-	defer r.mu.Unlock()
-	path := r.applyArgsPathStyle(event.Name)
-
-	for i := 0; i <= r.Options.Retry; i++ {
-		if r.RunBuildSequence(i, path) {
-			log.Println("✅  Command Action success")
-			time.Sleep(r.Delay)
-			return
-		}
-		time.Sleep(1 * time.Second)
-	}
-}
-
 func (r *WatchRunner) RunBuildSequence(attempt int, path string) bool {
 	ctx, cancel := context.WithTimeout(context.Background(), r.CmdTimeout)
 	defer cancel()
@@ -349,10 +400,8 @@ func (r *WatchRunner) applyArgsPathStyle(path string) string {
 	if r.Options.AbsolutePathFlag {
 		target = common.ToAbsolutePath(target)
 	}
-
 	if r.Options.ArgsPathStyleString != "" {
 		return r.Options.ArgsPathStyle.ArgsPathString(target)
 	}
-
 	return target
 }
