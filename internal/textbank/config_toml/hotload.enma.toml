@@ -19,6 +19,7 @@ args_path_style = "dirname,basename,ext"
 timeout = "5s"
 delay = "0s"
 retry = 1
+check_content_diff = false
 
 # Watch target configuration
 watch_dir = ["./"]

@@ -22,6 +22,7 @@ type HotloadOption struct {
 	Placeholder            string
 	ArgsPathStyleString    model.ArgsPathStyleString
 	ArgsPathStyle          *model.ArgsPathStyleObj
+	CheckContentDiff       bool
 	AbsolutePathFlag       bool
 	Timeout                model.TimeString
 	Delay                  model.TimeString
@@ -90,6 +91,10 @@ func ParseHotload(args []string) (*HotloadOption, error) {
 		"Defines args path-style string that will be use in file name where event occurred in command. (optional)")
 	fs.Var(&argsPathStyleOpt, "s",
 		"Defines args path-style string that will be use in file name where event occurred in command. (optional)")
+
+	// --check-content-diff
+	checkContentDiffFlagOpt :=
+		fs.Bool("check-content-diff", false, "Fires only when the file contents are changed. (optional)")
 
 	// --absolute-path
 	absolutePathFlagOpt :=
@@ -175,6 +180,7 @@ func ParseHotload(args []string) (*HotloadOption, error) {
 		WorkingDir:             *workingDirOpt,
 		Placeholder:            *placeholderOpt,
 		ArgsPathStyleString:    argsPathStyleOpt,
+		CheckContentDiff:       *checkContentDiffFlagOpt,
 		AbsolutePathFlag:       *absolutePathFlagOpt,
 		Timeout:                timeoutOpt,
 		Delay:                  delayOpt,

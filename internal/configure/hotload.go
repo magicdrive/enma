@@ -9,25 +9,27 @@ import (
 )
 
 type tomlHotloadConf struct {
-	Daemon        string   `toml:"daemon"`
-	PreBuild      string   `toml:"pre_build"`
-	Build         string   `toml:"build"`
-	PostBuild     string   `toml:"post_build"`
-	WorkingDir    string   `toml:"working_dir"`
-	Placeholder   string   `toml:"placeholder"`
-	ArgsPathStyle string   `toml:"args_path_style"`
-	Timeout       string   `toml:"timeout"`
-	Delay         string   `toml:"delay"`
-	Retry         int      `toml:"retry"`
-	WatchDir      []string `toml:"watch_dir"`
-	PatternRegexp string   `toml:"pattern_regex"`
-	IncludeExt    []string `toml:"include_ext"`
-	IgnoreRegex   string   `toml:"ignore_regex"`
-	ExcludeExt    []string `toml:"exclude_ext"`
-	ExcludeDir    []string `toml:"exclude_dir"`
-	EnmaIgnore    []string `toml:"enmaignore"`
-	LogPath       string   `toml:"logs"`
-	PidPath       string   `toml:"pid"`
+	Daemon           string   `toml:"daemon"`
+	PreBuild         string   `toml:"pre_build"`
+	Build            string   `toml:"build"`
+	PostBuild        string   `toml:"post_build"`
+	WorkingDir       string   `toml:"working_dir"`
+	Placeholder      string   `toml:"placeholder"`
+	ArgsPathStyle    string   `toml:"args_path_style"`
+	CheckContentDiff bool     `toml:"check_content_diff"`
+	AbsolutePath     bool     `toml:"absolute_path"`
+	Timeout          string   `toml:"timeout"`
+	Delay            string   `toml:"delay"`
+	Retry            int      `toml:"retry"`
+	WatchDir         []string `toml:"watch_dir"`
+	PatternRegexp    string   `toml:"pattern_regex"`
+	IncludeExt       []string `toml:"include_ext"`
+	IgnoreRegex      string   `toml:"ignore_regex"`
+	ExcludeExt       []string `toml:"exclude_ext"`
+	ExcludeDir       []string `toml:"exclude_dir"`
+	EnmaIgnore       []string `toml:"enmaignore"`
+	LogPath          string   `toml:"logs"`
+	PidPath          string   `toml:"pid"`
 }
 
 func NewHotloadOptionFromTOMLConfig(h tomlHotloadConf) (*option.HotloadOption, error) {
@@ -51,8 +53,9 @@ func NewHotloadOptionFromTOMLConfig(h tomlHotloadConf) (*option.HotloadOption, e
 		PostBuild:              h.PostBuild,
 		ArgsPathStyleString:    model.ArgsPathStyleString(argPathStyle),
 		Placeholder:            placeholder,
+		AbsolutePathFlag:       h.AbsolutePath,
+		CheckContentDiff:       h.CheckContentDiff,
 		WorkingDir:             workingDir,
-		AbsolutePathFlag:       false,
 		Timeout:                model.TimeString(timeout),
 		Delay:                  model.TimeString(delay),
 		Retry:                  h.Retry,

@@ -1,7 +1,9 @@
 package core
 
 import (
+	"bytes"
 	"context"
+	"crypto/sha256"
 	"fmt"
 	"io"
 	"log"
@@ -32,7 +34,18 @@ type HotloadRunner struct {
 	currentCmd    *exec.Cmd
 	mu            sync.Mutex
 	debounceTimer *time.Timer
+	fileHashes    sync.Map
 }
+
+type pendingChangeHotload struct {
+	path string
+	time time.Time
+}
+
+var (
+	pendingHotload   = make(map[string]pendingChangeHotload)
+	pendingMuHotload sync.Mutex
+)
 
 func NewHotloadRunner(opt *option.HotloadOption) *HotloadRunner {
 	timeout, _ := opt.Timeout.TimeDuration()
@@ -154,16 +167,63 @@ func (r *HotloadRunner) Start() error {
 		return err
 	}
 
-	eventChan := make(chan fsnotify.Event, 1)
 	go func() {
 		for {
 			select {
 			case event := <-watcher.Events:
-				if r.ShouldTrigger(event) {
-					select {
-					case eventChan <- event:
-					default:
+				if event.Op&fsnotify.Create == fsnotify.Create {
+					info, err := os.Lstat(event.Name)
+					if err == nil {
+						if info.Mode()&os.ModeSymlink != 0 {
+							resolved, err := filepath.EvalSymlinks(event.Name)
+							if err == nil {
+								info, err = os.Stat(resolved)
+								if err == nil && info.IsDir() && !r.IsExcludedDir(resolved) {
+									_ = r.AddWatchRecursive(resolved)
+									log.Printf("👀 Watching symlinked dir: %s", resolved)
+								}
+							}
+						} else if info.IsDir() && !r.IsExcludedDir(event.Name) {
+							_ = r.AddWatchRecursive(event.Name)
+							log.Printf("👀 Watching new dir: %s", event.Name)
+						}
 					}
+				}
+
+				if r.ShouldTrigger(event) {
+					if r.Options.CheckContentDiff {
+
+					}
+					absPath := filepath.Clean(event.Name)
+					pendingMuHotload.Lock()
+					pendingHotload[absPath] = pendingChangeHotload{path: absPath, time: time.Now()}
+					pendingMuHotload.Unlock()
+
+					if r.debounceTimer != nil {
+						r.debounceTimer.Stop()
+					}
+					r.debounceTimer = time.AfterFunc(300*time.Millisecond, func() {
+						pendingMuHotload.Lock()
+						for _, change := range pendingHotload {
+							r.mu.Lock()
+							resolvedPath := r.applyArgsPathStyle(change.path)
+
+							if r.Options.CheckContentDiff {
+								if !r.hasChanged(change.path) {
+									log.Printf("🔁 Skipped: %s has no content change", change.path)
+									r.mu.Unlock()
+									continue
+								} else {
+									log.Printf("🔔 Change confirmed in: %s", change.path)
+								}
+							}
+
+							r.handleChangeDirect(resolvedPath)
+							r.mu.Unlock()
+						}
+						pendingHotload = make(map[string]pendingChangeHotload)
+						pendingMuHotload.Unlock()
+					})
 				}
 			case err := <-watcher.Errors:
 				log.Println("Watcher error:", err)
@@ -171,45 +231,43 @@ func (r *HotloadRunner) Start() error {
 		}
 	}()
 
-	for _event := range eventChan {
-		if _event.Op&fsnotify.Create == fsnotify.Create {
-			info, err := os.Lstat(_event.Name)
-			if err != nil {
-				continue
-			}
+	select {}
+}
 
-			var dirPath string
-			if info.Mode()&os.ModeSymlink != 0 {
-				resolved, err := filepath.EvalSymlinks(_event.Name)
-				if err != nil {
-					log.Printf("⚠️  Could not resolve symlink %s: %v", _event.Name, err)
-					continue
-				}
-				info, err = os.Stat(resolved)
-				if err != nil || !info.IsDir() {
-					continue
-				}
-				dirPath = resolved
-			} else if info.IsDir() {
-				dirPath = _event.Name
-			} else {
-				continue
-			}
-
-			if !r.IsExcludedDir(dirPath) {
-				_ = r.AddWatchRecursive(dirPath)
-			}
+func (r *HotloadRunner) handleChangeDirect(path string) {
+	for i := 0; i <= r.Options.Retry; i++ {
+		if r.RunBuildSequence(i, path) {
+			log.Println("✅  Build success")
+			time.Sleep(r.Delay)
+			r.stopDaemon()
+			r.startDaemon()
+			return
 		}
-
-		if r.debounceTimer != nil {
-			r.debounceTimer.Stop()
-		}
-		r.debounceTimer = time.AfterFunc(300*time.Millisecond, func() {
-			r.handleChange(_event)
-		})
+		time.Sleep(1 * time.Second)
 	}
+}
 
-	return nil
+func (r *HotloadRunner) hasChanged(path string) bool {
+	hash, err := r.computeHash(path)
+	if err != nil {
+		return true
+	}
+	if prev, ok := r.fileHashes.Load(path); ok {
+		if bytes.Equal(prev.([]byte), hash) {
+			return false
+		}
+	}
+	r.fileHashes.Store(path, hash)
+	return true
+}
+
+func (r *HotloadRunner) computeHash(path string) ([]byte, error) {
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return nil, err
+	}
+	h := sha256.Sum256(data)
+	return h[:], nil
 }
 
 func (r *HotloadRunner) IsExcludedDir(path string) bool {
@@ -287,23 +345,6 @@ func (r *HotloadRunner) ShouldTrigger(event fsnotify.Event) bool {
 	}
 
 	return true
-}
-
-func (r *HotloadRunner) handleChange(event fsnotify.Event) {
-	r.mu.Lock()
-	defer r.mu.Unlock()
-	path := r.applyArgsPathStyle(event.Name)
-
-	for i := 0; i <= r.Options.Retry; i++ {
-		if r.RunBuildSequence(i, path) {
-			log.Println("✅  Build success")
-			time.Sleep(r.Delay)
-			r.stopDaemon()
-			r.startDaemon()
-			return
-		}
-		time.Sleep(1 * time.Second)
-	}
 }
 
 func (r *HotloadRunner) RunBuildSequence(attempt int, path string) bool {
@@ -405,10 +446,8 @@ func (r *HotloadRunner) applyArgsPathStyle(path string) string {
 	if r.Options.AbsolutePathFlag {
 		target = common.ToAbsolutePath(target)
 	}
-
 	if r.Options.ArgsPathStyleString != "" {
 		return r.Options.ArgsPathStyle.ArgsPathString(target)
 	}
-
 	return target
 }
