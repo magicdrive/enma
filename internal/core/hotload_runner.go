@@ -375,7 +375,7 @@ func (r *HotloadRunner) RunPreBuild(ctx context.Context, path string) error {
 		return nil
 	}
 	cmd := r.ExecCommand(ctx, "sh", "-c", r.ReplacePlaceholders(r.Options.PreBuild, path))
-	cmd.SysProcAttr = &syscall.SysProcAttr{Setpgid: true}
+	setProcessGroup(cmd)
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
 	r.currentCmd = cmd
@@ -384,7 +384,7 @@ func (r *HotloadRunner) RunPreBuild(ctx context.Context, path string) error {
 
 func (r *HotloadRunner) RunBuild(ctx context.Context, path string) error {
 	cmd := r.ExecCommand(ctx, "sh", "-c", r.ReplacePlaceholders(r.Options.Build, path))
-	cmd.SysProcAttr = &syscall.SysProcAttr{Setpgid: true}
+	setProcessGroup(cmd)
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
 	r.currentCmd = cmd
@@ -396,7 +396,7 @@ func (r *HotloadRunner) RunPostBuild(ctx context.Context, path string) error {
 		return nil
 	}
 	cmd := r.ExecCommand(ctx, "sh", "-c", r.ReplacePlaceholders(r.Options.PostBuild, path))
-	cmd.SysProcAttr = &syscall.SysProcAttr{Setpgid: true}
+	setProcessGroup(cmd)
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
 	r.currentCmd = cmd
@@ -405,7 +405,7 @@ func (r *HotloadRunner) RunPostBuild(ctx context.Context, path string) error {
 
 func (r *HotloadRunner) startDaemon() error {
 	cmd := exec.Command("sh", "-c", r.Options.Daemon)
-	cmd.SysProcAttr = &syscall.SysProcAttr{Setpgid: true}
+	setProcessGroup(cmd)
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
 	if err := cmd.Start(); err != nil {
@@ -422,16 +422,7 @@ func (r *HotloadRunner) startDaemon() error {
 func (r *HotloadRunner) stopDaemon() {
 	if r.cmd != nil && r.cmd.Process != nil {
 		log.Println("🛑 Stopping daemon...")
-		if runtime.GOOS == "windows" {
-			_ = r.cmd.Process.Kill()
-		} else {
-			pgid, err := syscall.Getpgid(r.cmd.Process.Pid)
-			if err == nil {
-				_ = syscall.Kill(-pgid, syscall.SIGTERM)
-			} else {
-				_ = r.cmd.Process.Signal(syscall.SIGTERM)
-			}
-		}
+		stopProcess(r.cmd)
 		_ = r.cmd.Wait()
 		r.cmd = nil
 	}
@@ -440,16 +431,7 @@ func (r *HotloadRunner) stopDaemon() {
 func (r *HotloadRunner) stopCurrentCmd() {
 	if r.currentCmd != nil && r.currentCmd.Process != nil {
 		log.Println("🛑 Aborting build...")
-		if runtime.GOOS == "windows" {
-			_ = r.currentCmd.Process.Kill()
-		} else {
-			pgid, err := syscall.Getpgid(r.currentCmd.Process.Pid)
-			if err == nil {
-				_ = syscall.Kill(-pgid, syscall.SIGTERM)
-			} else {
-				_ = r.currentCmd.Process.Signal(syscall.SIGTERM)
-			}
-		}
+		stopProcess(r.currentCmd)
 		_ = r.currentCmd.Wait()
 		r.currentCmd = nil
 	}
