@@ -363,6 +363,7 @@ func (r *WatchRunner) RunPreCmd(ctx context.Context, path string) error {
 		return nil
 	}
 	cmd := r.ExecCommand(ctx, "sh", "-c", r.ReplacePlaceholders(r.Options.PreCmd, path))
+	cmd.SysProcAttr = &syscall.SysProcAttr{Setpgid: true}
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
 	r.currentCmd = cmd
@@ -371,6 +372,7 @@ func (r *WatchRunner) RunPreCmd(ctx context.Context, path string) error {
 
 func (r *WatchRunner) RunCmd(ctx context.Context, path string) error {
 	cmd := r.ExecCommand(ctx, "sh", "-c", r.ReplacePlaceholders(r.Options.Cmd, path))
+	cmd.SysProcAttr = &syscall.SysProcAttr{Setpgid: true}
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
 	r.currentCmd = cmd
@@ -382,6 +384,7 @@ func (r *WatchRunner) RunPostCmd(ctx context.Context, path string) error {
 		return nil
 	}
 	cmd := r.ExecCommand(ctx, "sh", "-c", r.ReplacePlaceholders(r.Options.PostCmd, path))
+	cmd.SysProcAttr = &syscall.SysProcAttr{Setpgid: true}
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
 	r.currentCmd = cmd
@@ -394,7 +397,12 @@ func (r *WatchRunner) stopCurrentCmd() {
 		if runtime.GOOS == "windows" {
 			_ = r.currentCmd.Process.Kill()
 		} else {
-			_ = r.currentCmd.Process.Signal(syscall.SIGTERM)
+			pgid, err := syscall.Getpgid(r.currentCmd.Process.Pid)
+			if err == nil {
+				_ = syscall.Kill(-pgid, syscall.SIGTERM)
+			} else {
+				_ = r.currentCmd.Process.Signal(syscall.SIGTERM)
+			}
 		}
 		_ = r.currentCmd.Wait()
 		r.currentCmd = nil
