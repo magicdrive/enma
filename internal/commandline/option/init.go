@@ -32,7 +32,11 @@ func ParseInit(args []string) (*InitOption, error) {
 
 	fs.Usage = common.EnmaHelpFunc
 
-	fs.Parse(args)
+	// Parse flags
+	err := fs.Parse(args)
+	if err != nil {
+		return nil, err
+	}
 
 	fs.Usage = common.EnmaInitHelpFunc
 

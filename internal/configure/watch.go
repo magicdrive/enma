@@ -5,7 +5,6 @@ import (
 
 	"github.com/magicdrive/enma/internal/commandline/option"
 	"github.com/magicdrive/enma/internal/common"
-	"github.com/magicdrive/enma/internal/model"
 )
 
 type tomlWatchConf struct {
@@ -43,25 +42,29 @@ func NewWatchOptionFromTOMLConfig(h tomlWatchConf) (*option.WatchOption, error) 
 	}
 
 	opt := &option.WatchOption{
-		PreCmd:                 h.PreCmd,
-		Cmd:                    cmd,
-		PostCmd:                h.PostCmd,
-		WorkingDir:             workingDir,
-		Placeholder:            placeholder,
-		ArgsPathStyleString:    model.ArgsPathStyleString(argPathStyle),
-		AbsolutePathFlag:       false,
-		Timeout:                model.TimeString(timeout),
-		Delay:                  model.TimeString(delay),
-		Retry:                  h.Retry,
-		WatchDir:               JoinComma(watchDir),
-		PatternRegexpString:    fallback(h.PatternRegexp, ".*"),
-		IncludeExt:             JoinComma(h.IncludeExt),
-		IgnoreFileRegexpString: h.IgnoreRegex,
-		ExcludeExt:             JoinComma(h.ExcludeExt),
-		ExcludeDir:             JoinComma(h.ExcludeDir),
-		EnmaIgnoreString:       JoinComma(h.EnmaIgnore),
-		LogPathOpt:             h.LogPath,
-		PidPathOpt:             h.PidPath,
+		PreCmd:                   h.PreCmd,
+		Cmd:                      cmd,
+		PostCmd:                  h.PostCmd,
+		WorkingDir:               workingDir,
+		Placeholder:              placeholder,
+		ArgsPathStyleStringValue: argPathStyle,
+		AbsolutePathFlag:         false,
+		TimeoutValue:             timeout,
+		DelayValue:               delay,
+		Retry:                    h.Retry,
+		WatchDir:                 JoinComma(watchDir),
+		PatternRegexpString:      fallback(h.PatternRegexp, ".*"),
+		IncludeExt:               JoinComma(h.IncludeExt),
+		IgnoreFileRegexpString:   h.IgnoreRegex,
+		ExcludeExt:               JoinComma(h.ExcludeExt),
+		ExcludeDir:               JoinComma(h.ExcludeDir),
+		EnmaIgnoreString:         JoinComma(h.EnmaIgnore),
+		LogPathOpt:               h.LogPath,
+		PidPathOpt:               h.PidPath,
+	}
+
+	if err := opt.Valid(); err != nil {
+		return nil, err
 	}
 
 	if err := opt.Normalize(); err != nil {

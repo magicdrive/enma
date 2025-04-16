@@ -5,15 +5,16 @@ use = "hotload"
 [subcommand.hotload]
 # Basic process configuration
 daemon = "./daemon.sh"
-pre_build = "echo pre-build step. event by {}"
-build = "echo build step. event by {}"
-post_build = "echo post-build done event by {}"
+#pre_build = "echo pre-build step. event by {}"
+build = "echo build step."
+#post_build = "echo post-build done event by {}"
 working_dir = "./"
 
 # command args
 placeholder = "{}"
 absolute_path = false
 args_path_style = "dirname,basename,ext"
+build_at_start = "on"
 
 # Timing and retry
 timeout = "5s"

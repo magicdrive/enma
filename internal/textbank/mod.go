@@ -5,7 +5,7 @@ import _ "embed"
 //go:embed start_message.txt
 var StartMessage string
 
-//go:embed help.txt
+//go:embed short_help.txt
 var ShortHelpMessage string
 
 //go:embed help.txt

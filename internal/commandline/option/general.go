@@ -31,7 +31,11 @@ func ParseGeneral(args []string) (*GeneralOption, error) {
 
 	fs.Usage = common.EnmaHelpFunc
 
-	fs.Parse(args)
+	// Parse flags
+	err := fs.Parse(args)
+	if err != nil {
+		return nil, err
+	}
 
 	options := &GeneralOption{
 		ConfigFilePath: *configOpt,

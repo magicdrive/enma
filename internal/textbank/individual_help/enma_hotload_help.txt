@@ -14,6 +14,7 @@ Optional Options:
   -W, --working-dir <dir_name>    Defines working directory. (optional. default: $PWD)
   -I, --placeholder               Defines placeholder replaced with the changed filename. Default: {}
   -s, --args-path-style <style>   Defines filepath-style where event in command. (optional. default: "dir,base,ext")
+  -B, --build-at-start <on|off>   Run a build before starting daemon for the first time. (optional. default: "on")
   -A, --abs, --absolute-path      Use absolute path in placeholder.
   -t, --timeout <time>            Timeout for build command. Default: 5sec
   -l, --delay <time>              Delay after build command. Default: 0sec

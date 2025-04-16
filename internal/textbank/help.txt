@@ -29,6 +29,7 @@ hotload options:
   -W, --working-dir <dir_name>       Defines working directory. (optional. default: $PWD)
   -I, --placeholder                  Defines placeholder replaced with file name where event in command. (optional. default: "{}")
   -s, --args-path-style <style>      Defines filepath-style where event in command. (optional. default: "dir,base,ext")
+  -B, --build-at-start <on|off>      Run a build before starting daemon for the first time. (optional. default: "on")
   --check-content-diff               Fires only when the file contents are changed. (optional.)
   -A, --abs, --absolute-path         File name passed to placeholder must be an absolute path.  (optional)
   -t, --timeout <time>               Specify the build command timeout. (optional. default: '5sec')

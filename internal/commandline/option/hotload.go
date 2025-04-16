@@ -14,40 +14,46 @@ import (
 )
 
 type HotloadOption struct {
-	Daemon                 string
-	PreBuild               string
-	Build                  string
-	PostBuild              string
-	WorkingDir             string
-	Placeholder            string
-	ArgsPathStyleString    model.ArgsPathStyleString
-	ArgsPathStyle          *model.ArgsPathStyleObj
-	CheckContentDiff       bool
-	AbsolutePathFlag       bool
-	Timeout                model.TimeString
-	Delay                  model.TimeString
-	Retry                  int
-	WatchDir               string
-	WatchDirList           []string
-	PatternRegexpString    string
-	PatternRegexp          *regexp.Regexp
-	IncludeExt             string
-	IncludeExtList         []string
-	IgnoreDirRegexpString  string
-	IgnoreDirRegexp        *regexp.Regexp
-	IgnoreFileRegexpString string
-	IgnoreFileRegexp       *regexp.Regexp
-	ExcludeExt             string
-	ExcludeExtList         []string
-	ExcludeDir             string
-	ExcludeDirList         []string
-	EnmaIgnoreString       string
-	EnmaIgnoreList         []string
-	EnmaIgnore             *ignorerule.GitIgnore
-	LogPathOpt             string
-	PidPathOpt             string
-	HelpFlag               bool
-	FlagSet                *flag.FlagSet
+	Daemon                   string
+	PreBuild                 string
+	Build                    string
+	PostBuild                string
+	WorkingDir               string
+	Placeholder              string
+	ArgsPathStyleString      model.ArgsPathStyleString
+	ArgsPathStyleStringValue string
+	ArgsPathStyle            *model.ArgsPathStyleObj
+	BuildAtStart             model.OnOffSwitch
+	BuildAtStartValue        string
+	CheckContentDiff         bool
+	AbsolutePathFlag         bool
+	Timeout                  model.TimeString
+	TimeoutValue             string
+	Delay                    model.TimeString
+	DelayValue               string
+	Retry                    int
+	WatchDir                 string
+	WatchDirList             []string
+	PatternRegexpString      string
+	PatternRegexp            *regexp.Regexp
+	IncludeExt               string
+	IncludeExtList           []string
+	IgnoreDirRegexpString    string
+	IgnoreDirRegexp          *regexp.Regexp
+	IgnoreFileRegexpString   string
+	IgnoreFileRegexp         *regexp.Regexp
+	ExcludeExt               string
+	ExcludeExtList           []string
+	ExcludeDir               string
+	ExcludeDirList           []string
+	EnmaIgnoreString         string
+	EnmaIgnoreList           []string
+	EnmaIgnore               *ignorerule.GitIgnore
+	LogPathOpt               string
+	PidPathOpt               string
+	HelpFlag                 bool
+	HasPlaceholder           bool
+	FlagSet                  *flag.FlagSet
 }
 
 func (cr *HotloadOption) Mode() string {
@@ -86,11 +92,16 @@ func ParseHotload(args []string) (*HotloadOption, error) {
 		"Defines placeholder that will be replaced with file name where event occurred in command. (optional)")
 
 	// --args-path-style
-	argsPathStyleOpt := model.ArgsPathStyleString("dirname,basename,extension")
-	fs.Var(&argsPathStyleOpt, "args-path-style",
+	argsPathStyleOpt := fs.String("args-path-style", "dirname,basename,extension",
 		"Defines args path-style string that will be use in file name where event occurred in command. (optional)")
-	fs.Var(&argsPathStyleOpt, "s",
+	fs.StringVar(argsPathStyleOpt, "s", "dirname,basename,extension",
 		"Defines args path-style string that will be use in file name where event occurred in command. (optional)")
+
+	// --build-at-start
+	buildAtStartSwitchOpt := fs.String("build-at-start", "on",
+		"Run a build before starting daemon for the first time. If there is a placeholder, it will be ignored.")
+	fs.StringVar(buildAtStartSwitchOpt, "B", "on",
+		"Run a build before starting daemon for the first time. If there is a placeholder, it will be ignored.")
 
 	// --check-content-diff
 	checkContentDiffFlagOpt :=
@@ -103,14 +114,12 @@ func ParseHotload(args []string) (*HotloadOption, error) {
 	fs.BoolVar(absolutePathFlagOpt, "A", false, "File name passed to placeholder must be an absolute path.  (optional)")
 
 	// --timeout
-	timeoutOpt := model.TimeString("5sec")
-	fs.Var(&timeoutOpt, "timeout", "Specify the build command timeout (optional)")
-	fs.Var(&timeoutOpt, "t", "Specify the build command timeout (optional)")
+	timeoutOpt := fs.String("timeout", "5sec", "Specify the build command timeout (optional)")
+	fs.StringVar(timeoutOpt, "t", "5sec", "Specify the build command timeout (optional)")
 
 	// --delay
-	delayOpt := model.TimeString("0sec")
-	fs.Var(&delayOpt, "delay", "Specify delay time after the build command (optional)")
-	fs.Var(&delayOpt, "l", "Specify delay time after the build command (optional)")
+	delayOpt := fs.String("delay", "0sec", "Specify delay time after the build command (optional)")
+	fs.StringVar(delayOpt, "l", "0sec", "Specify delay time after the build command (optional)")
 
 	// --retry
 	retryOpt := fs.Int("retry", 0, "Specify retry count (optional)")
@@ -161,7 +170,10 @@ func ParseHotload(args []string) (*HotloadOption, error) {
 	fs.Usage = common.EnmaHelpFunc
 
 	// Parse flags
-	fs.Parse(args)
+	err := fs.Parse(args)
+	if err != nil {
+		return nil, err
+	}
 
 	fs.Usage = common.EnmaHotloadHelpFunc
 
@@ -173,30 +185,35 @@ func ParseHotload(args []string) (*HotloadOption, error) {
 	}
 
 	options := &HotloadOption{
-		Daemon:                 *daemonOpt,
-		PreBuild:               *preBuildOpt,
-		Build:                  *buildOpt,
-		PostBuild:              *postBuildOpt,
-		WorkingDir:             *workingDirOpt,
-		Placeholder:            *placeholderOpt,
-		ArgsPathStyleString:    argsPathStyleOpt,
-		CheckContentDiff:       *checkContentDiffFlagOpt,
-		AbsolutePathFlag:       *absolutePathFlagOpt,
-		Timeout:                timeoutOpt,
-		Delay:                  delayOpt,
-		Retry:                  *retryOpt,
-		WatchDir:               *watchDirOpt,
-		PatternRegexpString:    *patternRegexOpt,
-		IncludeExt:             *includeExtOpt,
-		IgnoreFileRegexpString: *ignoreFileRegexOpt,
-		IgnoreDirRegexpString:  *ignoreDirRegexOpt,
-		ExcludeExt:             *excludeExtOpt,
-		ExcludeDir:             *excludeDirOpt,
-		EnmaIgnoreString:       *enmaIgnoreOpt,
-		PidPathOpt:             *pidPathOpt,
-		LogPathOpt:             *logPathOpt,
-		HelpFlag:               *helpFlagOpt,
-		FlagSet:                fs,
+		Daemon:                   *daemonOpt,
+		PreBuild:                 *preBuildOpt,
+		Build:                    *buildOpt,
+		PostBuild:                *postBuildOpt,
+		WorkingDir:               *workingDirOpt,
+		Placeholder:              *placeholderOpt,
+		ArgsPathStyleStringValue: *argsPathStyleOpt,
+		BuildAtStartValue:        *buildAtStartSwitchOpt,
+		CheckContentDiff:         *checkContentDiffFlagOpt,
+		AbsolutePathFlag:         *absolutePathFlagOpt,
+		TimeoutValue:             *timeoutOpt,
+		DelayValue:               *delayOpt,
+		Retry:                    *retryOpt,
+		WatchDir:                 *watchDirOpt,
+		PatternRegexpString:      *patternRegexOpt,
+		IncludeExt:               *includeExtOpt,
+		IgnoreFileRegexpString:   *ignoreFileRegexOpt,
+		IgnoreDirRegexpString:    *ignoreDirRegexOpt,
+		ExcludeExt:               *excludeExtOpt,
+		ExcludeDir:               *excludeDirOpt,
+		EnmaIgnoreString:         *enmaIgnoreOpt,
+		PidPathOpt:               *pidPathOpt,
+		LogPathOpt:               *logPathOpt,
+		HelpFlag:                 *helpFlagOpt,
+		FlagSet:                  fs,
+	}
+
+	if err := options.Valid(); err != nil {
+		return nil, err
 	}
 
 	if err := options.Normalize(); err != nil {
@@ -204,6 +221,32 @@ func ParseHotload(args []string) (*HotloadOption, error) {
 	}
 
 	return options, nil
+}
+
+func (cr *HotloadOption) Valid() error {
+	var errorMessages = []string{}
+
+	if err := cr.ArgsPathStyleString.Set(cr.ArgsPathStyleStringValue); err != nil {
+		errorMessages = append(errorMessages, fmt.Sprintf("--args-path-style %s", err.Error()))
+	}
+
+	if err := cr.BuildAtStart.Set(cr.BuildAtStartValue); err != nil {
+		errorMessages = append(errorMessages, fmt.Sprintf("--build-at-start %s", err.Error()))
+	}
+
+	if err := cr.Timeout.Set(cr.TimeoutValue); err != nil {
+		errorMessages = append(errorMessages, fmt.Sprintf("--timeout %s", err.Error()))
+	}
+
+	if err := cr.Delay.Set(cr.DelayValue); err != nil {
+		errorMessages = append(errorMessages, fmt.Sprintf("--delay %s", err.Error()))
+	}
+
+	if len(errorMessages) == 0 {
+		return nil
+	} else {
+		return errors.New(strings.Join(errorMessages, "\n"))
+	}
 }
 
 func (cr *HotloadOption) Normalize() error {
@@ -217,6 +260,13 @@ func (cr *HotloadOption) Normalize() error {
 		} else {
 			cr.ArgsPathStyle = obj
 		}
+	}
+
+	// for buil at start. placeholder check.
+	if strings.Contains(cr.PreBuild, cr.Placeholder) ||
+		strings.Contains(cr.Build, cr.Placeholder) ||
+		strings.Contains(cr.PostBuild, cr.Placeholder) {
+		cr.HasPlaceholder = true
 	}
 
 	// comma sepalated to list.
