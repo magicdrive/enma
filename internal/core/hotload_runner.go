@@ -244,7 +244,7 @@ func (r *HotloadRunner) Start() error {
 func (r *HotloadRunner) firstBuild() {
 	for i := 0; i <= r.Options.Retry; i++ {
 		if r.RunBuildSequence(i, "") {
-			log.Println("✅  Buildat start success")
+			log.Println("✅  Build at start success")
 			time.Sleep(r.Delay)
 			return
 		}
