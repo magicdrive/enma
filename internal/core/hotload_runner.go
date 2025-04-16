@@ -163,6 +163,9 @@ func (r *HotloadRunner) Start() error {
 		}
 	}
 
+	if r.Options.BuildAtStart.Bool() && !r.Options.HasPlaceholder {
+		r.firstBuild()
+	}
 	if err := r.startDaemon(); err != nil {
 		return err
 	}
@@ -232,6 +235,19 @@ func (r *HotloadRunner) Start() error {
 	}()
 
 	select {}
+}
+
+func (r *HotloadRunner) firstBuild() {
+	for i := 0; i <= r.Options.Retry; i++ {
+		if r.RunBuildSequence(i, "") {
+			log.Println("✅  Build success")
+			time.Sleep(r.Delay)
+			r.stopDaemon()
+			r.startDaemon()
+			return
+		}
+		time.Sleep(1 * time.Second)
+	}
 }
 
 func (r *HotloadRunner) handleChangeDirect(path string) {

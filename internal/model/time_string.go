@@ -8,7 +8,7 @@ import (
 	"time"
 )
 
-var unitMap = map[string]string{
+var timeUnitMap = map[string]string{
 	"ns":  "ns",
 	"us":  "us",
 	"ms":  "ms",
@@ -31,7 +31,7 @@ func (m *TimeString) Set(value string) error {
 		*m = TimeString(value)
 		return nil
 	} else {
-		return fmt.Errorf("invalid value: %s. Allowed values must match regexp %s", value, TimeStringRegexpString)
+		return fmt.Errorf("invalid value: %q. Allowed values must match regexp %s", value, TimeStringRegexpString)
 	}
 }
 
@@ -48,7 +48,7 @@ func (m *TimeString) TimeDuration() (time.Duration, error) {
 	numStr := matches[1] // e.g. "1.5"
 	unit := matches[3]   // e.g. "s"
 
-	normalizedUnit, ok := unitMap[unit]
+	normalizedUnit, ok := timeUnitMap[unit]
 	if !ok {
 		return 0, errors.New("unsupported unit")
 	}

@@ -44,6 +44,7 @@ var styleNameUnitMap = map[string]string{
 }
 
 func (m *ArgsPathStyleString) Set(value string) error {
+	fmt.Println(value)
 	dict := map[string]string{}
 	for s := range strings.SplitSeq(value, ",") {
 		part := strings.TrimSpace(s)

@@ -16,6 +16,7 @@ type tomlHotloadConf struct {
 	WorkingDir       string   `toml:"working_dir"`
 	Placeholder      string   `toml:"placeholder"`
 	ArgsPathStyle    string   `toml:"args_path_style"`
+	BuildAtStart     string   `toml:"build_at_start"`
 	CheckContentDiff bool     `toml:"check_content_diff"`
 	AbsolutePath     bool     `toml:"absolute_path"`
 	Timeout          string   `toml:"timeout"`
@@ -39,6 +40,7 @@ func NewHotloadOptionFromTOMLConfig(h tomlHotloadConf) (*option.HotloadOption, e
 	workingDir := fallback(h.WorkingDir, common.GetCurrentDir())
 	placeholder := fallback(h.Placeholder, "{}")
 	argPathStyle := fallback(h.ArgsPathStyle, "dirname,basename,extension")
+	buildAtStart := fallback(h.BuildAtStart, "on")
 	timeout := fallback(h.Timeout, "5sec")
 	delay := fallback(h.Delay, "1sec")
 
@@ -52,6 +54,7 @@ func NewHotloadOptionFromTOMLConfig(h tomlHotloadConf) (*option.HotloadOption, e
 		Build:                  build,
 		PostBuild:              h.PostBuild,
 		ArgsPathStyleString:    model.ArgsPathStyleString(argPathStyle),
+		BuildAtStart:           model.OnOffSwitch(buildAtStart),
 		Placeholder:            placeholder,
 		AbsolutePathFlag:       h.AbsolutePath,
 		CheckContentDiff:       h.CheckContentDiff,
