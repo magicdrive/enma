@@ -5,8 +5,6 @@ import (
 	"path/filepath"
 	"runtime"
 	"strings"
-
-	"github.com/magicdrive/enma/internal/textbank"
 )
 
 type ArgsPathStyleString string
@@ -44,20 +42,17 @@ var styleNameUnitMap = map[string]string{
 }
 
 func (m *ArgsPathStyleString) Set(value string) error {
-	fmt.Println(value)
 	dict := map[string]string{}
 	for s := range strings.SplitSeq(value, ",") {
 		part := strings.TrimSpace(s)
 		if styleName, ok := styleNameUnitMap[part]; ok {
 			if _, exist := dict[styleName]; exist {
-				return fmt.Errorf("invalid value: %s. Allowed values exist once part name.\n%s",
-					value, textbank.ShortHelpMessage)
+				return fmt.Errorf("invalid value: %s. Allowed values exist once part name.\n", value)
 			} else {
 				dict[styleNameUnitMap[part]] = "!"
 			}
 		} else {
-			return fmt.Errorf("invalid value: %s. Allowed values must match part name comma separated.\n%s",
-				value, textbank.ShortHelpMessage)
+			return fmt.Errorf("invalid value: %s. Allowed values must match part name comma separated.\n", value)
 		}
 	}
 

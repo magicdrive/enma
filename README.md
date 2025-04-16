@@ -2,7 +2,7 @@
 
 > Yet another integration software with file monitoring.
 
-`enma` is a file-watching tool that monitors specified files or directories and automatically executes commands or rebuilds and restarts daemons.  
+`enma` is a file-watching tool that monitors specified files or directories and automatically executes commands or rebuilds and restarts daemons.<br>
 It's designed to supercharge your development and automation workflows.
 
 ## ✨ Features
@@ -144,6 +144,7 @@ This layered approach ensures clarity in behavior while keeping Enma fast and cu
 | `-W`, `--working-dir <dir_name>`      | Working directory (default: `$PWD`)                                        |
 | `-I`, `--placeholder`                 | Placeholder in command for changed file (default: `{}`)                    |
 | `-s`, `--args-path-style <style>`     | filepath-style where event in command. (optional. default: `dir,base,ext`) |
+| `-B`, `--build-at-start <on|off>`     | Run a build before starting daemon for the first time. <br> If there is a placeholder, it will be ignored. |
 | `--check-content-diff`                | Fires only when the file contents are changed. (optional)                  |
 | `-A`, `--abs`, `--absolute-path`      | Use absolute path in placeholder (optional)                                |
 | `-t`, `--timeout <time>`              | Timeout for build command (default: `5sec`)                                |

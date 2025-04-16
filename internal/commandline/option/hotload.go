@@ -227,19 +227,19 @@ func (cr *HotloadOption) Valid() error {
 	var errorMessages = []string{}
 
 	if err := cr.ArgsPathStyleString.Set(cr.ArgsPathStyleStringValue); err != nil {
-		errorMessages = append(errorMessages, err.Error())
+		errorMessages = append(errorMessages, fmt.Sprintf("--args-path-style %s", err.Error()))
 	}
 
 	if err := cr.BuildAtStart.Set(cr.BuildAtStartValue); err != nil {
-		errorMessages = append(errorMessages, err.Error())
+		errorMessages = append(errorMessages, fmt.Sprintf("--build-at-start %s", err.Error()))
 	}
 
 	if err := cr.Timeout.Set(cr.TimeoutValue); err != nil {
-		errorMessages = append(errorMessages, err.Error())
+		errorMessages = append(errorMessages, fmt.Sprintf("--timeout %s", err.Error()))
 	}
 
 	if err := cr.Delay.Set(cr.DelayValue); err != nil {
-		errorMessages = append(errorMessages, err.Error())
+		errorMessages = append(errorMessages, fmt.Sprintf("--delay %s", err.Error()))
 	}
 
 	if len(errorMessages) == 0 {

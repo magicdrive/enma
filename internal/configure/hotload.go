@@ -5,7 +5,6 @@ import (
 
 	"github.com/magicdrive/enma/internal/commandline/option"
 	"github.com/magicdrive/enma/internal/common"
-	"github.com/magicdrive/enma/internal/model"
 )
 
 type tomlHotloadConf struct {
@@ -49,28 +48,32 @@ func NewHotloadOptionFromTOMLConfig(h tomlHotloadConf) (*option.HotloadOption, e
 	}
 
 	opt := &option.HotloadOption{
-		Daemon:                 daemon,
-		PreBuild:               h.PreBuild,
-		Build:                  build,
-		PostBuild:              h.PostBuild,
-		ArgsPathStyleString:    model.ArgsPathStyleString(argPathStyle),
-		BuildAtStart:           model.OnOffSwitch(buildAtStart),
-		Placeholder:            placeholder,
-		AbsolutePathFlag:       h.AbsolutePath,
-		CheckContentDiff:       h.CheckContentDiff,
-		WorkingDir:             workingDir,
-		Timeout:                model.TimeString(timeout),
-		Delay:                  model.TimeString(delay),
-		Retry:                  h.Retry,
-		WatchDir:               JoinComma(watchDir),
-		PatternRegexpString:    fallback(h.PatternRegexp, ".*"),
-		IncludeExt:             JoinComma(h.IncludeExt),
-		IgnoreFileRegexpString: h.IgnoreRegex,
-		ExcludeExt:             JoinComma(h.ExcludeExt),
-		ExcludeDir:             JoinComma(h.ExcludeDir),
-		EnmaIgnoreString:       JoinComma(h.EnmaIgnore),
-		LogPathOpt:             h.LogPath,
-		PidPathOpt:             h.PidPath,
+		Daemon:                   daemon,
+		PreBuild:                 h.PreBuild,
+		Build:                    build,
+		PostBuild:                h.PostBuild,
+		ArgsPathStyleStringValue: argPathStyle,
+		BuildAtStartValue:        buildAtStart,
+		Placeholder:              placeholder,
+		AbsolutePathFlag:         h.AbsolutePath,
+		CheckContentDiff:         h.CheckContentDiff,
+		WorkingDir:               workingDir,
+		TimeoutValue:             timeout,
+		DelayValue:               delay,
+		Retry:                    h.Retry,
+		WatchDir:                 JoinComma(watchDir),
+		PatternRegexpString:      fallback(h.PatternRegexp, ".*"),
+		IncludeExt:               JoinComma(h.IncludeExt),
+		IgnoreFileRegexpString:   h.IgnoreRegex,
+		ExcludeExt:               JoinComma(h.ExcludeExt),
+		ExcludeDir:               JoinComma(h.ExcludeDir),
+		EnmaIgnoreString:         JoinComma(h.EnmaIgnore),
+		LogPathOpt:               h.LogPath,
+		PidPathOpt:               h.PidPath,
+	}
+
+	if err := opt.Valid(); err != nil {
+		return nil, err
 	}
 
 	if err := opt.Normalize(); err != nil {

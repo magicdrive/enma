@@ -163,8 +163,12 @@ func (r *HotloadRunner) Start() error {
 		}
 	}
 
-	if r.Options.BuildAtStart.Bool() && !r.Options.HasPlaceholder {
-		r.firstBuild()
+	if r.Options.BuildAtStart.Bool() {
+		if r.Options.HasPlaceholder {
+			log.Printf("❗ command placeholder found. skip build at start.")
+		} else {
+			r.firstBuild()
+		}
 	}
 	if err := r.startDaemon(); err != nil {
 		return err
@@ -240,10 +244,8 @@ func (r *HotloadRunner) Start() error {
 func (r *HotloadRunner) firstBuild() {
 	for i := 0; i <= r.Options.Retry; i++ {
 		if r.RunBuildSequence(i, "") {
-			log.Println("✅  Build success")
+			log.Println("✅  Buildat start success")
 			time.Sleep(r.Delay)
-			r.stopDaemon()
-			r.startDaemon()
 			return
 		}
 		time.Sleep(1 * time.Second)
