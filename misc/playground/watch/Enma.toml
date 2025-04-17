@@ -11,6 +11,7 @@ working_dir = "./"
 placeholder = "{}"
 absolute_path = false
 args_path_style = "dirname,basename,ext"
+#check_content_diff = true
 
 # Timing and retry
 timeout = "5s"

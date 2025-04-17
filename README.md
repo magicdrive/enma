@@ -133,61 +133,61 @@ This layered approach ensures clarity in behavior while keeping Enma fast and cu
 
 ### `enma hotload`
 
-| Option                                | Description                                                                |
-|---------------------------------------|----------------------------------------------------------------------------|
-| `-h`, `--help`                        | Show help message and exit                                                 |
-| `-d`, `--daemon <command>`            | Daemon command to run (required)                                           |
-| `-b`, `--build <command>`             | Command to build the daemon (required)                                     |
-| `-w`, `--watch-dir <dir_name>`        | Watch directories (comma-separated, required)                              |
-| `-p`, `--pre-build <command>`         | Command to run before build (optional)                                     |
-| `-P`, `--post-build <command>`        | Command to run after build (optional)                                      |
-| `-W`, `--working-dir <dir_name>`      | Working directory (default: `$PWD`)                                        |
-| `-I`, `--placeholder`                 | Placeholder in command for changed file (default: `{}`)                    |
-| `-s`, `--args-path-style <style>`     | filepath-style where event in command. <br> (optional. default: `dir,base,ext`) |
-| `-B`, `--build-at-start <on\|off>`    | Run a build before starting daemon for the first time. <br> If there is a placeholder, it will be ignored. |
-| `--check-content-diff`                | Fires only when the file contents are changed. (optional)                  |
-| `-A`, `--abs`, `--absolute-path`      | Use absolute path in placeholder (optional)                                |
-| `-t`, `--timeout <time>`              | Timeout for build command (default: `5sec`)                                |
-| `-l`, `--delay <time>`                | Delay after build command (default: `0sec`)                                |
-| `-r`, `--retry <number>`              | Retry count (default: `0`)                                                 |
-| `-x`, `--pattern-regex <regex>`       | Regex pattern to watch (optional)                                          |
-| `-i`, `--include-ext <ext>`           | File extensions to include (comma-separated, optional)                     |
-| `-g`, `--ignore-dir-regex <regex>`    | Regex to ignore directories (optional)                                     |
-| `-G`, `--ignore-file-regex <regex> `  | Regex to ignore files (optional)                                           |
-| `-e`, `--exclude-ext <ext>`           | File extensions to exclude (comma-separated, optional)                     |
-| `-E`, `--exclude-dir <dir_name>`      | Directories to exclude (comma-separated, optional)                         |
-| `-n`, `--enmaignore <filename>`       | enma ignore file(s) (comma-separated, optional. default: `./.enmaignore`)  |
-| `--logs <log_file_path>`              | Log file path (optional)                                                   |
-| `--pid <pid_file_path>`               | PID file path (optional)                                                   |
+| Option                                     | Description                                                                |
+|--------------------------------------------|----------------------------------------------------------------------------|
+| `-h`, `--help`                             | Show help message and exit                                                 |
+| `-d`, `--daemon <command>`                 | Daemon command to run (required)                                           |
+| `-b`, `--build <command>`                  | Command to build the daemon (required)                                     |
+| `-w`, `--watch-dir <dir_name>`             | Watch directories (comma-separated, required)                              |
+| `-p`, `--pre-build <command>`              | Command to run before build (optional)                                     |
+| `-P`, `--post-build <command>`             | Command to run after build (optional)                                      |
+| `-W`, `--working-dir <dir_name>`           | Working directory (default: `$PWD`)                                        |
+| `-I`, `--placeholder <placeholder>`        | Placeholder in command for changed file (default: `{}`)                    |
+| `-s`, `--args-path-style <style>`          | filepath-style where event in command. <br> (optional. default: `dir,base,ext`) |
+| `-B`, `--build-at-start <on\|off>`         | Run a build before starting daemon for the first time. <br> If there is a placeholder, it will be ignored. |
+| `-C`, `--check-content-diff <on\|off>`     | Fires only when the file contents are changed. (optional. default: `on`)   |
+| `-A`, `--abs`, `--absolute-path <on\|off>` | Use absolute path in placeholder (optional. default: `on`)                 |
+| `-t`, `--timeout <time>`                   | Timeout for build command (default: `5sec`)                                |
+| `-l`, `--delay <time>`                     | Delay after build command (default: `0sec`)                                |
+| `-r`, `--retry <number>`                   | Retry count (default: `0`)                                                 |
+| `-x`, `--pattern-regex <regex>`            | Regex pattern to watch (optional)                                          |
+| `-i`, `--include-ext <ext>`                | File extensions to include (comma-separated, optional)                     |
+| `-g`, `--ignore-dir-regex <regex>`         | Regex to ignore directories (optional)                                     |
+| `-G`, `--ignore-file-regex <regex> `       | Regex to ignore files (optional)                                           |
+| `-e`, `--exclude-ext <ext>`                | File extensions to exclude (comma-separated, optional)                     |
+| `-E`, `--exclude-dir <dir_name>`           | Directories to exclude (comma-separated, optional)                         |
+| `-n`, `--enmaignore <filename>`            | enma ignore file(s) (comma-separated, optional. default: `./.enmaignore`)  |
+| `--logs <log_file_path>`                   | Log file path (optional)                                                   |
+| `--pid <pid_file_path>`                    | PID file path (optional)                                                   |
 
 ---
 
 ### `enma watch`
 
-| Option                                | Description                                                                |
-|---------------------------------------|----------------------------------------------------------------------------|
-| `-h`, `--help`                        | Show help message and exit                                                 |
-| `-c`, `--command`, `--cmd <command>`  | Command to run on file change (required)                                   |
-| `-w`, `--watch-dir <dir_name>`        | Watch directories (comma-separated, required)                              |
-| `-p`, `--pre-cmd <command>`           | Command to run before main command (optional)                              |
-| `-P`, `--post-cmd <command>`          | Command to run after main command (optional)                               |
-| `-W`, `--working-dir <dir_name>`      | Working directory (default: `$PWD`)                                        |
-| `-I`, `--placeholder`                 | Placeholder in command for changed file (default: `{}`)                    |
-| `-s`, `--args-path-style <style>`     | filepath-style where event in command. <br> (optional. default: `dir,base,ext`) |
-| `--check-content-diff`                | Fires only when the file contents are changed. (optional)                  |
-| `-A`, `--abs`, `--absolute-path`      | Use absolute path in placeholder (optional)                                |
-| `-t`, `--timeout <time>`              | Timeout for command (default: `5sec`)                                      |
-| `-l`, `--delay <time>`                | Delay after command (default: `0sec`)                                      |
-| `-r`, `--retry <number>`              | Retry count (default: `0`)                                                 |
-| `-x`, `--pattern-regex <regex>`       | Regex pattern to watch (optional)                                          |
-| `-i`, `--include-ext <ext>`           | File extensions to include (comma-separated, optional)                     |
-| `-g`, `--ignore-dir-regex <regex>`    | Regex to ignore directories (optional)                                     |
-| `-G`, `--ignore-file-regex <regex>`   | Regex to ignore files (optional)                                           |
-| `-e`, `--exclude-ext <ext>`           | File extensions to exclude (comma-separated, optional)                     |
-| `-E`, `--exclude-dir <dir_name>`      | Directories to exclude (comma-separated, optional)                         |
-| `-n`, `--enmaignore <filename>`       | enma ignore file(s) (comma-separated, optional. default: `./.enmaignore`)  |
-| `--logs <log_file_path>`              | Log file path (optional)                                                   |
-| `--pid <pid_file_path>`               | PID file path (optional)                                                   |
+| Option                                     | Description                                                                |
+|--------------------------------------------|----------------------------------------------------------------------------|
+| `-h`, `--help`                             | Show help message and exit                                                 |
+| `-c`, `--command`, `--cmd <command>`       | Command to run on file change (required)                                   |
+| `-w`, `--watch-dir <dir_name>`             | Watch directories (comma-separated, required)                              |
+| `-p`, `--pre-cmd <command>`                | Command to run before main command (optional)                              |
+| `-P`, `--post-cmd <command>`               | Command to run after main command (optional)                               |
+| `-W`, `--working-dir <dir_name>`           | Working directory (default: `$PWD`)                                        |
+| `-I`, `--placeholder`                      | Placeholder in command for changed file (default: `{}`)                    |
+| `-s`, `--args-path-style <style>`          | filepath-style where event in command. <br> (optional. default: `dir,base,ext`) |
+| `-C`, `--check-content-diff <on\|off>`     | Fires only when the file contents are changed. (optional. default: `on`)   |
+| `-A`, `--abs`, `--absolute-path <on\|off>` | Use absolute path in placeholder (optional. default: `on`)                 |
+| `-t`, `--timeout <time>`                   | Timeout for command (default: `5sec`)                                      |
+| `-l`, `--delay <time>`                     | Delay after command (default: `0sec`)                                      |
+| `-r`, `--retry <number>`                   | Retry count (default: `0`)                                                 |
+| `-x`, `--pattern-regex <regex>`            | Regex pattern to watch (optional)                                          |
+| `-i`, `--include-ext <ext>`                | File extensions to include (comma-separated, optional)                     |
+| `-g`, `--ignore-dir-regex <regex>`         | Regex to ignore directories (optional)                                     |
+| `-G`, `--ignore-file-regex <regex>`        | Regex to ignore files (optional)                                           |
+| `-e`, `--exclude-ext <ext>`                | File extensions to exclude (comma-separated, optional)                     |
+| `-E`, `--exclude-dir <dir_name>`           | Directories to exclude (comma-separated, optional)                         |
+| `-n`, `--enmaignore <filename>`            | enma ignore file(s) (comma-separated, optional. default: `./.enmaignore`)  |
+| `--logs <log_file_path>`                   | Log file path (optional)                                                   |
+| `--pid <pid_file_path>`                    | PID file path (optional)                                                   |
 
 ---
 

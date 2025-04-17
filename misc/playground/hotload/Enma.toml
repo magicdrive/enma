@@ -14,7 +14,7 @@ working_dir = "./"
 placeholder = "{}"
 absolute_path = false
 args_path_style = "dirname,basename,ext"
-build_at_start = "on"
+build_at_start = true
 
 # Timing and retry
 timeout = "5s"

@@ -24,6 +24,16 @@ var onOffUnitMap = map[string]string{
 
 type OnOffSwitch string
 
+func Bool2OnOffSwitch(b bool) OnOffSwitch {
+	var result OnOffSwitch
+	if b {
+		result = "on"
+	} else {
+		result = "off"
+	}
+	return result
+}
+
 func (m *OnOffSwitch) Set(value string) error {
 	if unit, ok := onOffUnitMap[value]; ok {
 		*m = OnOffSwitch(unit)

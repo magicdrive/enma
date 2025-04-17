@@ -22,8 +22,10 @@ type WatchOption struct {
 	ArgsPathStyleString      model.ArgsPathStyleString
 	ArgsPathStyleStringValue string
 	ArgsPathStyle            *model.ArgsPathStyleObj
-	CheckContentDiff         bool
-	AbsolutePathFlag         bool
+	CheckContentDiff         model.OnOffSwitch
+	CheckContentDiffValue    string
+	AbsolutePathFlag         model.OnOffSwitch
+	AbsolutePathFlagValue    string
 	Timeout                  model.TimeString
 	TimeoutValue             string
 	Delay                    model.TimeString
@@ -94,13 +96,13 @@ func ParseWatch(args []string) (*WatchOption, error) {
 
 	// --check-content-diff
 	checkContentDiffFlagOpt :=
-		fs.Bool("check-content-diff", false, "Fires only when the file contents are changed.  (optional)")
+		fs.String("check-content-diff", "on", "Fires only when the file contents are changed.  (optional)")
 
 	// --absolute-path
 	absolutePathFlagOpt :=
-		fs.Bool("absolute-path", false, "File name passed to placeholder must be an absolute path.  (optional)")
-	fs.BoolVar(absolutePathFlagOpt, "abs", false, "File name passed to placeholder must be an absolute path.  (optional)")
-	fs.BoolVar(absolutePathFlagOpt, "A", false, "File name passed to placeholder must be an absolute path.  (optional)")
+		fs.String("absolute-path", "on", "File name passed to placeholder must be an absolute path.  (optional)")
+	fs.StringVar(absolutePathFlagOpt, "abs", "on", "File name passed to placeholder must be an absolute path.  (optional)")
+	fs.StringVar(absolutePathFlagOpt, "A", "on", "File name passed to placeholder must be an absolute path.  (optional)")
 
 	// --timeout
 	timeoutOpt := fs.String("timeout", "5sec", "Specify the build command timeout (optional)")
@@ -180,8 +182,8 @@ func ParseWatch(args []string) (*WatchOption, error) {
 		WorkingDir:               *workingDirOpt,
 		Placeholder:              *placeholderOpt,
 		ArgsPathStyleStringValue: *argsPathStyleOpt,
-		CheckContentDiff:         *checkContentDiffFlagOpt,
-		AbsolutePathFlag:         *absolutePathFlagOpt,
+		CheckContentDiffValue:    *checkContentDiffFlagOpt,
+		AbsolutePathFlagValue:    *absolutePathFlagOpt,
 		TimeoutValue:             *timeoutOpt,
 		DelayValue:               *delayOpt,
 		Retry:                    *retryOpt,
@@ -217,6 +219,13 @@ func (cr *WatchOption) Valid() error {
 		errorMessages = append(errorMessages, fmt.Sprintf("--args-path-style %s", err.Error()))
 	}
 
+	if err := cr.CheckContentDiff.Set(cr.CheckContentDiffValue); err != nil {
+		errorMessages = append(errorMessages, fmt.Sprintf("--check-content-diff %s", err.Error()))
+	}
+
+	if err := cr.AbsolutePathFlag.Set(cr.AbsolutePathFlagValue); err != nil {
+		errorMessages = append(errorMessages, fmt.Sprintf("--absolute-path %s", err.Error()))
+	}
 	if err := cr.Timeout.Set(cr.TimeoutValue); err != nil {
 		errorMessages = append(errorMessages, fmt.Sprintf("--timeout %s", err.Error()))
 	}

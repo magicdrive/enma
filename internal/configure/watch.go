@@ -8,24 +8,26 @@ import (
 )
 
 type tomlWatchConf struct {
-	PreCmd        string   `toml:"pre_command"`
-	Cmd           string   `toml:"command"`
-	PostCmd       string   `toml:"post_command"`
-	WorkingDir    string   `toml:"working_dir"`
-	Placeholder   string   `toml:"placeholder"`
-	ArgsPathStyle string   `toml:"args_path_style"`
-	Timeout       string   `toml:"timeout"`
-	Delay         string   `toml:"delay"`
-	Retry         int      `toml:"retry"`
-	WatchDir      []string `toml:"watch_dir"`
-	PatternRegexp string   `toml:"pattern_regex"`
-	IncludeExt    []string `toml:"include_ext"`
-	IgnoreRegex   string   `toml:"ignore_regex"`
-	ExcludeExt    []string `toml:"exclude_ext"`
-	ExcludeDir    []string `toml:"exclude_dir"`
-	EnmaIgnore    []string `toml:"enmaignore"`
-	LogPath       string   `toml:"logs"`
-	PidPath       string   `toml:"pid"`
+	PreCmd           string   `toml:"pre_command"`
+	Cmd              string   `toml:"command"`
+	PostCmd          string   `toml:"post_command"`
+	WorkingDir       string   `toml:"working_dir"`
+	Placeholder      string   `toml:"placeholder"`
+	ArgsPathStyle    string   `toml:"args_path_style"`
+	CheckContentDiff *bool    `toml:"check_content_diff"`
+	AbsolutePath     *bool    `toml:"absolute_path"`
+	Timeout          string   `toml:"timeout"`
+	Delay            string   `toml:"delay"`
+	Retry            int      `toml:"retry"`
+	WatchDir         []string `toml:"watch_dir"`
+	PatternRegexp    string   `toml:"pattern_regex"`
+	IncludeExt       []string `toml:"include_ext"`
+	IgnoreRegex      string   `toml:"ignore_regex"`
+	ExcludeExt       []string `toml:"exclude_ext"`
+	ExcludeDir       []string `toml:"exclude_dir"`
+	EnmaIgnore       []string `toml:"enmaignore"`
+	LogPath          string   `toml:"logs"`
+	PidPath          string   `toml:"pid"`
 }
 
 func NewWatchOptionFromTOMLConfig(h tomlWatchConf) (*option.WatchOption, error) {
@@ -34,6 +36,8 @@ func NewWatchOptionFromTOMLConfig(h tomlWatchConf) (*option.WatchOption, error) 
 	workingDir := fallback(h.WorkingDir, common.GetCurrentDir())
 	placeholder := fallback(h.Placeholder, "{}")
 	argPathStyle := fallback(h.ArgsPathStyle, "dirname,basename,extension")
+	checkContentDiff := fallbackOnOffSwitch(h.CheckContentDiff, true)
+	absolutePathFlag := fallbackOnOffSwitch(h.AbsolutePath, true)
 	timeout := fallback(h.Timeout, "5sec")
 	delay := fallback(h.Delay, "1sec")
 
@@ -48,7 +52,8 @@ func NewWatchOptionFromTOMLConfig(h tomlWatchConf) (*option.WatchOption, error) 
 		WorkingDir:               workingDir,
 		Placeholder:              placeholder,
 		ArgsPathStyleStringValue: argPathStyle,
-		AbsolutePathFlag:         false,
+		CheckContentDiffValue:    checkContentDiff.String(),
+		AbsolutePathFlagValue:    absolutePathFlag.String(),
 		TimeoutValue:             timeout,
 		DelayValue:               delay,
 		Retry:                    h.Retry,
