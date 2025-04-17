@@ -119,6 +119,12 @@ func (r *WatchRunner) CollectWatchDirs(root string) ([]string, error) {
 }
 
 func (r *WatchRunner) Start() error {
+	if r.Options.PidPathOpt != "" {
+		if err := common.CreatePidFile(r.Options.PidPathOpt); err != nil {
+			return err
+		}
+	}
+
 	if r.Options.LogPathOpt != "" {
 		createErr := common.CreateFileWithDirs(r.Options.LogPathOpt, "")
 		f, openErr := os.OpenFile(r.Options.LogPathOpt, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0644)
@@ -141,6 +147,11 @@ func (r *WatchRunner) Start() error {
 	go func() {
 		<-signalChan
 		r.stopCurrentCmd()
+		if r.Options.PidPathOpt != "" {
+			if err := common.DeletePidFile(r.Options.PidPathOpt); err != nil {
+				log.Printf("failed delete pidfile.: %s\n", err.Error())
+			}
+		}
 		os.Exit(0)
 	}()
 

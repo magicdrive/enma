@@ -4,7 +4,6 @@ import (
 	"os"
 
 	"github.com/magicdrive/enma/internal/commandline/option"
-	"github.com/magicdrive/enma/internal/common"
 	"github.com/magicdrive/enma/internal/core"
 )
 
@@ -28,11 +27,6 @@ func RunWatch(opt *option.WatchOption) error {
 		if err := os.Chdir(opt.WorkingDir); err != nil {
 			return err
 		}
-	}
-
-	if opt.PidPathOpt != "" {
-		common.CreatePidFile(opt.PidPathOpt)
-		defer common.DeletePidFile(opt.PidPathOpt)
 	}
 
 	runner := core.NewWatchRunner(opt)
