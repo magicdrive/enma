@@ -34,50 +34,50 @@ if [[ -n ${ZSH_VERSION-} ]]; then
               '--daemon[Daemon command]:cmd:_command_names' \
               '--build[Build command]:cmd:_command_names' \
               '--watch-dir[Directories to watch]:dir:_files -/' \
-              '--pre-build[Pre-build command]:cmd:_command_names' \
-              '--post-build[Post-build command]:cmd:_command_names' \
-              '--working-dir[Working directory]:dir:_files -/' \
-              '--placeholder[Placeholder token]:token:' \
-              '--args-path-style[Filepath style]:style:(dir base ext full)' \
-              '--build-at-start[Build at startup]:bool:(on off)' \
-              '--check-content-diff[Only on content change]:bool:(on off)' \
-              '--absolute-path[Use absolute path]:bool:(on off)' \
-              '--timeout[Timeout duration]:string:' \
-              '--delay[Delay after build]:string:' \
-              '--retry[Retry count]:int:' \
-              '--pattern-regex[Regex to match files]:regex:' \
-              '--include-ext[File extensions to include]' \
-              '--exclude-ext[File extensions to exclude]' \
-              '--exclude-dir[Dirs to exclude]:dir:_files -/' \
-              '--ignore-dir-regex[Dir ignore regex]' \
-              '--ignore-file-regex[File ignore regex]' \
-              '--enmaignore[Ignore file list]:file:_files' \
-              '--logs[Log file]:file:_files' \
-              '--pid[PID file]:file:_files'
+              '--pre-build[    (optional) Pre-build command]:cmd:_command_names' \
+              '--post-build[    (optional) Post-build command]:cmd:_command_names' \
+              '--working-dir[    (optional) Working directory]:dir:_files -/' \
+              '--placeholder[    (optional) Placeholder token]:token:' \
+              '--args-path-style[    (optional) Filepath style]:style:(dir base ext full)' \
+              '--build-at-start[    (optional) Build at startup]:bool:(on off)' \
+              '--check-content-diff[    (optional) Only on content change]:bool:(on off)' \
+              '--absolute-path[    (optional) Use absolute path]:bool:(on off)' \
+              '--timeout[    (optional) Timeout duration]:string:' \
+              '--delay[    (optional) Delay after build]:string:' \
+              '--retry[    (optional) Retry count]:int:' \
+              '--pattern-regex[    (optional) Regex to match files]:regex:' \
+              '--include-ext[    (optional) File extensions to include]' \
+              '--exclude-ext[    (optional) File extensions to exclude]' \
+              '--exclude-dir[    (optional) Dirs to exclude]:dir:_files -/' \
+              '--ignore-dir-regex[    (optional) Dir ignore regex]' \
+              '--ignore-file-regex[    (optional) File ignore regex]' \
+              '--enmaignore[    (optional) Ignore file list]:file:_files' \
+              '--logs[    (optional) Log file]:file:_files' \
+              '--pid[    (optional) PID file]:file:_files'
             ;;
           watch)
             _values 'watch options' \
               '--command[Command to run]:cmd:_command_names' \
               '--watch-dir[Directories to watch]:dir:_files -/' \
-              '--pre-cmd[Pre-command]:cmd:_command_names' \
-              '--post-cmd[Post-command]:cmd:_command_names' \
-              '--working-dir[Working directory]:dir:_files -/' \
-              '--placeholder[Placeholder token]:token:' \
-              '--args-path-style[Filepath style]:style:(dir base ext full)' \
-              '--check-content-diff[Only on content change]:bool:(on off)' \
-              '--absolute-path[Use absolute path]:bool:(on off)' \
-              '--timeout[Timeout duration]:string:' \
-              '--delay[Delay duration]:string:' \
-              '--retry[Retry count]:int:' \
-              '--pattern-regex[Regex to match files]:regex:' \
-              '--include-ext[File extensions to include]' \
-              '--exclude-ext[File extensions to exclude]' \
-              '--exclude-dir[Dirs to exclude]:dir:_files -/' \
-              '--ignore-dir-regex[Dir ignore regex]' \
-              '--ignore-file-regex[File ignore regex]' \
-              '--enmaignore[Ignore file list]:file:_files' \
-              '--logs[Log file]:file:_files' \
-              '--pid[PID file]:file:_files'
+              '--pre-cmd[    (optional) Pre-command]:cmd:_command_names' \
+              '--post-cmd[    (optional) Post-command]:cmd:_command_names' \
+              '--working-dir[    (optional) Working directory]:dir:_files -/' \
+              '--placeholder[    (optional) Placeholder token]:token:' \
+              '--args-path-style[    (optional) Filepath style]:style:(dir base ext full)' \
+              '--check-content-diff[    (optional) Only on content change]:bool:(on off)' \
+              '--absolute-path[    (optional) Use absolute path]:bool:(on off)' \
+              '--timeout[    (optional) Timeout duration]:string:' \
+              '--delay[    (optional) Delay duration]:string:' \
+              '--retry[    (optional) Retry count]:int:' \
+              '--pattern-regex[    (optional) Regex to match files]:regex:' \
+              '--include-ext[    (optional) File extensions to include]' \
+              '--exclude-ext[    (optional) File extensions to exclude]' \
+              '--exclude-dir[    (optional) Dirs to exclude]:dir:_files -/' \
+              '--ignore-dir-regex[    (optional) Dir ignore regex]' \
+              '--ignore-file-regex[    (optional) File ignore regex]' \
+              '--enmaignore[    (optional) Ignore file list]:file:_files' \
+              '--logs[    (optional) Log file]:file:_files' \
+              '--pid[    (optional) PID file]:file:_files'
             ;;
           *)
             _message 'No subcommand matched.'
