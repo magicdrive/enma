@@ -10,7 +10,7 @@ if [[ -n ${ZSH_VERSION-} ]]; then
     typeset -A opt_args
 
     local -a subcommands
-    subcommands=('init:Initialize configuration' 'hotload:Watch & reload daemon' 'watch:Watch & run commands' '--help:Show help' '--version:Show version')
+    subcommands=('init:Initialize configuration' 'hotload:Watch & reload daemon' 'watch:Watch & run commands' '--help:Show help' '--version:Show version' '--config:Define enma.toml' )
 
     _arguments -C \
       '1:command:->subcmd' \
