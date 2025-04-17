@@ -10,7 +10,7 @@ if [[ -n ${ZSH_VERSION-} ]]; then
     typeset -A opt_args
 
     local -a subcommands
-    subcommands=('init:Initialize configuration' 'hotload:Watch & reload daemon' 'watch:Watch & run commands')
+    subcommands=('init:Initialize configuration' 'hotload:Watch & reload daemon' 'watch:Watch & run commands' '--help:Show help' '--version:Show version')
 
     _arguments -C \
       '1:command:->subcmd' \
@@ -25,12 +25,12 @@ if [[ -n ${ZSH_VERSION-} ]]; then
           init)
             _values 'init options' \
               '--help[Show help]' \
-              '-h[Show help]' \
               '--mode[Specify mode <hotload|watch>]:mode:(hotload watch)' \
               '--file[Specify output config file]:file:_files'
             ;;
           hotload)
             _values 'hotload options' \
+              '--help[Show help]' \
               '--daemon[Daemon command]:cmd:_command_names' \
               '--build[Build command]:cmd:_command_names' \
               '--watch-dir[Directories to watch]:dir:_files -/' \
@@ -57,6 +57,8 @@ if [[ -n ${ZSH_VERSION-} ]]; then
             ;;
           watch)
             _values 'watch options' \
+              '--help[Show help]' \
+              '--daemon[Daemon command]:cmd:_command_names' \
               '--command[Command to run]:cmd:_command_names' \
               '--watch-dir[Directories to watch]:dir:_files -/' \
               '--pre-cmd[    (optional) Pre-command]:cmd:_command_names' \
