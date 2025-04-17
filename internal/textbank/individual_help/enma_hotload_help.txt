@@ -3,7 +3,6 @@ Usage: enma hotload [OPTIONS]
 Detects file changes, builds, and loads the daemon.
 
 Required Options:
-  -n, --name <name>                   Defines the enma process name. (required)
   -d, --daemon <command>              Defines the daemon command. (required)
   -b, --build <command>               Defines the command to build daemon. (required)
   -w, --watch-dir <dir_name>          Specify watch directories (comma-separated). (required)
