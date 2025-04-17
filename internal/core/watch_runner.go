@@ -12,6 +12,7 @@ import (
 	"os/signal"
 	"path/filepath"
 	"runtime"
+	"slices"
 	"strings"
 	"sync"
 	"syscall"
@@ -196,7 +197,7 @@ func (r *WatchRunner) Start() error {
 							r.mu.Lock()
 							resolvedPath := r.applyArgsPathStyle(change.path)
 
-							if r.Options.CheckContentDiff {
+							if r.Options.CheckContentDiff.Bool() {
 								if !r.hasChanged(change.path) {
 									log.Printf("🔁 Skipped: %s has no content change", change.path)
 									r.mu.Unlock()
@@ -289,14 +290,7 @@ func (r *WatchRunner) ShouldTrigger(event fsnotify.Event) bool {
 
 	if r.Options.IncludeExt != "" {
 		ext := filepath.Ext(absPath)
-		found := false
-		for _, incl := range r.Options.IncludeExtList {
-			if ext == incl {
-				found = true
-				break
-			}
-		}
-		if !found {
+		if !slices.Contains(r.Options.IncludeExtList, ext) {
 			return false
 		}
 	}
@@ -325,10 +319,8 @@ func (r *WatchRunner) ShouldTrigger(event fsnotify.Event) bool {
 
 	if r.Options.ExcludeExt != "" {
 		ext := filepath.Ext(absPath)
-		for _, excl := range r.Options.ExcludeExtList {
-			if ext == excl {
-				return false
-			}
+		if slices.Contains(r.Options.ExcludeExtList, ext) {
+			return false
 		}
 	}
 
@@ -401,9 +393,9 @@ func (r *WatchRunner) stopCurrentCmd() {
 }
 
 func (r *WatchRunner) applyArgsPathStyle(path string) string {
-	var target = path
-	if r.Options.AbsolutePathFlag {
-		target = common.ToAbsolutePath(target)
+	var target = common.ToAbsolutePath(path)
+	if !r.Options.AbsolutePathFlag.Bool() {
+		target = common.ToRelativePath(target)
 	}
 	if r.Options.ArgsPathStyleString != "" {
 		return r.Options.ArgsPathStyle.ArgsPathString(target)

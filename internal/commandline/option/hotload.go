@@ -25,8 +25,10 @@ type HotloadOption struct {
 	ArgsPathStyle            *model.ArgsPathStyleObj
 	BuildAtStart             model.OnOffSwitch
 	BuildAtStartValue        string
-	CheckContentDiff         bool
-	AbsolutePathFlag         bool
+	CheckContentDiff         model.OnOffSwitch
+	CheckContentDiffValue    string
+	AbsolutePathFlag         model.OnOffSwitch
+	AbsolutePathFlagValue    string
 	Timeout                  model.TimeString
 	TimeoutValue             string
 	Delay                    model.TimeString
@@ -105,13 +107,13 @@ func ParseHotload(args []string) (*HotloadOption, error) {
 
 	// --check-content-diff
 	checkContentDiffFlagOpt :=
-		fs.Bool("check-content-diff", false, "Fires only when the file contents are changed. (optional)")
+		fs.String("check-content-diff", "on", "Fires only when the file contents are changed. (optional)")
 
 	// --absolute-path
 	absolutePathFlagOpt :=
-		fs.Bool("absolute-path", false, "File name passed to placeholder must be an absolute path.  (optional)")
-	fs.BoolVar(absolutePathFlagOpt, "abs", false, "File name passed to placeholder must be an absolute path.  (optional)")
-	fs.BoolVar(absolutePathFlagOpt, "A", false, "File name passed to placeholder must be an absolute path.  (optional)")
+		fs.String("absolute-path", "on", "File name passed to placeholder must be an absolute path.  (optional)")
+	fs.StringVar(absolutePathFlagOpt, "abs", "on", "File name passed to placeholder must be an absolute path.  (optional)")
+	fs.StringVar(absolutePathFlagOpt, "A", "on", "File name passed to placeholder must be an absolute path.  (optional)")
 
 	// --timeout
 	timeoutOpt := fs.String("timeout", "5sec", "Specify the build command timeout (optional)")
@@ -193,8 +195,8 @@ func ParseHotload(args []string) (*HotloadOption, error) {
 		Placeholder:              *placeholderOpt,
 		ArgsPathStyleStringValue: *argsPathStyleOpt,
 		BuildAtStartValue:        *buildAtStartSwitchOpt,
-		CheckContentDiff:         *checkContentDiffFlagOpt,
-		AbsolutePathFlag:         *absolutePathFlagOpt,
+		CheckContentDiffValue:    *checkContentDiffFlagOpt,
+		AbsolutePathFlagValue:    *absolutePathFlagOpt,
 		TimeoutValue:             *timeoutOpt,
 		DelayValue:               *delayOpt,
 		Retry:                    *retryOpt,
@@ -232,6 +234,14 @@ func (cr *HotloadOption) Valid() error {
 
 	if err := cr.BuildAtStart.Set(cr.BuildAtStartValue); err != nil {
 		errorMessages = append(errorMessages, fmt.Sprintf("--build-at-start %s", err.Error()))
+	}
+
+	if err := cr.CheckContentDiff.Set(cr.CheckContentDiffValue); err != nil {
+		errorMessages = append(errorMessages, fmt.Sprintf("--check-content-diff %s", err.Error()))
+	}
+
+	if err := cr.AbsolutePathFlag.Set(cr.AbsolutePathFlagValue); err != nil {
+		errorMessages = append(errorMessages, fmt.Sprintf("--absolute-path %s", err.Error()))
 	}
 
 	if err := cr.Timeout.Set(cr.TimeoutValue); err != nil {

@@ -11,7 +11,7 @@ working_dir = "./"
 
 # command args
 placeholder = "{}"
-absolute_path = false
+absolute_path = true
 args_path_style = "dirname,basename,ext"
 
 # Timing and retry

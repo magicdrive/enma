@@ -8,6 +8,8 @@ import (
 	"strings"
 
 	"github.com/pelletier/go-toml/v2"
+
+	"github.com/magicdrive/enma/internal/model"
 )
 
 func FindEnmaConfigFile() (string, error) {
@@ -32,6 +34,13 @@ func fallback(val, def string) string {
 		return def
 	}
 	return val
+}
+
+func fallbackOnOffSwitch(val *bool, def bool) model.OnOffSwitch {
+	if val != nil {
+		return model.Bool2OnOffSwitch(*val)
+	}
+	return model.Bool2OnOffSwitch(def)
 }
 
 func TrimSpaceAndUniq(values []string) []string {
