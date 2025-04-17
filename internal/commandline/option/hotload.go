@@ -90,7 +90,7 @@ func ParseHotload(args []string) (*HotloadOption, error) {
 	placeholderOpt :=
 		fs.String("placeholder", "{}",
 			"Defines placeholder that will be replaced with file name where event occurred in command. (optional)")
-	fs.StringVar(placeholderOpt, "I", "",
+	fs.StringVar(placeholderOpt, "I", "{}",
 		"Defines placeholder that will be replaced with file name where event occurred in command. (optional)")
 
 	// --args-path-style
@@ -179,6 +179,11 @@ func ParseHotload(args []string) (*HotloadOption, error) {
 
 	fs.Usage = common.EnmaHotloadHelpFunc
 
+	// Individual help
+	if *helpFlagOpt {
+		fs.Usage()
+		os.Exit(0)
+	}
 	// Validate required flags
 	if *daemonOpt == "" || *buildOpt == "" || *watchDirOpt == "" {
 		fmt.Println("Missing required flags for hotload")

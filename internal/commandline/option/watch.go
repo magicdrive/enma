@@ -85,7 +85,7 @@ func ParseWatch(args []string) (*WatchOption, error) {
 	placeholderOpt :=
 		fs.String("placeholder", "{}",
 			"Defines placeholder that will be replaced with file name where event occurred in command. (optional)")
-	fs.StringVar(placeholderOpt, "I", "",
+	fs.StringVar(placeholderOpt, "I", "{}",
 		"Defines placeholder that will be replaced with file name where event occurred in command. (optional)")
 
 	// --args-path-style
@@ -168,6 +168,11 @@ func ParseWatch(args []string) (*WatchOption, error) {
 
 	fs.Usage = common.EnmaWatchHelpFunc
 
+	// Individual help
+	if *helpFlagOpt {
+		fs.Usage()
+		os.Exit(0)
+	}
 	// Validate required flags
 	if *cmdOpt == "" || *watchDirOpt == "" {
 		fmt.Println("Missing required flags for watch")

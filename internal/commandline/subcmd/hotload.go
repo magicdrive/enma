@@ -14,11 +14,6 @@ func Hotload(args []string) error {
 		return err
 	}
 
-	if opt.HelpFlag {
-		opt.FlagSet.Usage()
-		os.Exit(0)
-	}
-
 	return RunHotload(opt)
 }
 
