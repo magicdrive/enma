@@ -72,7 +72,7 @@ goreg:
 
 # Publish to github.com
 .PHONY: publish
-publish:
+publish: test-verbose
 	@if [ -z "$(tag)" ]; then \
 		echo "Error: version is not set. Please set it and try again."; \
 		echo "ex) make publish tag=v0.0.1"; \
