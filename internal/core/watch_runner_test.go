@@ -323,11 +323,11 @@ func TestWatchRunnerRunPostCmd_Empty(t *testing.T) {
 		},
 	}
 
-		r.Options = HelperInflateWatchOptionDefaultValue(r.Options)
+	r.Options = HelperInflateWatchOptionDefaultValue(r.Options)
 
-		if err := r.Options.Valid(); err != nil {
-			t.Errorf("WatchOption valid error: %v", err)
-		}
+	if err := r.Options.Valid(); err != nil {
+		t.Errorf("WatchOption valid error: %v", err)
+	}
 
 	if err := r.Options.Normalize(); err != nil {
 		t.Errorf("WatchOption normalize error: %v", err)
@@ -345,11 +345,11 @@ func TestWatchRunnerReplacePlaceholders(t *testing.T) {
 			Placeholder: ":path",
 		},
 	}
-		r.Options = HelperInflateWatchOptionDefaultValue(r.Options)
+	r.Options = HelperInflateWatchOptionDefaultValue(r.Options)
 
-		if err := r.Options.Valid(); err != nil {
-			t.Errorf("WatchOption valid error: %v", err)
-		}
+	if err := r.Options.Valid(); err != nil {
+		t.Errorf("WatchOption valid error: %v", err)
+	}
 
 	if err := r.Options.Normalize(); err != nil {
 		t.Errorf("WatchOption normalize error: %v", err)
@@ -368,11 +368,11 @@ func TestWatchRunnerIsExcludedDir_EmptyExclude(t *testing.T) {
 			ExcludeDir: "",
 		},
 	}
-		r.Options = HelperInflateWatchOptionDefaultValue(r.Options)
+	r.Options = HelperInflateWatchOptionDefaultValue(r.Options)
 
-		if err := r.Options.Valid(); err != nil {
-			t.Errorf("WatchOption valid error: %v", err)
-		}
+	if err := r.Options.Valid(); err != nil {
+		t.Errorf("WatchOption valid error: %v", err)
+	}
 
 	if err := r.Options.Normalize(); err != nil {
 		t.Errorf("WatchOption normalize error: %v", err)
@@ -391,11 +391,11 @@ func TestWatchRunnerShouldTrigger_Chmod(t *testing.T) {
 		Name: "main.go",
 		Op:   fsnotify.Chmod,
 	}
-		r.Options = HelperInflateWatchOptionDefaultValue(r.Options)
+	r.Options = HelperInflateWatchOptionDefaultValue(r.Options)
 
-		if err := r.Options.Valid(); err != nil {
-			t.Errorf("WatchOption valid error: %v", err)
-		}
+	if err := r.Options.Valid(); err != nil {
+		t.Errorf("WatchOption valid error: %v", err)
+	}
 
 	if err := r.Options.Normalize(); err != nil {
 		t.Errorf("WatchOption normalize error: %v", err)
@@ -446,11 +446,11 @@ func TestWatchRunner_CollectWatchDirs_SymlinkResolution(t *testing.T) {
 		Options: &option.WatchOption{},
 	}
 
-		r.Options = HelperInflateWatchOptionDefaultValue(r.Options)
+	r.Options = HelperInflateWatchOptionDefaultValue(r.Options)
 
-		if err := r.Options.Valid(); err != nil {
-			t.Errorf("WatchOption valid error: %v", err)
-		}
+	if err := r.Options.Valid(); err != nil {
+		t.Errorf("WatchOption valid error: %v", err)
+	}
 
 	if err := r.Options.Normalize(); err != nil {
 		t.Fatalf("WatchOption normalize error: %v", err)

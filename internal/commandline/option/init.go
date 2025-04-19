@@ -8,10 +8,10 @@ import (
 )
 
 type InitOption struct {
-	ModeOpt        string
-	FileNameOpt    string
-	FlagSet        *flag.FlagSet
-	HelpFlag       bool
+	ModeOpt     string
+	FileNameOpt string
+	FlagSet     *flag.FlagSet
+	HelpFlag    bool
 }
 
 func ParseInit(args []string) (*InitOption, error) {

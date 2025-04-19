@@ -18,7 +18,7 @@ var ignoreTypeUnitMap = map[string]string{
 	"mini":    Minimal,
 	"maximum": Maximum,
 	"max":     Maximum,
-	"nothing":  Nothing,
+	"nothing": Nothing,
 	"none":    Nothing,
 	"no":      Nothing,
 }

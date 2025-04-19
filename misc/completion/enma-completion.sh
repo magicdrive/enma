@@ -10,7 +10,14 @@ if [[ -n ${ZSH_VERSION-} ]]; then
     typeset -A opt_args
 
     local -a subcommands
-    subcommands=('init:Initialize configuration' 'hotload:Watch & reload daemon' 'watch:Watch & run commands' '--help:Show help' '--version:Show version' '--config:Define enma.toml' )
+    subcommands=(
+        'init:Initialize configuration'
+        'hotload:Watch & reload daemon'
+        'watch:Watch & run commands'
+        '--help:Show help'
+        '--version:Show version'
+        '--config:Define enma.toml'
+    )
 
     _arguments -C \
       '1:command:->subcmd' \
@@ -33,7 +40,7 @@ if [[ -n ${ZSH_VERSION-} ]]; then
               '--help[Show help]' \
               '--daemon[Daemon command]:cmd:_command_names' \
               '--build[Build command]:cmd:_command_names' \
-			  '--watch-dir[    (optional) Directories to watch]:dir:_files -/' \
+              '--watch-dir[    (optional) Directories to watch]:dir:_files -/' \
               '--pre-build[    (optional) Pre-build command]:cmd:_command_names' \
               '--post-build[    (optional) Post-build command]:cmd:_command_names' \
               '--working-dir[    (optional) Working directory]:dir:_files -/' \
@@ -51,7 +58,7 @@ if [[ -n ${ZSH_VERSION-} ]]; then
               '--exclude-dir[    (optional) Dirs to exclude]:dir:_files -/' \
               '--ignore-dir-regex[    (optional) Dir ignore regex]' \
               '--ignore-file-regex[    (optional) File ignore regex]' \
-			  '--default-ignores[    (optional) Specify default ignore volume <max|min|none>]:mode:(maximum minimal none)' \
+              '--default-ignores[    (optional) Specify default ignore volume <max|min|none>]:mode:(maximum minimal none)' \
               '--enmaignore[    (optional) Ignore file list]:file:_files' \
               '--logs[    (optional) Log file]:file:_files' \
               '--pid[    (optional) PID file]:file:_files'
@@ -60,7 +67,7 @@ if [[ -n ${ZSH_VERSION-} ]]; then
             _values 'watch options' \
               '--help[Show help]' \
               '--command[Command to run]:cmd:_command_names' \
-			  '--watch-dir[    (optional) Directories to watch]:dir:_files -/' \
+              '--watch-dir[    (optional) Directories to watch]:dir:_files -/' \
               '--pre-cmd[    (optional) Pre-command]:cmd:_command_names' \
               '--post-cmd[    (optional) Post-command]:cmd:_command_names' \
               '--working-dir[    (optional) Working directory]:dir:_files -/' \
