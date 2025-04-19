@@ -4,7 +4,7 @@ Create plain Enma.toml and .enmaignore files.
 
 Options:
   -m, --mode <hotload|watch|enmaignore> Specify mode of the configuration file to be created.
-									    Optional. Default: hotload
+                                        Optional. Default: hotload
 
   -f, --file <filename>                 Specify filename of config file to be created.
                                         Optional. Default: ./Enma.toml|.enmaignore
