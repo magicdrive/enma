@@ -18,12 +18,14 @@ type IgnorePattern struct {
 
 type GitIgnore struct {
 	registeredPatternMap map[string]bool
+	registeredStringMap  map[string]string
 	patterns             []*IgnorePattern
 }
 
 func NewPlainIgnoreRule() *GitIgnore {
 	return &GitIgnore{
 		registeredPatternMap: map[string]bool{},
+		registeredStringMap:  map[string]string{},
 		patterns:             []*IgnorePattern{},
 	}
 }
@@ -102,6 +104,7 @@ func AppendIgnoreLines(gi *GitIgnore, lines ...string) (*GitIgnore, error) {
 			Raw:    raw,
 		})
 		gi.registeredPatternMap[line] = true
+		gi.registeredStringMap[line] = reStr
 	}
 	return gi, nil
 }

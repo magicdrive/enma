@@ -102,6 +102,9 @@ func (r *HotloadRunner) CollectWatchDirs(root string) ([]string, error) {
 
 func (r *HotloadRunner) AddWatchDirs(dirs []string) {
 	for _, dir := range dirs {
+		if !r.ShouldWatchDir(dir) {
+			continue
+		}
 		if err := r.watcher.Add(dir); err != nil {
 			log.Printf("⚠️  Failed to watch %s: %v", dir, err)
 		} else {
@@ -304,6 +307,34 @@ func (r *HotloadRunner) IsExcludedDir(path string) bool {
 		}
 	}
 	return false
+}
+
+func (r *HotloadRunner) ShouldWatchDir(dir string) bool {
+	absDir, err := filepath.Abs(dir)
+	if err != nil {
+		return false
+	}
+
+	// --exclude-dir
+	if r.Options.ExcludeDir != "" && r.IsExcludedDir(absDir) {
+		return false
+	}
+
+	// --ignore-dir-regex
+	if r.Options.IgnoreDirRegexp != nil {
+		if r.Options.IgnoreDirRegexp.MatchString(absDir) {
+			return false
+		}
+	}
+
+	// .enmaignore
+	if r.Options.EnmaIgnore != nil {
+		if r.Options.EnmaIgnore.Matches(common.TrimDotSlash(absDir)) {
+			return false
+		}
+	}
+
+	return true
 }
 
 func (r *HotloadRunner) ShouldTrigger(event fsnotify.Event) bool {
