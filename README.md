@@ -59,7 +59,7 @@ watch-dir = ["./cmd", "./internal"]
 ### Run
 
 ```bash
-enma hotload --daemon ./my-app --build "go build -o my-app main.go" --watch-dir ./cmd,./internal
+enma hotload --daemon ./my-app --build "go build -o my-app main.go"
 ```
 
 ---
@@ -78,7 +78,7 @@ watch-dir = ["./pkg", "./lib"]
 ### Run
 
 ```bash
-enma watch --command "make test" --watch-dir ./pkg,./lib
+enma watch --command "make test file={}"
 ```
 
 ---
