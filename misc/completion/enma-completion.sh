@@ -25,7 +25,7 @@ if [[ -n ${ZSH_VERSION-} ]]; then
           init)
             _values 'init options' \
               '--help[Show help]' \
-              '--mode[Specify mode <hotload|watch>]:mode:(hotload watch)' \
+              '--mode[Specify mode <hotload|watch|enmaignore>]:mode:(hotload watch enmaignore)' \
               '--file[Specify output config file]:file:_files'
             ;;
           hotload)
@@ -33,7 +33,7 @@ if [[ -n ${ZSH_VERSION-} ]]; then
               '--help[Show help]' \
               '--daemon[Daemon command]:cmd:_command_names' \
               '--build[Build command]:cmd:_command_names' \
-              '--watch-dir[Directories to watch]:dir:_files -/' \
+			  '--watch-dir[    (optional) Directories to watch]:dir:_files -/' \
               '--pre-build[    (optional) Pre-build command]:cmd:_command_names' \
               '--post-build[    (optional) Post-build command]:cmd:_command_names' \
               '--working-dir[    (optional) Working directory]:dir:_files -/' \
@@ -51,6 +51,7 @@ if [[ -n ${ZSH_VERSION-} ]]; then
               '--exclude-dir[    (optional) Dirs to exclude]:dir:_files -/' \
               '--ignore-dir-regex[    (optional) Dir ignore regex]' \
               '--ignore-file-regex[    (optional) File ignore regex]' \
+			  '--default-ignores[    (optional) Specify default ignore volume <max|min|none>]:mode:(maximum minimal none)' \
               '--enmaignore[    (optional) Ignore file list]:file:_files' \
               '--logs[    (optional) Log file]:file:_files' \
               '--pid[    (optional) PID file]:file:_files'
@@ -58,9 +59,8 @@ if [[ -n ${ZSH_VERSION-} ]]; then
           watch)
             _values 'watch options' \
               '--help[Show help]' \
-              '--daemon[Daemon command]:cmd:_command_names' \
               '--command[Command to run]:cmd:_command_names' \
-              '--watch-dir[Directories to watch]:dir:_files -/' \
+			  '--watch-dir[    (optional) Directories to watch]:dir:_files -/' \
               '--pre-cmd[    (optional) Pre-command]:cmd:_command_names' \
               '--post-cmd[    (optional) Post-command]:cmd:_command_names' \
               '--working-dir[    (optional) Working directory]:dir:_files -/' \
@@ -113,10 +113,10 @@ _enma_bash() {
       opts="--help -h --mode --file"
       ;;
     hotload)
-      opts="--daemon --build --watch-dir --pre-build --post-build --working-dir --placeholder --args-path-style --build-at-start --check-content-diff --absolute-path --timeout --delay --retry --pattern-regex --include-ext --exclude-ext --exclude-dir --ignore-dir-regex --ignore-file-regex --enmaignore --logs --pid"
+      opts="--daemon --build --watch-dir --pre-build --post-build --working-dir --placeholder --args-path-style --build-at-start --check-content-diff --absolute-path --timeout --delay --retry --pattern-regex --include-ext --exclude-ext --exclude-dir --ignore-dir-regex --ignore-file-regex --default-ignores --enmaignore --logs --pid"
       ;;
     watch)
-      opts="--command --watch-dir --pre-cmd --post-cmd --working-dir --placeholder --args-path-style --check-content-diff --absolute-path --timeout --delay --retry --pattern-regex --include-ext --exclude-ext --exclude-dir --ignore-dir-regex --ignore-file-regex --enmaignore --logs --pid"
+      opts="--command --watch-dir --pre-cmd --post-cmd --working-dir --placeholder --args-path-style --check-content-diff --absolute-path --timeout --delay --retry --pattern-regex --include-ext --exclude-ext --exclude-dir --ignore-dir-regex --ignore-file-regex --default-ignores --enmaignore --logs --pid"
       ;;
     *)
       opts=$global_opts

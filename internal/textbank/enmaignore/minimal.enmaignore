@@ -1,0 +1,42 @@
+# =============================
+# Enma
+# =============================
+.enma/
+
+# =============================
+# VCS / Version Control
+# =============================
+.git/
+.hg/
+.svn/
+
+# =============================
+# OS / System files
+# =============================
+.DS_Store
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+
+# =============================
+# Logs / Temp files
+# =============================
+*.log
+*.tmp
+*.bak
+*.swp
+*.swo
+*.pid
+*.pid.lock
+*.lock
+*.seed
+*.orig
+
+# =============================
+# Editors / IDEs
+# =============================
+.idea/
+.vscode/
+*.code-workspace
+*.sublime-project
+*.sublime-workspace

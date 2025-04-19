@@ -34,6 +34,8 @@ type HotloadOption struct {
 	Delay                    model.TimeString
 	DelayValue               string
 	Retry                    int
+	DefaultIgnores           model.IgnoreType
+	DefaultIgnoresValue      string
 	WatchDir                 string
 	WatchDirList             []string
 	PatternRegexpString      string
@@ -127,9 +129,13 @@ func ParseHotload(args []string) (*HotloadOption, error) {
 	retryOpt := fs.Int("retry", 0, "Specify retry count (optional)")
 	fs.IntVar(retryOpt, "r", 0, "Specify retry count (optional)")
 
+	// --default-ignores
+	defaultIgnoresOpt := fs.String("default-ignores", "minimal", "Defines defualt loads enmaignore volume. (optional)")
+	fs.StringVar(defaultIgnoresOpt, "D", "minimal", "Defines defualt loads enmaignore volume. (optional)")
+
 	// --watch-dir
-	watchDirOpt := fs.String("watch-dir", "", "Specify watch directories (required)")
-	fs.StringVar(watchDirOpt, "w", "", "Specify watch directories (required)")
+	watchDirOpt := fs.String("watch-dir", currentDir, "Specify watch directories (optional)")
+	fs.StringVar(watchDirOpt, "w", currentDir, "Specify watch directories (optional)")
 
 	// --pattern-regex
 	patternRegexOpt := fs.String("pattern-regex", ".*", "Specify watch file pattern regexp (optional)")
@@ -185,7 +191,7 @@ func ParseHotload(args []string) (*HotloadOption, error) {
 		os.Exit(0)
 	}
 	// Validate required flags
-	if *daemonOpt == "" || *buildOpt == "" || *watchDirOpt == "" {
+	if *daemonOpt == "" || *buildOpt == "" {
 		fmt.Println("Missing required flags for hotload")
 		fs.Usage()
 		os.Exit(1)
@@ -205,6 +211,7 @@ func ParseHotload(args []string) (*HotloadOption, error) {
 		TimeoutValue:             *timeoutOpt,
 		DelayValue:               *delayOpt,
 		Retry:                    *retryOpt,
+		DefaultIgnoresValue:      *defaultIgnoresOpt,
 		WatchDir:                 *watchDirOpt,
 		PatternRegexpString:      *patternRegexOpt,
 		IncludeExt:               *includeExtOpt,
@@ -257,6 +264,10 @@ func (cr *HotloadOption) Valid() error {
 		errorMessages = append(errorMessages, fmt.Sprintf("--delay %s", err.Error()))
 	}
 
+	if err := cr.DefaultIgnores.Set(cr.DefaultIgnoresValue); err != nil {
+		errorMessages = append(errorMessages, fmt.Sprintf("--default-ignores %s", err.Error()))
+	}
+
 	if len(errorMessages) == 0 {
 		return nil
 	} else {
@@ -297,17 +308,12 @@ func (cr *HotloadOption) Normalize() error {
 	if cr.ExcludeDir != "" {
 		cr.ExcludeDirList = common.CommaSeparated2StringList(cr.ExcludeDir)
 	}
+
+	// enmaignore
 	if cr.EnmaIgnoreString != "" {
 		cr.EnmaIgnoreList = common.CommaSeparated2StringList(cr.EnmaIgnoreString)
-
-		// enmaignore
-		if enmaIgnore, err := ignorerule.NewGitignore(cr.WorkingDir, cr.EnmaIgnoreList); err != nil {
-			e := fmt.Errorf("ennmaignore load error: %w", err)
-			errorMessages = append(errorMessages, e.Error())
-		} else {
-			cr.EnmaIgnore = enmaIgnore
-		}
 	}
+	cr.EnmaIgnore = ignorerule.GenerateIntegratedEnmaIgnore(cr.WorkingDir, cr.DefaultIgnores, cr.EnmaIgnoreList)
 
 	// compile regexp
 	if cr.PatternRegexpString != "" {

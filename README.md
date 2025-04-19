@@ -126,7 +126,7 @@ This layered approach ensures clarity in behavior while keeping Enma fast and cu
 | Option                        | Description                                               |
 |-------------------------------|-----------------------------------------------------------|
 | `-h`, `--help`                | Show help message and exit                                |
-| `-m`, `--mode`                | Mode for config file: `hotload` or `watch` (default: `hotload`) |
+| `-m`, `--mode`                | Mode for config file: `hotload`,`watch` or `enmaignore` (default: `hotload`) |
 | `-f`, `--file <filename>`     | Config filename to create (default: `./Enma.toml`)        |
 
 ---
@@ -138,7 +138,7 @@ This layered approach ensures clarity in behavior while keeping Enma fast and cu
 | `-h`, `--help`                             | Show help message and exit                                                 |
 | `-d`, `--daemon <command>`                 | Daemon command to run (required)                                           |
 | `-b`, `--build <command>`                  | Command to build the daemon (required)                                     |
-| `-w`, `--watch-dir <dir_name>`             | Watch directories (comma-separated, required)                              |
+| `-w`, `--watch-dir <dir_name>`             | Watch directories (comma-separated, optional. default: `$PWD`)             |
 | `-p`, `--pre-build <command>`              | Command to run before build (optional)                                     |
 | `-P`, `--post-build <command>`             | Command to run after build (optional)                                      |
 | `-W`, `--working-dir <dir_name>`           | Working directory (default: `$PWD`)                                        |
@@ -156,6 +156,7 @@ This layered approach ensures clarity in behavior while keeping Enma fast and cu
 | `-G`, `--ignore-file-regex <regex> `       | Regex to ignore files (optional)                                           |
 | `-e`, `--exclude-ext <ext>`                | File extensions to exclude (comma-separated, optional)                     |
 | `-E`, `--exclude-dir <dir_name>`           | Directories to exclude (comma-separated, optional)                         |
+| `-D`, `--default-ignores <max|min|none>`   | Defines defualt loads enmaignore volume. (optional. default: `minimal`)      |
 | `-n`, `--enmaignore <filename>`            | enma ignore file(s) (comma-separated, optional. default: `./.enmaignore`)  |
 | `--logs <log_file_path>`                   | Log file path (optional)                                                   |
 | `--pid <pid_file_path>`                    | PID file path (optional)                                                   |
@@ -168,10 +169,10 @@ This layered approach ensures clarity in behavior while keeping Enma fast and cu
 |--------------------------------------------|----------------------------------------------------------------------------|
 | `-h`, `--help`                             | Show help message and exit                                                 |
 | `-c`, `--command`, `--cmd <command>`       | Command to run on file change (required)                                   |
-| `-w`, `--watch-dir <dir_name>`             | Watch directories (comma-separated, required)                              |
 | `-p`, `--pre-cmd <command>`                | Command to run before main command (optional)                              |
 | `-P`, `--post-cmd <command>`               | Command to run after main command (optional)                               |
-| `-W`, `--working-dir <dir_name>`           | Working directory (default: `$PWD`)                                        |
+| `-w`, `--watch-dir <dir_name>`             | Watch directories (comma-separated, optional. default: `$PWD`)             |
+| `-W`, `--working-dir <dir_name>`           | Working directory (optional. default: `$PWD`)                              |
 | `-I`, `--placeholder`                      | Placeholder in command for changed file (default: `{}`)                    |
 | `-s`, `--args-path-style <style>`          | filepath-style where event in command. <br> (optional. default: `dir,base,ext`) |
 | `-C`, `--check-content-diff <on\|off>`     | Fires only when the file contents are changed. (optional. default: `on`)   |
@@ -185,6 +186,7 @@ This layered approach ensures clarity in behavior while keeping Enma fast and cu
 | `-G`, `--ignore-file-regex <regex>`        | Regex to ignore files (optional)                                           |
 | `-e`, `--exclude-ext <ext>`                | File extensions to exclude (comma-separated, optional)                     |
 | `-E`, `--exclude-dir <dir_name>`           | Directories to exclude (comma-separated, optional)                         |
+| `-D`, `--default-ignores <max|min|none>`   | Defines defualt loads enmaignore volume. (optional. default: `minimal`)      |
 | `-n`, `--enmaignore <filename>`            | enma ignore file(s) (comma-separated, optional. default: `./.enmaignore`)  |
 | `--logs <log_file_path>`                   | Log file path (optional)                                                   |
 | `--pid <pid_file_path>`                    | PID file path (optional)                                                   |

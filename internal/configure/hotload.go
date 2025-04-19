@@ -21,6 +21,7 @@ type tomlHotloadConf struct {
 	Timeout          string   `toml:"timeout"`
 	Delay            string   `toml:"delay"`
 	Retry            int      `toml:"retry"`
+	DefaultIgnore    string   `toml:"default_ignores"`
 	WatchDir         []string `toml:"watch_dir"`
 	PatternRegexp    string   `toml:"pattern_regex"`
 	IncludeExt       []string `toml:"include_ext"`
@@ -35,7 +36,8 @@ type tomlHotloadConf struct {
 func NewHotloadOptionFromTOMLConfig(h tomlHotloadConf) (*option.HotloadOption, error) {
 	daemon := fallback(h.Daemon, "")
 	build := fallback(h.Build, "")
-	watchDir := fallbackArray(h.WatchDir, []string{})
+	defaultIgnores := fallback(h.DefaultIgnore, "minimal")
+	watchDir := fallbackArray(h.WatchDir, []string{"./"})
 	workingDir := fallback(h.WorkingDir, common.GetCurrentDir())
 	placeholder := fallback(h.Placeholder, "{}")
 	argPathStyle := fallback(h.ArgsPathStyle, "dirname,basename,extension")
@@ -63,8 +65,9 @@ func NewHotloadOptionFromTOMLConfig(h tomlHotloadConf) (*option.HotloadOption, e
 		TimeoutValue:             timeout,
 		DelayValue:               delay,
 		Retry:                    h.Retry,
+		DefaultIgnoresValue:      defaultIgnores,
 		WatchDir:                 JoinComma(watchDir),
-		PatternRegexpString:      fallback(h.PatternRegexp, ".*"),
+		PatternRegexpString:      h.PatternRegexp,
 		IncludeExt:               JoinComma(h.IncludeExt),
 		IgnoreFileRegexpString:   h.IgnoreRegex,
 		ExcludeExt:               JoinComma(h.ExcludeExt),

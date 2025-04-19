@@ -13,7 +13,8 @@ func ReadFilesAsLines(workingDir string, files []string) ([]string, error) {
 		loadPath := normalizedWorkingDir + removeLeadingSlash(path)
 		f, err := os.Open(loadPath)
 		if err != nil {
-			return nil, err
+			//return nil, err
+			continue
 		}
 		defer f.Close()
 
@@ -27,6 +28,17 @@ func ReadFilesAsLines(workingDir string, files []string) ([]string, error) {
 		}
 	}
 	return lines, nil
+}
+
+func AppendIgnoreFileList(gi *GitIgnore, workingDir string, fileList []string) (*GitIgnore, error) {
+	var fileLine []string
+	var err error
+	fileLine, err = ReadFilesAsLines(workingDir, fileList)
+
+	if err != nil {
+		return nil, err
+	}
+	return AppendIgnoreLines(gi, fileLine...)
 }
 
 func NewGitignore(workingDir string, fileList []string) (*GitIgnore, error) {

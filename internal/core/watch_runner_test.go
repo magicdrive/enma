@@ -18,6 +18,29 @@ import (
 	"github.com/magicdrive/enma/internal/core"
 )
 
+func HelperInflateWatchOptionDefaultValue(opt *option.WatchOption) *option.WatchOption {
+
+	if opt.ArgsPathStyleStringValue == "" {
+		opt.ArgsPathStyleStringValue = "dirname,basename,extension"
+	}
+	if opt.CheckContentDiffValue == "" {
+		opt.CheckContentDiffValue = "on"
+	}
+	if opt.AbsolutePathFlagValue == "" {
+		opt.AbsolutePathFlagValue = "on"
+	}
+	if opt.TimeoutValue == "" {
+		opt.TimeoutValue = "5sec"
+	}
+	if opt.DelayValue == "" {
+		opt.DelayValue = "0sec"
+	}
+	if opt.DefaultIgnoresValue == "" {
+		opt.DefaultIgnoresValue = "minimal"
+	}
+	return opt
+}
+
 func TestWatchRunnerRunCmd_Success(t *testing.T) {
 	r := &core.WatchRunner{
 		Options: &option.WatchOption{
@@ -27,6 +50,12 @@ func TestWatchRunnerRunCmd_Success(t *testing.T) {
 		ExecCommand: func(ctx context.Context, name string, args ...string) *exec.Cmd {
 			return exec.CommandContext(ctx, "echo", "build success")
 		},
+	}
+
+	r.Options = HelperInflateWatchOptionDefaultValue(r.Options)
+
+	if err := r.Options.Valid(); err != nil {
+		t.Errorf("WatchOption valid error: %v", err)
 	}
 
 	if err := r.Options.Normalize(); err != nil {
@@ -39,29 +68,6 @@ func TestWatchRunnerRunCmd_Success(t *testing.T) {
 	}
 }
 
-func TestWatchRunnerRunBuild_Timeout(t *testing.T) {
-	r := &core.HotloadRunner{
-		Options: &option.HotloadOption{
-			Build: "long-running",
-		},
-		BuildTimeout: 1 * time.Second,
-		ExecCommand: func(ctx context.Context, name string, args ...string) *exec.Cmd {
-			cmd := exec.CommandContext(ctx, os.Args[0], "-test.run=TestWatchRunnerHelperProcess", "--", "sleep")
-			cmd.Env = append(os.Environ(), "GO_WANT_HELPER_PROCESS=1")
-			return cmd
-		},
-	}
-
-	if err := r.Options.Normalize(); err != nil {
-		t.Errorf("WatchOption normalize error: %v", err)
-	}
-
-	err := r.RunBuild(context.Background(), "./main.go")
-	if err == nil {
-		t.Fatal("expected timeout error, got nil")
-	}
-}
-
 func TestWatchRunnerRunCmd_MockFailure(t *testing.T) {
 	r := &core.WatchRunner{
 		Options: &option.WatchOption{
@@ -71,6 +77,12 @@ func TestWatchRunnerRunCmd_MockFailure(t *testing.T) {
 		ExecCommand: func(ctx context.Context, name string, args ...string) *exec.Cmd {
 			return exec.CommandContext(ctx, "false")
 		},
+	}
+
+	r.Options = HelperInflateWatchOptionDefaultValue(r.Options)
+
+	if err := r.Options.Valid(); err != nil {
+		t.Errorf("WatchOption valid error: %v", err)
 	}
 
 	if err := r.Options.Normalize(); err != nil {
@@ -88,6 +100,12 @@ func TestWatchRunnerIsExcludedDir(t *testing.T) {
 		Options: &option.WatchOption{
 			ExcludeDir: "node_modules,tmp",
 		},
+	}
+
+	r.Options = HelperInflateWatchOptionDefaultValue(r.Options)
+
+	if err := r.Options.Valid(); err != nil {
+		t.Errorf("WatchOption valid error: %v", err)
 	}
 
 	if err := r.Options.Normalize(); err != nil {
@@ -116,6 +134,12 @@ func TestWatchRunnerShouldTrigger(t *testing.T) {
 			IncludeExt: ".go",
 			ExcludeExt: ".tmp",
 		},
+	}
+
+	r.Options = HelperInflateWatchOptionDefaultValue(r.Options)
+
+	if err := r.Options.Valid(); err != nil {
+		t.Errorf("WatchOption valid error: %v", err)
 	}
 
 	if err := r.Options.Normalize(); err != nil {
@@ -151,6 +175,12 @@ func TestWatchRunnerShouldTrigger_Regex(t *testing.T) {
 			},
 		}
 
+		r.Options = HelperInflateWatchOptionDefaultValue(r.Options)
+
+		if err := r.Options.Valid(); err != nil {
+			t.Errorf("WatchOption valid error: %v", err)
+		}
+
 		if err := r.Options.Normalize(); err != nil {
 			t.Errorf("WatchOption normalize error: %v", err)
 		}
@@ -170,6 +200,12 @@ func TestWatchRunnerShouldTrigger_Regex(t *testing.T) {
 			Options: &option.WatchOption{
 				PatternRegexp: re,
 			},
+		}
+
+		r.Options = HelperInflateWatchOptionDefaultValue(r.Options)
+
+		if err := r.Options.Valid(); err != nil {
+			t.Errorf("WatchOption valid error: %v", err)
 		}
 
 		if err := r.Options.Normalize(); err != nil {
@@ -193,6 +229,12 @@ func TestWatchRunnerShouldTrigger_Regex(t *testing.T) {
 			},
 		}
 
+		r.Options = HelperInflateWatchOptionDefaultValue(r.Options)
+
+		if err := r.Options.Valid(); err != nil {
+			t.Errorf("WatchOption valid error: %v", err)
+		}
+
 		if err := r.Options.Normalize(); err != nil {
 			t.Errorf("WatchOption normalize error: %v", err)
 		}
@@ -212,6 +254,12 @@ func TestWatchRunnerShouldTrigger_Regex(t *testing.T) {
 			Options: &option.WatchOption{
 				IgnoreFileRegexp: re,
 			},
+		}
+
+		r.Options = HelperInflateWatchOptionDefaultValue(r.Options)
+
+		if err := r.Options.Valid(); err != nil {
+			t.Errorf("WatchOption valid error: %v", err)
 		}
 
 		if err := r.Options.Normalize(); err != nil {
@@ -247,6 +295,13 @@ func TestWatchRunnerRunPreCmd_Empty(t *testing.T) {
 			return nil
 		},
 	}
+
+	r.Options = HelperInflateWatchOptionDefaultValue(r.Options)
+
+	if err := r.Options.Valid(); err != nil {
+		t.Errorf("WatchOption valid error: %v", err)
+	}
+
 	if err := r.Options.Normalize(); err != nil {
 		t.Errorf("WatchOption normalize error: %v", err)
 	}
@@ -267,6 +322,13 @@ func TestWatchRunnerRunPostCmd_Empty(t *testing.T) {
 			return nil
 		},
 	}
+
+		r.Options = HelperInflateWatchOptionDefaultValue(r.Options)
+
+		if err := r.Options.Valid(); err != nil {
+			t.Errorf("WatchOption valid error: %v", err)
+		}
+
 	if err := r.Options.Normalize(); err != nil {
 		t.Errorf("WatchOption normalize error: %v", err)
 	}
@@ -283,6 +345,12 @@ func TestWatchRunnerReplacePlaceholders(t *testing.T) {
 			Placeholder: ":path",
 		},
 	}
+		r.Options = HelperInflateWatchOptionDefaultValue(r.Options)
+
+		if err := r.Options.Valid(); err != nil {
+			t.Errorf("WatchOption valid error: %v", err)
+		}
+
 	if err := r.Options.Normalize(); err != nil {
 		t.Errorf("WatchOption normalize error: %v", err)
 	}
@@ -300,6 +368,12 @@ func TestWatchRunnerIsExcludedDir_EmptyExclude(t *testing.T) {
 			ExcludeDir: "",
 		},
 	}
+		r.Options = HelperInflateWatchOptionDefaultValue(r.Options)
+
+		if err := r.Options.Valid(); err != nil {
+			t.Errorf("WatchOption valid error: %v", err)
+		}
+
 	if err := r.Options.Normalize(); err != nil {
 		t.Errorf("WatchOption normalize error: %v", err)
 	}
@@ -317,6 +391,12 @@ func TestWatchRunnerShouldTrigger_Chmod(t *testing.T) {
 		Name: "main.go",
 		Op:   fsnotify.Chmod,
 	}
+		r.Options = HelperInflateWatchOptionDefaultValue(r.Options)
+
+		if err := r.Options.Valid(); err != nil {
+			t.Errorf("WatchOption valid error: %v", err)
+		}
+
 	if err := r.Options.Normalize(); err != nil {
 		t.Errorf("WatchOption normalize error: %v", err)
 	}
@@ -365,6 +445,12 @@ func TestWatchRunner_CollectWatchDirs_SymlinkResolution(t *testing.T) {
 	r := &core.WatchRunner{
 		Options: &option.WatchOption{},
 	}
+
+		r.Options = HelperInflateWatchOptionDefaultValue(r.Options)
+
+		if err := r.Options.Valid(); err != nil {
+			t.Errorf("WatchOption valid error: %v", err)
+		}
 
 	if err := r.Options.Normalize(); err != nil {
 		t.Fatalf("WatchOption normalize error: %v", err)

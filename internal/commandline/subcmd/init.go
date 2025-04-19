@@ -25,22 +25,22 @@ func Init(args []string) error {
 }
 
 func RunInit(opt *option.InitOption) error {
-	var tomlString string
+	var textString string
 
 	switch opt.ModeOpt {
 	case "hotload":
-		tomlString = textbank.DefaultHotloadEnmaToml
+		textString = textbank.DefaultHotloadEnmaToml
 	case "watch":
-		tomlString = textbank.DefaultWatchEnmaToml
+		textString = textbank.DefaultWatchEnmaToml
+	case "enmaignore":
+		textString = textbank.MinimalEnmaIgnore
 	default:
 		return fmt.Errorf("Invalid --mode: %s", opt.ModeOpt)
 	}
 
-	if err := common.CreateNewFileWithContent(opt.FileNameOpt, tomlString); err != nil {
+	if err := common.CreateNewFileWithContent(opt.FileNameOpt, textString); err != nil {
 		fmt.Printf("%s already exists\n", opt.FileNameOpt)
 	}
-
-	common.CreateNewFileWithContent(opt.EnmaIgnoreName, textbank.DefaultEnmaIgnore)
 
 	return nil
 }

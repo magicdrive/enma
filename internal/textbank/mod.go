@@ -26,5 +26,8 @@ var DefaultHotloadEnmaToml string
 //go:embed config_toml/watch.enma.toml
 var DefaultWatchEnmaToml string
 
-//go:embed enmaignore/sample.enmaignore
-var DefaultEnmaIgnore string
+//go:embed enmaignore/maximum.enmaignore
+var MaximumEnmaIgnore string
+
+//go:embed enmaignore/minimal.enmaignore
+var MinimalEnmaIgnore string

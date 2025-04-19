@@ -18,6 +18,32 @@ import (
 	"github.com/magicdrive/enma/internal/core"
 )
 
+func HelperInflateHotloadOptionDefaultValue(opt *option.HotloadOption) *option.HotloadOption {
+
+	if opt.ArgsPathStyleStringValue == "" {
+		opt.ArgsPathStyleStringValue = "dirname,basename,extension"
+	}
+	if opt.BuildAtStartValue == "" {
+		opt.BuildAtStartValue = "on"
+	}
+	if opt.CheckContentDiffValue == "" {
+		opt.CheckContentDiffValue = "on"
+	}
+	if opt.AbsolutePathFlagValue == "" {
+		opt.AbsolutePathFlagValue = "on"
+	}
+	if opt.TimeoutValue == "" {
+		opt.TimeoutValue = "5sec"
+	}
+	if opt.DelayValue == "" {
+		opt.DelayValue = "0sec"
+	}
+	if opt.DefaultIgnoresValue == "" {
+		opt.DefaultIgnoresValue = "minimal"
+	}
+	return opt
+}
+
 func TestHotloadRunnerRunBuild_Success(t *testing.T) {
 	r := &core.HotloadRunner{
 		Options: &option.HotloadOption{
@@ -27,6 +53,12 @@ func TestHotloadRunnerRunBuild_Success(t *testing.T) {
 		ExecCommand: func(ctx context.Context, name string, args ...string) *exec.Cmd {
 			return exec.CommandContext(ctx, "echo", "build success")
 		},
+	}
+
+	r.Options = HelperInflateHotloadOptionDefaultValue(r.Options)
+
+	if err := r.Options.Valid(); err != nil {
+		t.Errorf("HotloadOption valid error: %v", err)
 	}
 
 	if err := r.Options.Normalize(); err != nil {
@@ -52,6 +84,12 @@ func TestHotloadRunnerRunBuild_Timeout(t *testing.T) {
 		},
 	}
 
+	r.Options = HelperInflateHotloadOptionDefaultValue(r.Options)
+
+	if err := r.Options.Valid(); err != nil {
+		t.Errorf("HotloadOption valid error: %v", err)
+	}
+
 	if err := r.Options.Normalize(); err != nil {
 		t.Errorf("HotloadOption normalize error: %v", err)
 	}
@@ -73,6 +111,12 @@ func TestHotloadRunnerRunBuild_MockFailure(t *testing.T) {
 		},
 	}
 
+	r.Options = HelperInflateHotloadOptionDefaultValue(r.Options)
+
+	if err := r.Options.Valid(); err != nil {
+		t.Errorf("HotloadOption valid error: %v", err)
+	}
+
 	if err := r.Options.Normalize(); err != nil {
 		t.Errorf("HotloadOption normalize error: %v", err)
 	}
@@ -88,6 +132,12 @@ func TestHotloadRunnerIsExcludedDir(t *testing.T) {
 		Options: &option.HotloadOption{
 			ExcludeDir: "node_modules,tmp",
 		},
+	}
+
+	r.Options = HelperInflateHotloadOptionDefaultValue(r.Options)
+
+	if err := r.Options.Valid(); err != nil {
+		t.Errorf("HotloadOption valid error: %v", err)
 	}
 
 	if err := r.Options.Normalize(); err != nil {
@@ -116,6 +166,12 @@ func TestHotloadRunnerShouldTrigger(t *testing.T) {
 			IncludeExt: ".go",
 			ExcludeExt: ".tmp",
 		},
+	}
+
+	r.Options = HelperInflateHotloadOptionDefaultValue(r.Options)
+
+	if err := r.Options.Valid(); err != nil {
+		t.Errorf("HotloadOption valid error: %v", err)
 	}
 
 	if err := r.Options.Normalize(); err != nil {
@@ -150,6 +206,13 @@ func TestHotloadRunnerShouldTrigger_Regex(t *testing.T) {
 				PatternRegexp: re,
 			},
 		}
+
+		r.Options = HelperInflateHotloadOptionDefaultValue(r.Options)
+
+		if err := r.Options.Valid(); err != nil {
+			t.Errorf("HotloadOption valid error: %v", err)
+		}
+
 		if err := r.Options.Normalize(); err != nil {
 			t.Errorf("HotloadOption normalize error: %v", err)
 		}
@@ -170,6 +233,13 @@ func TestHotloadRunnerShouldTrigger_Regex(t *testing.T) {
 				PatternRegexp: re,
 			},
 		}
+
+		r.Options = HelperInflateHotloadOptionDefaultValue(r.Options)
+
+		if err := r.Options.Valid(); err != nil {
+			t.Errorf("HotloadOption valid error: %v", err)
+		}
+
 		if err := r.Options.Normalize(); err != nil {
 			t.Errorf("HotloadOption normalize error: %v", err)
 		}
@@ -190,6 +260,13 @@ func TestHotloadRunnerShouldTrigger_Regex(t *testing.T) {
 				IgnoreDirRegexp: re,
 			},
 		}
+
+		r.Options = HelperInflateHotloadOptionDefaultValue(r.Options)
+
+		if err := r.Options.Valid(); err != nil {
+			t.Errorf("HotloadOption valid error: %v", err)
+		}
+
 		if err := r.Options.Normalize(); err != nil {
 			t.Errorf("HotloadOption normalize error: %v", err)
 		}
@@ -210,6 +287,13 @@ func TestHotloadRunnerShouldTrigger_Regex(t *testing.T) {
 				IgnoreFileRegexp: re,
 			},
 		}
+
+		r.Options = HelperInflateHotloadOptionDefaultValue(r.Options)
+
+		if err := r.Options.Valid(); err != nil {
+			t.Errorf("HotloadOption valid error: %v", err)
+		}
+
 		if err := r.Options.Normalize(); err != nil {
 			t.Errorf("HotloadOption normalize error: %v", err)
 		}
@@ -243,6 +327,12 @@ func TestHotloadRunnerRunPreBuild_Empty(t *testing.T) {
 			return nil
 		},
 	}
+	r.Options = HelperInflateHotloadOptionDefaultValue(r.Options)
+
+	if err := r.Options.Valid(); err != nil {
+		t.Errorf("HotloadOption valid error: %v", err)
+	}
+
 	if err := r.Options.Normalize(); err != nil {
 		t.Errorf("HotloadOption normalize error: %v", err)
 	}
@@ -262,6 +352,13 @@ func TestHotloadRunnerRunPostBuild_Empty(t *testing.T) {
 			return nil
 		},
 	}
+
+	r.Options = HelperInflateHotloadOptionDefaultValue(r.Options)
+
+	if err := r.Options.Valid(); err != nil {
+		t.Errorf("HotloadOption valid error: %v", err)
+	}
+
 	if err := r.Options.Normalize(); err != nil {
 		t.Errorf("HotloadOption normalize error: %v", err)
 	}
@@ -277,6 +374,13 @@ func TestHotloadRunnerReplacePlaceholders(t *testing.T) {
 			Placeholder: ":path",
 		},
 	}
+
+	r.Options = HelperInflateHotloadOptionDefaultValue(r.Options)
+
+	if err := r.Options.Valid(); err != nil {
+		t.Errorf("HotloadOption valid error: %v", err)
+	}
+
 	if err := r.Options.Normalize(); err != nil {
 		t.Errorf("HotloadOption normalize error: %v", err)
 	}
@@ -293,6 +397,13 @@ func TestHotloadRunnerIsExcludedDir_EmptyExclude(t *testing.T) {
 			ExcludeDir: "",
 		},
 	}
+
+	r.Options = HelperInflateHotloadOptionDefaultValue(r.Options)
+
+	if err := r.Options.Valid(); err != nil {
+		t.Errorf("HotloadOption valid error: %v", err)
+	}
+
 	if err := r.Options.Normalize(); err != nil {
 		t.Errorf("HotloadOption normalize error: %v", err)
 	}
@@ -309,6 +420,13 @@ func TestHotloadRunnerShouldTrigger_Chmod(t *testing.T) {
 		Name: "main.go",
 		Op:   fsnotify.Chmod,
 	}
+
+	r.Options = HelperInflateHotloadOptionDefaultValue(r.Options)
+
+	if err := r.Options.Valid(); err != nil {
+		t.Errorf("HotloadOption valid error: %v", err)
+	}
+
 	if err := r.Options.Normalize(); err != nil {
 		t.Errorf("HotloadOption normalize error: %v", err)
 	}
@@ -355,6 +473,12 @@ func TestHotloadRunner_CollectWatchDirs_SymlinkResolution(t *testing.T) {
 
 	r := &core.HotloadRunner{
 		Options: &option.HotloadOption{},
+	}
+
+	r.Options = HelperInflateHotloadOptionDefaultValue(r.Options)
+
+	if err := r.Options.Valid(); err != nil {
+		t.Errorf("HotloadOption valid error: %v", err)
 	}
 
 	if err := r.Options.Normalize(); err != nil {

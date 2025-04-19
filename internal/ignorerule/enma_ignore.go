@@ -17,15 +17,62 @@ type IgnorePattern struct {
 }
 
 type GitIgnore struct {
-	patterns []*IgnorePattern
+	registeredPatternMap map[string]bool
+	patterns             []*IgnorePattern
+}
+
+func NewPlainIgnoreRule() *GitIgnore {
+	return &GitIgnore{
+		registeredPatternMap: map[string]bool{},
+		patterns:             []*IgnorePattern{},
+	}
+}
+
+func CompileIgnoreText(text string) (*GitIgnore, error) {
+	return AppendIgnoreText(NewPlainIgnoreRule(), text)
+}
+
+func AppendIgnoreText(gi *GitIgnore, text string) (*GitIgnore, error) {
+	var lines []string
+	scanner := bufio.NewScanner(strings.NewReader(text))
+	for scanner.Scan() {
+		lines = append(lines, scanner.Text())
+	}
+	return AppendIgnoreLines(gi, lines...)
 }
 
 func CompileIgnoreLines(lines ...string) (*GitIgnore, error) {
-	gi := &GitIgnore{}
+	gi := NewPlainIgnoreRule()
+	return AppendIgnoreLines(gi, lines...)
+}
+
+func AppendIgnoreFile(gi *GitIgnore, path string) (*GitIgnore, error) {
+	f, err := os.Open(path)
+	if err != nil {
+		return nil, err
+	}
+	defer f.Close()
+
+	var lines []string
+	scanner := bufio.NewScanner(f)
+	for scanner.Scan() {
+		lines = append(lines, scanner.Text())
+	}
+	if err := scanner.Err(); err != nil {
+		return nil, err
+	}
+	return AppendIgnoreLines(gi, lines...)
+}
+
+func AppendIgnoreLines(gi *GitIgnore, lines ...string) (*GitIgnore, error) {
 	for i, raw := range lines {
 		line := strings.TrimRight(raw, "\r")
 		line = strings.TrimSpace(line)
 		if line == "" || strings.HasPrefix(line, "#") {
+			continue
+		}
+
+		if gi.registeredPatternMap[line] {
 			continue
 		}
 
@@ -54,6 +101,7 @@ func CompileIgnoreLines(lines ...string) (*GitIgnore, error) {
 			LineNo: i + 1,
 			Raw:    raw,
 		})
+		gi.registeredPatternMap[line] = true
 	}
 	return gi, nil
 }
