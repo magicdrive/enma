@@ -180,7 +180,7 @@ func ParseWatch(args []string) (*WatchOption, error) {
 		os.Exit(0)
 	}
 	// Validate required flags
-	if *cmdOpt == "" || *watchDirOpt == "" {
+	if *cmdOpt == "" {
 		fmt.Println("Missing required flags for watch")
 		fs.Usage()
 		os.Exit(1)

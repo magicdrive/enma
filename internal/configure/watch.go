@@ -19,6 +19,7 @@ type tomlWatchConf struct {
 	Timeout          string   `toml:"timeout"`
 	Delay            string   `toml:"delay"`
 	Retry            int      `toml:"retry"`
+	DefaultIgnore    string   `toml:"default_ignores"`
 	WatchDir         []string `toml:"watch_dir"`
 	PatternRegexp    string   `toml:"pattern_regex"`
 	IncludeExt       []string `toml:"include_ext"`
@@ -32,6 +33,7 @@ type tomlWatchConf struct {
 
 func NewWatchOptionFromTOMLConfig(h tomlWatchConf) (*option.WatchOption, error) {
 	cmd := fallback(h.Cmd, "")
+	defaultIgnores := fallback(h.DefaultIgnore, "minimal")
 	watchDir := fallbackArray(h.WatchDir, []string{})
 	workingDir := fallback(h.WorkingDir, common.GetCurrentDir())
 	placeholder := fallback(h.Placeholder, "{}")
@@ -41,7 +43,7 @@ func NewWatchOptionFromTOMLConfig(h tomlWatchConf) (*option.WatchOption, error) 
 	timeout := fallback(h.Timeout, "5sec")
 	delay := fallback(h.Delay, "1sec")
 
-	if cmd == "" || len(watchDir) == 0 {
+	if cmd == "" {
 		return nil, fmt.Errorf("required fields missing in watch config")
 	}
 
@@ -57,6 +59,7 @@ func NewWatchOptionFromTOMLConfig(h tomlWatchConf) (*option.WatchOption, error) 
 		TimeoutValue:             timeout,
 		DelayValue:               delay,
 		Retry:                    h.Retry,
+		DefaultIgnoresValue:      defaultIgnores,
 		WatchDir:                 JoinComma(watchDir),
 		PatternRegexpString:      fallback(h.PatternRegexp, ".*"),
 		IncludeExt:               JoinComma(h.IncludeExt),

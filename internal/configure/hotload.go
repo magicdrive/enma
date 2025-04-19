@@ -47,7 +47,7 @@ func NewHotloadOptionFromTOMLConfig(h tomlHotloadConf) (*option.HotloadOption, e
 	timeout := fallback(h.Timeout, "5sec")
 	delay := fallback(h.Delay, "1sec")
 
-	if daemon == "" || build == "" || len(watchDir) == 0 {
+	if daemon == "" || build == ""  {
 		return nil, fmt.Errorf("required fields missing in hotload config")
 	}
 
