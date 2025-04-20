@@ -2,6 +2,7 @@ package option
 
 import (
 	"flag"
+	"fmt"
 
 	"github.com/magicdrive/enma/internal/common"
 )
@@ -54,8 +55,10 @@ func ParseGeneral(args []string) (*GeneralOption, error) {
 func (cr *GeneralOption) Normalize() error {
 
 	if cr.ConfigFilePath != "" {
-		if stat, err := common.FileExists(cr.ConfigFilePath); err != nil || !stat {
+		if stat, err := common.FileExists(cr.ConfigFilePath); err != nil {
 			return err
+		} else if !stat  {
+			return fmt.Errorf("failed load configfile: %v",err)
 		}
 	}
 

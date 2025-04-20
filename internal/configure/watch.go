@@ -7,7 +7,7 @@ import (
 	"github.com/magicdrive/enma/internal/common"
 )
 
-type tomlWatchConf struct {
+type TomlWatchConf struct {
 	PreCmd           string   `toml:"pre_command"`
 	Cmd              string   `toml:"command"`
 	PostCmd          string   `toml:"post_command"`
@@ -31,17 +31,17 @@ type tomlWatchConf struct {
 	PidPath          string   `toml:"pid"`
 }
 
-func NewWatchOptionFromTOMLConfig(h tomlWatchConf) (*option.WatchOption, error) {
-	cmd := fallback(h.Cmd, "")
-	defaultIgnores := fallback(h.DefaultIgnore, "minimal")
-	watchDir := fallbackArray(h.WatchDir, []string{})
-	workingDir := fallback(h.WorkingDir, common.GetCurrentDir())
-	placeholder := fallback(h.Placeholder, "{}")
-	argPathStyle := fallback(h.ArgsPathStyle, "dirname,basename,extension")
-	checkContentDiff := fallbackOnOffSwitch(h.CheckContentDiff, true)
-	absolutePathFlag := fallbackOnOffSwitch(h.AbsolutePath, true)
-	timeout := fallback(h.Timeout, "5sec")
-	delay := fallback(h.Delay, "1sec")
+func NewWatchOptionFromTOMLConfig(h TomlWatchConf) (*option.WatchOption, error) {
+	cmd := Fallback(h.Cmd, "")
+	defaultIgnores := Fallback(h.DefaultIgnore, "minimal")
+	watchDir := FallbackArray(h.WatchDir, []string{})
+	workingDir := Fallback(h.WorkingDir, common.GetCurrentDir())
+	placeholder := Fallback(h.Placeholder, "{}")
+	argPathStyle := Fallback(h.ArgsPathStyle, "dirname,basename,extension")
+	checkContentDiff := FallbackOnOffSwitch(h.CheckContentDiff, true)
+	absolutePathFlag := FallbackOnOffSwitch(h.AbsolutePath, true)
+	timeout := Fallback(h.Timeout, "5sec")
+	delay := Fallback(h.Delay, "1sec")
 
 	if cmd == "" {
 		return nil, fmt.Errorf("required fields missing in watch config")
@@ -61,7 +61,7 @@ func NewWatchOptionFromTOMLConfig(h tomlWatchConf) (*option.WatchOption, error) 
 		Retry:                    h.Retry,
 		DefaultIgnoresValue:      defaultIgnores,
 		WatchDir:                 JoinComma(watchDir),
-		PatternRegexpString:      fallback(h.PatternRegexp, ".*"),
+		PatternRegexpString:      h.PatternRegexp,
 		IncludeExt:               JoinComma(h.IncludeExt),
 		IgnoreFileRegexpString:   h.IgnoreRegex,
 		ExcludeExt:               JoinComma(h.ExcludeExt),

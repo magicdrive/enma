@@ -29,14 +29,14 @@ func FindEnmaConfigFile() (string, error) {
 	return "", os.ErrNotExist
 }
 
-func fallback(val, def string) string {
+func Fallback(val, def string) string {
 	if strings.TrimSpace(val) == "" {
 		return def
 	}
 	return val
 }
 
-func fallbackOnOffSwitch(val *bool, def bool) model.OnOffSwitch {
+func FallbackOnOffSwitch(val *bool, def bool) model.OnOffSwitch {
 	if val != nil {
 		return model.Bool2OnOffSwitch(*val)
 	}
@@ -65,7 +65,7 @@ func JoinComma(values []string) string {
 	return strings.Join(uniqValues, ",")
 }
 
-func fallbackArray(val, def []string) []string {
+func FallbackArray(val, def []string) []string {
 	uniqVal := TrimSpaceAndUniq(val)
 	if len(uniqVal) == 0 {
 		return def
@@ -80,8 +80,8 @@ type Optioner interface {
 type TomlConfig struct {
 	Subcommand struct {
 		Use     string          `toml:"use"`
-		Hotload tomlHotloadConf `toml:"hotload"`
-		Watch   tomlWatchConf   `toml:"watch"`
+		Hotload TomlHotloadConf `toml:"hotload"`
+		Watch   TomlWatchConf   `toml:"watch"`
 	} `toml:"subcommand"`
 }
 

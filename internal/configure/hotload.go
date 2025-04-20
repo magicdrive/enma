@@ -7,7 +7,7 @@ import (
 	"github.com/magicdrive/enma/internal/common"
 )
 
-type tomlHotloadConf struct {
+type TomlHotloadConf struct {
 	Daemon           string   `toml:"daemon"`
 	PreBuild         string   `toml:"pre_build"`
 	Build            string   `toml:"build"`
@@ -33,19 +33,19 @@ type tomlHotloadConf struct {
 	PidPath          string   `toml:"pid"`
 }
 
-func NewHotloadOptionFromTOMLConfig(h tomlHotloadConf) (*option.HotloadOption, error) {
-	daemon := fallback(h.Daemon, "")
-	build := fallback(h.Build, "")
-	defaultIgnores := fallback(h.DefaultIgnore, "minimal")
-	watchDir := fallbackArray(h.WatchDir, []string{"./"})
-	workingDir := fallback(h.WorkingDir, common.GetCurrentDir())
-	placeholder := fallback(h.Placeholder, "{}")
-	argPathStyle := fallback(h.ArgsPathStyle, "dirname,basename,extension")
-	checkContentDiff := fallbackOnOffSwitch(h.CheckContentDiff, true)
-	absolutePathFlag := fallbackOnOffSwitch(h.AbsolutePath, true)
-	buildAtStart := fallbackOnOffSwitch(h.BuildAtStart, true)
-	timeout := fallback(h.Timeout, "5sec")
-	delay := fallback(h.Delay, "1sec")
+func NewHotloadOptionFromTOMLConfig(h TomlHotloadConf) (*option.HotloadOption, error) {
+	daemon := Fallback(h.Daemon, "")
+	build := Fallback(h.Build, "")
+	defaultIgnores := Fallback(h.DefaultIgnore, "minimal")
+	watchDir := FallbackArray(h.WatchDir, []string{"./"})
+	workingDir := Fallback(h.WorkingDir, common.GetCurrentDir())
+	placeholder := Fallback(h.Placeholder, "{}")
+	argPathStyle := Fallback(h.ArgsPathStyle, "dirname,basename,extension")
+	checkContentDiff := FallbackOnOffSwitch(h.CheckContentDiff, true)
+	absolutePathFlag := FallbackOnOffSwitch(h.AbsolutePath, true)
+	buildAtStart := FallbackOnOffSwitch(h.BuildAtStart, true)
+	timeout := Fallback(h.Timeout, "5sec")
+	delay := Fallback(h.Delay, "1sec")
 
 	if daemon == "" || build == ""  {
 		return nil, fmt.Errorf("required fields missing in hotload config")
