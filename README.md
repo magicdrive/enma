@@ -156,7 +156,7 @@ This layered approach ensures clarity in behavior while keeping Enma fast and cu
 | `-G`, `--ignore-file-regex <regex> `       | Regex to ignore files (optional)                                           |
 | `-e`, `--exclude-ext <ext>`                | File extensions to exclude (comma-separated, optional)                     |
 | `-E`, `--exclude-dir <dir_name>`           | Directories to exclude (comma-separated, optional)                         |
-| `-D`, `--default-ignores <max|min|none>`   | Defines defualt loads enmaignore volume. (optional. default: `minimal`)      |
+| `-D`, `--default-ignores <max\|min\|none>` | Defines defualt loads enmaignore volume. (optional. default: `minimal`)      |
 | `-n`, `--enmaignore <filename>`            | enma ignore file(s) (comma-separated, optional. default: `./.enmaignore`)  |
 | `--logs <log_file_path>`                   | Log file path (optional)                                                   |
 | `--pid <pid_file_path>`                    | PID file path (optional)                                                   |
@@ -186,7 +186,7 @@ This layered approach ensures clarity in behavior while keeping Enma fast and cu
 | `-G`, `--ignore-file-regex <regex>`        | Regex to ignore files (optional)                                           |
 | `-e`, `--exclude-ext <ext>`                | File extensions to exclude (comma-separated, optional)                     |
 | `-E`, `--exclude-dir <dir_name>`           | Directories to exclude (comma-separated, optional)                         |
-| `-D`, `--default-ignores <max|min|none>`   | Defines defualt loads enmaignore volume. (optional. default: `minimal`)      |
+| `-D`, `--default-ignores <max\|min\|none>` | Defines defualt loads enmaignore volume. (optional. default: `minimal`)      |
 | `-n`, `--enmaignore <filename>`            | enma ignore file(s) (comma-separated, optional. default: `./.enmaignore`)  |
 | `--logs <log_file_path>`                   | Log file path (optional)                                                   |
 | `--pid <pid_file_path>`                    | PID file path (optional)                                                   |
