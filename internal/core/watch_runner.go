@@ -239,8 +239,7 @@ func (r *WatchRunner) Start() error {
 
 }
 
-func (r *WatchRunner) handleChangeDirect(path string) {
-	pathStyled := r.applyArgsPathStyle(path)
+func (r *WatchRunner) handleChangeDirect(pathStyled string) {
 	for i := 0; i <= r.Options.Retry; i++ {
 		if r.RunBuildSequence(i, pathStyled) {
 			log.Println("✅  Command Action success")

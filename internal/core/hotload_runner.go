@@ -264,9 +264,9 @@ func (r *HotloadRunner) firstBuild() {
 	}
 }
 
-func (r *HotloadRunner) handleChangeDirect(path string) {
+func (r *HotloadRunner) handleChangeDirect(pathStyled string) {
 	for i := 0; i <= r.Options.Retry; i++ {
-		if r.RunBuildSequence(i, path) {
+		if r.RunBuildSequence(i, pathStyled) {
 			log.Println("✅  Build success")
 			time.Sleep(r.Delay)
 			r.stopDaemon()
