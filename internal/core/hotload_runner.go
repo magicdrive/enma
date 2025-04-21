@@ -179,8 +179,8 @@ func (r *HotloadRunner) Start() error {
 	}
 
 	if r.Options.BuildAtStart.Bool() {
-		if r.Options.HasPlaceholder {
-			log.Printf("❗ command placeholder found. skip build at start.")
+		if r.Options.HasPlaceholderBuild {
+			log.Printf("❗ build command placeholder found. skip build at start.")
 		} else {
 			r.firstBuild()
 		}
@@ -416,11 +416,15 @@ func (r *HotloadRunner) RunBuildSequence(attempt int, path string) bool {
 		}
 	}
 
+	r.currentCmd = nil
 	return true
 }
 
 func (r *HotloadRunner) RunPreBuild(ctx context.Context, path string) error {
 	if r.Options.PreBuild == "" {
+		return nil
+	}
+	if r.Options.HasPlaceholderPreBuild && path == "" {
 		return nil
 	}
 	cmd := r.ExecCommand(ctx, "sh", "-c", r.ReplacePlaceholders(r.Options.PreBuild, path))
@@ -442,6 +446,9 @@ func (r *HotloadRunner) RunBuild(ctx context.Context, path string) error {
 
 func (r *HotloadRunner) RunPostBuild(ctx context.Context, path string) error {
 	if r.Options.PostBuild == "" {
+		return nil
+	}
+	if r.Options.HasPlaceholderPostBuild && path == "" {
 		return nil
 	}
 	cmd := r.ExecCommand(ctx, "sh", "-c", r.ReplacePlaceholders(r.Options.PostBuild, path))

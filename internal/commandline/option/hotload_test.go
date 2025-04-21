@@ -1,7 +1,6 @@
 package option_test
 
 import (
-	"os"
 	"strings"
 	"testing"
 
@@ -36,6 +35,7 @@ func TestParseHotload_MinimalArgs(t *testing.T) {
 	}
 }
 
+//var osExit = os.Exit
 //func TestParseHotload_MissingRequiredArgs(t *testing.T) {
 //	defer func() {
 //		if r := recover(); r == nil {
@@ -110,7 +110,7 @@ func TestParseHotload_CommaSeparatedParsing(t *testing.T) {
 	}
 }
 
-func TestParseHotload_HasPlaceholderDetection(t *testing.T) {
+func TestParseHotload_HasPlaceholderBuildDetection(t *testing.T) {
 	args := []string{
 		"--daemon", "./myapp",
 		"--build", "go build {}",
@@ -122,9 +122,43 @@ func TestParseHotload_HasPlaceholderDetection(t *testing.T) {
 		t.Fatalf("unexpected error: %v", err)
 	}
 
-	if !opt.HasPlaceholder {
+	if !opt.HasPlaceholderBuild {
 		t.Errorf("expected HasPlaceholder to be true")
 	}
 }
 
-var osExit = os.Exit
+func TestParseHotload_HasPlaceholderPreBuildDetection(t *testing.T) {
+	args := []string{
+		"--daemon", "./myapp",
+		"--pre-build", "echo pre-build {}",
+		"--build", "go build {}",
+		"--placeholder", "{}",
+	}
+
+	opt, err := option.ParseHotload(args)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	if !opt.HasPlaceholderPreBuild {
+		t.Errorf("expected HasPlaceholderPreBuild to be true")
+	}
+}
+
+func TestParseHotload_HasPlaceholderPostBuildDetection(t *testing.T) {
+	args := []string{
+		"--daemon", "./myapp",
+		"--build", "go build main.go",
+		"--post-build", "echo post-build {}",
+		"--placeholder", "{}",
+	}
+
+	opt, err := option.ParseHotload(args)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	if !opt.HasPlaceholderPostBuild {
+		t.Errorf("expected HasPlaceholderPostBuild to be true")
+	}
+}

@@ -56,7 +56,9 @@ type HotloadOption struct {
 	LogPathOpt               string
 	PidPathOpt               string
 	HelpFlag                 bool
-	HasPlaceholder           bool
+	HasPlaceholderBuild      bool
+	HasPlaceholderPreBuild   bool
+	HasPlaceholderPostBuild  bool
 	FlagSet                  *flag.FlagSet
 }
 
@@ -289,11 +291,9 @@ func (cr *HotloadOption) Normalize() error {
 	}
 
 	// for buil at start. placeholder check.
-	if strings.Contains(cr.PreBuild, cr.Placeholder) ||
-		strings.Contains(cr.Build, cr.Placeholder) ||
-		strings.Contains(cr.PostBuild, cr.Placeholder) {
-		cr.HasPlaceholder = true
-	}
+	cr.HasPlaceholderBuild = strings.Contains(cr.Build, cr.Placeholder)
+	cr.HasPlaceholderPreBuild = strings.Contains(cr.PreBuild, cr.Placeholder)
+	cr.HasPlaceholderPostBuild = strings.Contains(cr.PostBuild, cr.Placeholder)
 
 	// comma sepalated to list.
 	if cr.WatchDir != "" {

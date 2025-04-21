@@ -5,7 +5,7 @@ use = "hotload"
 [subcommand.hotload]
 # Basic process configuration
 daemon = "./daemon.sh"
-#pre_build = "echo pre-build step. event by {}"
+pre_build = "echo pre-build step. event by {}"
 build = "echo build step."
 #post_build = "echo post-build done event by {}"
 working_dir = "./"

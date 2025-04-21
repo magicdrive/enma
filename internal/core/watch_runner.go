@@ -150,6 +150,7 @@ func (r *WatchRunner) Start() error {
 	go func() {
 		<-signalChan
 		r.stopCurrentCmd()
+		log.Println("🛑 Stopping file monitor daemon...")
 		if r.Options.PidPathOpt != "" {
 			if err := common.DeletePidFile(r.Options.PidPathOpt); err != nil {
 				log.Printf("failed delete pidfile.: %s\n", err.Error())
@@ -389,6 +390,7 @@ func (r *WatchRunner) RunBuildSequence(attempt int, path string) bool {
 		}
 	}
 
+	r.currentCmd = nil
 	return true
 }
 
