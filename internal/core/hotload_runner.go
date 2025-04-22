@@ -266,7 +266,7 @@ func (r *HotloadRunner) firstBuild() bool {
 		}
 		time.Sleep(1 * time.Second)
 	}
-	log.Println("❗Build at start fail...")
+	log.Println("🟥  Build at start fail...")
 	return false
 }
 
@@ -281,6 +281,7 @@ func (r *HotloadRunner) handleChangeDirect(pathStyled string) {
 		}
 		time.Sleep(1 * time.Second)
 	}
+	log.Println("🟥  Build fail...")
 }
 
 func (r *HotloadRunner) hasChanged(path string) bool {
