@@ -181,12 +181,16 @@ func (r *HotloadRunner) Start() error {
 	if r.Options.BuildAtStart.Bool() {
 		if r.Options.HasPlaceholderBuild {
 			log.Printf("❗ build command placeholder found. skip build at start.")
+			if err := r.startDaemon(); err != nil {
+				return err
+			}
 		} else {
-			r.firstBuild()
+			if r.firstBuild() {
+				if err := r.startDaemon(); err != nil {
+					return err
+				}
+			}
 		}
-	}
-	if err := r.startDaemon(); err != nil {
-		return err
 	}
 
 	go func() {
@@ -253,15 +257,17 @@ func (r *HotloadRunner) Start() error {
 	select {}
 }
 
-func (r *HotloadRunner) firstBuild() {
+func (r *HotloadRunner) firstBuild() bool {
 	for i := 0; i <= r.Options.Retry; i++ {
 		if r.RunBuildSequence(i, "") {
 			log.Println("✅  Build at start success")
 			time.Sleep(r.Delay)
-			return
+			return true
 		}
 		time.Sleep(1 * time.Second)
 	}
+	log.Println("❗Build at start fail...")
+	return false
 }
 
 func (r *HotloadRunner) handleChangeDirect(pathStyled string) {
