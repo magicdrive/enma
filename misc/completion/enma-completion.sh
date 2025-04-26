@@ -36,33 +36,63 @@ if [[ -n ${ZSH_VERSION-} ]]; then
               '--file[Specify output config file]:file:_files'
             ;;
           hotload)
-            _values 'hotload options' \
-              '--help[Show help]' \
-              '--daemon[Daemon command]:cmd:_command_names' \
-              '--build[Build command]:cmd:_command_names' \
-              '--signal[    (optional) signal to stop daemon command]:sig:( SIGTERM SIGKILL SIGHUP SIGUSR1 SIGUSR2 SIGINT )' \
-              '--watch-dir[    (optional) Directories to watch]:dir:_files -/' \
-              '--pre-build[    (optional) Pre-build command]:cmd:_command_names' \
-              '--post-build[    (optional) Post-build command]:cmd:_command_names' \
-              '--working-dir[    (optional) Working directory]:dir:_files -/' \
-              '--placeholder[    (optional) Placeholder token]:token:' \
-              '--args-path-style[    (optional) Filepath style]:style:(dir base ext)' \
-              '--build-at-start[    (optional) Build at startup]:bool:(on off)' \
-              '--check-content-diff[    (optional) Only on content change]:bool:(on off)' \
-              '--absolute-path[    (optional) Use absolute path]:bool:(on off)' \
-              '--timeout[    (optional) Timeout duration]:string:' \
-              '--delay[    (optional) Delay after build]:string:' \
-              '--retry[    (optional) Retry count]:int:' \
-              '--pattern-regex[    (optional) Regex to match files]:regex:' \
-              '--include-ext[    (optional) File extensions to include]' \
-              '--exclude-ext[    (optional) File extensions to exclude]' \
-              '--exclude-dir[    (optional) Dirs to exclude]:dir:_files -/' \
-              '--ignore-dir-regex[    (optional) Dir ignore regex]' \
-              '--ignore-file-regex[    (optional) File ignore regex]' \
-              '--default-ignores[    (optional) Specify default ignore volume <max|min|none>]:mode:(maximum minimal none)' \
-              '--enmaignore[    (optional) Ignore file list]:file:_files' \
-              '--logs[    (optional) Log file]:file:_files' \
-              '--pid[    (optional) PID file]:file:_files'
+            if [[ "$OSTYPE" == (linux*|darwin*|freebsd*|openbsd*|netbsd*) ]]; then
+                _values 'hotload options' \
+                  '--help[Show help]' \
+                  '--daemon[Daemon command]:cmd:_command_names' \
+                  '--build[Build command]:cmd:_command_names' \
+                  '--signal[    (optional) signal to stop daemon command]:sig:( SIGTERM SIGKILL SIGHUP SIGUSR1 SIGUSR2 SIGINT )' \
+                  '--watch-dir[    (optional) Directories to watch]:dir:_files -/' \
+                  '--pre-build[    (optional) Pre-build command]:cmd:_command_names' \
+                  '--post-build[    (optional) Post-build command]:cmd:_command_names' \
+                  '--working-dir[    (optional) Working directory]:dir:_files -/' \
+                  '--placeholder[    (optional) Placeholder token]:token:' \
+                  '--args-path-style[    (optional) Filepath style]:style:(dir base ext)' \
+                  '--build-at-start[    (optional) Build at startup]:bool:(on off)' \
+                  '--check-content-diff[    (optional) Only on content change]:bool:(on off)' \
+                  '--absolute-path[    (optional) Use absolute path]:bool:(on off)' \
+                  '--timeout[    (optional) Timeout duration]:string:' \
+                  '--delay[    (optional) Delay after build]:string:' \
+                  '--retry[    (optional) Retry count]:int:' \
+                  '--pattern-regex[    (optional) Regex to match files]:regex:' \
+                  '--include-ext[    (optional) File extensions to include]' \
+                  '--exclude-ext[    (optional) File extensions to exclude]' \
+                  '--exclude-dir[    (optional) Dirs to exclude]:dir:_files -/' \
+                  '--ignore-dir-regex[    (optional) Dir ignore regex]' \
+                  '--ignore-file-regex[    (optional) File ignore regex]' \
+                  '--default-ignores[    (optional) Specify default ignore volume <max|min|none>]:mode:(maximum minimal none)' \
+                  '--enmaignore[    (optional) Ignore file list]:file:_files' \
+                  '--logs[    (optional) Log file]:file:_files' \
+                  '--pid[    (optional) PID file]:file:_files'
+            else
+                _values 'hotload options' \
+                  '--help[Show help]' \
+                  '--daemon[Daemon command]:cmd:_command_names' \
+                  '--build[Build command]:cmd:_command_names' \
+                  '--signal[    (optional) signal to stop daemon command]:sig:( SIGTERM SIGKILL SIGHUP SIGINT )' \
+                  '--watch-dir[    (optional) Directories to watch]:dir:_files -/' \
+                  '--pre-build[    (optional) Pre-build command]:cmd:_command_names' \
+                  '--post-build[    (optional) Post-build command]:cmd:_command_names' \
+                  '--working-dir[    (optional) Working directory]:dir:_files -/' \
+                  '--placeholder[    (optional) Placeholder token]:token:' \
+                  '--args-path-style[    (optional) Filepath style]:style:(dir base ext)' \
+                  '--build-at-start[    (optional) Build at startup]:bool:(on off)' \
+                  '--check-content-diff[    (optional) Only on content change]:bool:(on off)' \
+                  '--absolute-path[    (optional) Use absolute path]:bool:(on off)' \
+                  '--timeout[    (optional) Timeout duration]:string:' \
+                  '--delay[    (optional) Delay after build]:string:' \
+                  '--retry[    (optional) Retry count]:int:' \
+                  '--pattern-regex[    (optional) Regex to match files]:regex:' \
+                  '--include-ext[    (optional) File extensions to include]' \
+                  '--exclude-ext[    (optional) File extensions to exclude]' \
+                  '--exclude-dir[    (optional) Dirs to exclude]:dir:_files -/' \
+                  '--ignore-dir-regex[    (optional) Dir ignore regex]' \
+                  '--ignore-file-regex[    (optional) File ignore regex]' \
+                  '--default-ignores[    (optional) Specify default ignore volume <max|min|none>]:mode:(maximum minimal none)' \
+                  '--enmaignore[    (optional) Ignore file list]:file:_files' \
+                  '--logs[    (optional) Log file]:file:_files' \
+                  '--pid[    (optional) PID file]:file:_files'
+            fi
             ;;
           watch)
             _values 'watch options' \

@@ -1,3 +1,6 @@
+//go:build windows
+// +build windows
+
 package model_test
 
 import (
@@ -16,8 +19,6 @@ func TestSignalName_Set_Valid(t *testing.T) {
 		{"SIGTERM", syscall.SIGTERM},
 		{"SIGKILL", syscall.SIGKILL},
 		{"SIGHUP", syscall.SIGHUP},
-		{"SIGUSR1", syscall.SIGUSR1},
-		{"SIGUSR2", syscall.SIGUSR2},
 		{"SIGINT", syscall.SIGINT},
 	}
 
@@ -72,7 +73,7 @@ func TestAllowedSignals(t *testing.T) {
 		t.Fatal("allowedSignals() returned empty list")
 	}
 
-	expectedSignals := []string{"SIGTERM", "SIGKILL", "SIGHUP", "SIGUSR1", "SIGUSR2", "SIGINT"}
+	expectedSignals := []string{"SIGTERM", "SIGKILL", "SIGHUP", "SIGINT"}
 
 	for _, expected := range expectedSignals {
 		found := false
