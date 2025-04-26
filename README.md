@@ -10,6 +10,7 @@ It's designed to supercharge your development and automation workflows.
 - 📂 Realtime monitoring for directories or files
 - 🛠️ Execute build or custom commands on file changes
 - 🔁 Hot-reload support with build success detection
+- 🚦 Flexible daemon process control with customizable signals (SIGTERM, SIGKILL, etc.)
 - 🔗 Supports symlinks
 - 🧩 Flexible configuration using TOML files
 - 🔍 Ignore patterns with `.enmaignore` (`.gitignore` compatible syntax)
