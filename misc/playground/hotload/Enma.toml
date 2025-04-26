@@ -8,6 +8,7 @@ daemon = "./daemon.sh"
 pre_build = "echo pre-build step. event by {}"
 build = "echo build step."
 #post_build = "echo post-build done event by {}"
+signal = "SIGKILL"
 working_dir = "./"
 
 # command args

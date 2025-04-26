@@ -9,6 +9,7 @@ import (
 
 type TomlHotloadConf struct {
 	Daemon           string   `toml:"daemon"`
+	Signal           string   `toml:"signal"`
 	PreBuild         string   `toml:"pre_build"`
 	Build            string   `toml:"build"`
 	PostBuild        string   `toml:"post_build"`
@@ -35,6 +36,7 @@ type TomlHotloadConf struct {
 
 func NewHotloadOptionFromTOMLConfig(h TomlHotloadConf) (*option.HotloadOption, error) {
 	daemon := Fallback(h.Daemon, "")
+	signal := Fallback(h.Signal, "SIGTERM")
 	build := Fallback(h.Build, "")
 	defaultIgnores := Fallback(h.DefaultIgnore, "minimal")
 	watchDir := FallbackArray(h.WatchDir, []string{"./"})
@@ -47,12 +49,13 @@ func NewHotloadOptionFromTOMLConfig(h TomlHotloadConf) (*option.HotloadOption, e
 	timeout := Fallback(h.Timeout, "5sec")
 	delay := Fallback(h.Delay, "1sec")
 
-	if daemon == "" || build == ""  {
+	if daemon == "" || build == "" {
 		return nil, fmt.Errorf("required fields missing in hotload config")
 	}
 
 	opt := &option.HotloadOption{
 		Daemon:                   daemon,
+		SignalNameValue:          signal,
 		PreBuild:                 h.PreBuild,
 		Build:                    build,
 		PostBuild:                h.PostBuild,

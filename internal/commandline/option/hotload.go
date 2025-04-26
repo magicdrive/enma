@@ -15,6 +15,8 @@ import (
 
 type HotloadOption struct {
 	Daemon                   string
+	SignalNameValue          string
+	SignalName               model.SignalName
 	PreBuild                 string
 	Build                    string
 	PostBuild                string
@@ -72,6 +74,10 @@ func ParseHotload(args []string) (*HotloadOption, error) {
 	// --daemon
 	daemonOpt := fs.String("daemon", "", "Defines the daemon command (required)")
 	fs.StringVar(daemonOpt, "d", "", "Defines the daemon command (required)")
+
+	// --signal
+	signalOpt := fs.String("signal", "SIGTERM", "Define a signal to stop the daemon command. (optional)")
+	fs.StringVar(signalOpt, "S", "SIGTERM", "Define a signal to stop the daemon command. (optional)")
 
 	// --pre-build
 	preBuildOpt := fs.String("pre-build", "", "Defines the command to pre-build daemon (optional)")
@@ -201,6 +207,7 @@ func ParseHotload(args []string) (*HotloadOption, error) {
 
 	options := &HotloadOption{
 		Daemon:                   *daemonOpt,
+		SignalNameValue:          *signalOpt,
 		PreBuild:                 *preBuildOpt,
 		Build:                    *buildOpt,
 		PostBuild:                *postBuildOpt,
@@ -241,6 +248,10 @@ func ParseHotload(args []string) (*HotloadOption, error) {
 
 func (cr *HotloadOption) Valid() error {
 	var errorMessages = []string{}
+
+	if err := cr.SignalName.Set(cr.SignalNameValue); err != nil {
+		errorMessages = append(errorMessages, fmt.Sprintf("--signal %s", err.Error()))
+	}
 
 	if err := cr.ArgsPathStyleString.Set(cr.ArgsPathStyleStringValue); err != nil {
 		errorMessages = append(errorMessages, fmt.Sprintf("--args-path-style %s", err.Error()))

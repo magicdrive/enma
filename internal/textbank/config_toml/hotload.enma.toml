@@ -8,6 +8,7 @@ daemon = "./myapp"
 pre_build = "echo pre-build step. event by {}"
 build = "go build -o ./myapp ./cmd/myapp"
 post_build = "echo post-build done event by {}"
+signal = "SIGTERM"
 working_dir = "./"
 build_at_start = true
 

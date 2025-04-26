@@ -41,6 +41,7 @@ func TestNewHotloadOptionFromTOMLConfig_AllFields(t *testing.T) {
 
 	conf := configure.TomlHotloadConf{
 		Daemon:           "mydaemon",
+		Signal:           "SIGKILL",
 		Build:            "go build",
 		PreBuild:         "echo pre",
 		PostBuild:        "echo post",
@@ -70,6 +71,9 @@ func TestNewHotloadOptionFromTOMLConfig_AllFields(t *testing.T) {
 		t.Fatalf("unexpected error: %v", err)
 	}
 
+	if opt.SignalName.String() != "SIGKILL" {
+		t.Errorf("expected BuildAtStart to be 'off'")
+	}
 	if opt.BuildAtStart.String() != "off" {
 		t.Errorf("expected BuildAtStart to be 'off'")
 	}

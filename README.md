@@ -137,6 +137,7 @@ This layered approach ensures clarity in behavior while keeping Enma fast and cu
 |--------------------------------------------|----------------------------------------------------------------------------|
 | `-h`, `--help`                             | Show help message and exit                                                 |
 | `-d`, `--daemon <command>`                 | Daemon command to run (required)                                           |
+| `-S`, `--signal <singal>`                  | Define signal to stop the daemon command. (optional. default: SIGTERM)     |
 | `-b`, `--build <command>`                  | Command to build the daemon (required)                                     |
 | `-w`, `--watch-dir <dir_name>`             | Watch directories (comma-separated, optional. default: `$PWD`)             |
 | `-p`, `--pre-build <command>`              | Command to run before build (optional)                                     |

@@ -485,7 +485,7 @@ func (r *HotloadRunner) startDaemon() error {
 func (r *HotloadRunner) stopDaemon() {
 	if r.cmd != nil && r.cmd.Process != nil {
 		log.Println("🛑 Stopping daemon...")
-		stopProcess(r.cmd)
+		stopDaemonProcess(r.cmd, r.Options.SignalName)
 		_ = r.cmd.Wait()
 		r.cmd = nil
 	}

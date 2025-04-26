@@ -23,6 +23,7 @@ hotload options:
   -h, --help                           Show help message and exit.
   -d, --daemon <command>               Defines the daemon command. (require)
   -b, --build <command>                Defines the commnad to build daemon. (require)
+  -S, --signal <singal>                Define signal to stop the daemon command. (optional. default: SIGTERM)
   -W, --working-dir <dir_name>         Defines working directory. (optional. default: $PWD)
   -w, --watch-dir <dir_name>           Specify watch directlies. Allows comma separated list.(optional. default: $PWD)
   -p, --pre-build <command>            Defines the commnad to pre-build daemon. (optional)

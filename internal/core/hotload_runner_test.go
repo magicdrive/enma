@@ -20,6 +20,9 @@ import (
 
 func HelperInflateHotloadOptionDefaultValue(opt *option.HotloadOption) *option.HotloadOption {
 
+	if opt.SignalNameValue == "" {
+		opt.SignalNameValue = "SIGTERM"
+	}
 	if opt.ArgsPathStyleStringValue == "" {
 		opt.ArgsPathStyleStringValue = "dirname,basename,extension"
 	}

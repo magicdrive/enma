@@ -40,12 +40,13 @@ if [[ -n ${ZSH_VERSION-} ]]; then
               '--help[Show help]' \
               '--daemon[Daemon command]:cmd:_command_names' \
               '--build[Build command]:cmd:_command_names' \
+              '--signal[    (optional) signal to stop daemon command]:sig:( SIGTERM SIGKILL SIGHUP SIGUSR1 SIGUSR2 SIGINT )' \
               '--watch-dir[    (optional) Directories to watch]:dir:_files -/' \
               '--pre-build[    (optional) Pre-build command]:cmd:_command_names' \
               '--post-build[    (optional) Post-build command]:cmd:_command_names' \
               '--working-dir[    (optional) Working directory]:dir:_files -/' \
               '--placeholder[    (optional) Placeholder token]:token:' \
-              '--args-path-style[    (optional) Filepath style]:style:(dir base ext full)' \
+              '--args-path-style[    (optional) Filepath style]:style:(dir base ext)' \
               '--build-at-start[    (optional) Build at startup]:bool:(on off)' \
               '--check-content-diff[    (optional) Only on content change]:bool:(on off)' \
               '--absolute-path[    (optional) Use absolute path]:bool:(on off)' \
@@ -120,7 +121,7 @@ _enma_bash() {
       opts="--help -h --mode --file"
       ;;
     hotload)
-      opts="--daemon --build --watch-dir --pre-build --post-build --working-dir --placeholder --args-path-style --build-at-start --check-content-diff --absolute-path --timeout --delay --retry --pattern-regex --include-ext --exclude-ext --exclude-dir --ignore-dir-regex --ignore-file-regex --default-ignores --enmaignore --logs --pid"
+      opts="--daemon --build --signal --watch-dir --pre-build --post-build --working-dir --placeholder --args-path-style --build-at-start --check-content-diff --absolute-path --timeout --delay --retry --pattern-regex --include-ext --exclude-ext --exclude-dir --ignore-dir-regex --ignore-file-regex --default-ignores --enmaignore --logs --pid"
       ;;
     watch)
       opts="--command --watch-dir --pre-cmd --post-cmd --working-dir --placeholder --args-path-style --check-content-diff --absolute-path --timeout --delay --retry --pattern-regex --include-ext --exclude-ext --exclude-dir --ignore-dir-regex --ignore-file-regex --default-ignores --enmaignore --logs --pid"
