@@ -9,6 +9,10 @@ import (
 	"github.com/magicdrive/enma/internal/textbank"
 )
 
+func StartMessage() string {
+	return ReplacePlaceholders(textbank.BareStartMessage, "{version}", Version())
+}
+
 func CountLines(message string) int {
 	return len(strings.Split(message, "\n"))
 }

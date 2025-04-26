@@ -22,7 +22,6 @@ import (
 
 	"github.com/magicdrive/enma/internal/commandline/option"
 	"github.com/magicdrive/enma/internal/common"
-	"github.com/magicdrive/enma/internal/textbank"
 )
 
 type WatchRunner struct {
@@ -138,7 +137,7 @@ func (r *WatchRunner) Start() error {
 		}
 	}
 
-	fmt.Println(textbank.StartMessage)
+	fmt.Println(common.StartMessage())
 	fmt.Printf("Start Watch mode.\n\n\n")
 
 	signalChan := make(chan os.Signal, 1)

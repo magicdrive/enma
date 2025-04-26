@@ -1,7 +1,7 @@
 package main
 
 import (
-	"runtime/debug"
+	"github.com/magicdrive/enma/internal/common"
 
 	cmd "github.com/magicdrive/enma/cmd/enma"
 )
@@ -9,16 +9,5 @@ import (
 var version string
 
 func main() {
-	cmd.Execute(Version())
-}
-
-func Version() string {
-	if version != "" {
-		return version
-	}
-
-	if buildInfo, ok := debug.ReadBuildInfo(); ok {
-		return buildInfo.Main.Version
-	}
-	return "unknown"
+	cmd.Execute(common.Version())
 }

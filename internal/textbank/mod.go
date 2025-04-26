@@ -1,9 +1,11 @@
 package textbank
 
-import _ "embed"
+import (
+	_ "embed"
+)
 
 //go:embed start_message.txt
-var StartMessage string
+var BareStartMessage string
 
 //go:embed short_help.txt
 var ShortHelpMessage string
