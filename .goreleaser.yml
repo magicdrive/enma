@@ -36,7 +36,7 @@ brews:
   - name: enma
     repository:
       owner: magicdrive
-      name: homebrew-magicdrive
+      name: homebrew-tap
       branch: main
     homepage: "https://github.com/magicdrive/enma"
     description: "Yet another integration software with file monitoring."
