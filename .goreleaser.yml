@@ -34,12 +34,15 @@ checksum:
 
 brews:
   - name: enma
-    tap:
+    repository:
       owner: magicdrive
-      name: homebrew-tap
+      name: homebrew-magicdrive
+      branch: main
+      file: Formula/enma.rb
     homepage: "https://github.com/magicdrive/enma"
     description: "Yet another integration software with file monitoring."
     license: "MIT"
+    ids: [tar.gz]
     install: |
       bin.install "enma"
     test: |
