@@ -1,5 +1,15 @@
+project_name: enma
+
+release:
+  github:
+    owner: magicdrive
+    name: enma
+  draft: false
+  prerelease: false
+
 builds:
-  - goos:
+  - id: enma
+    goos:
       - linux
       - darwin
       - windows
@@ -10,8 +20,39 @@ builds:
       - -s -w -X "main.version=v{{.Version}}"
     env:
       - CGO_ENABLED=0
+    binary: enma
+    main: ./main.go
+
 archives:
   - id: tar.gz
     format: tar.gz
+    name_template: "{{ .ProjectName }}_{{ .Os }}_{{ .Arch }}"
+    files:
+      - enma
+    wrap_in_directory: false
+
   - id: binary
     format: binary
+    name_template: "{{ .ProjectName }}_{{ .Os }}_{{ .Arch }}"
+    files:
+      - enma
+
+checksum:
+  name_template: "{{ .ProjectName }}_checksums.txt"
+
+brews:
+  - name: enma
+    tap:
+      owner: magicdrive
+      name: homebrew-tap
+    homepage: "https://github.com/magicdrive/enma"
+    description: "Yet another integration software with file monitoring."
+    license: "MIT"
+    install: |
+      bin.install "enma"
+    test: |
+      system "#{bin}/enma", "--version"
+    commit_author:
+      name: magicdrive bot
+      email: hiroshi.ikegami+githubbot@magicdrive.jp
+
