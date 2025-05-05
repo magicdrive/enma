@@ -26,16 +26,8 @@ builds:
 archives:
   - id: tar.gz
     format: tar.gz
-    name_template: "{{ .ProjectName }}_{{ .Os }}_{{ .Arch }}"
-    files:
-      - enma
-    wrap_in_directory: false
-
   - id: binary
     format: binary
-    name_template: "{{ .ProjectName }}_{{ .Os }}_{{ .Arch }}"
-    files:
-      - enma
 
 checksum:
   name_template: "{{ .ProjectName }}_checksums.txt"
