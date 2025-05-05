@@ -38,7 +38,6 @@ brews:
       owner: magicdrive
       name: homebrew-magicdrive
       branch: main
-      file: Formula/enma.rb
     homepage: "https://github.com/magicdrive/enma"
     description: "Yet another integration software with file monitoring."
     license: "MIT"
