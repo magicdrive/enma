@@ -12,6 +12,7 @@ import (
 )
 
 func Execute(version string) {
+	common.SetVersion(version)
 	if len(os.Args) <= 1 {
 		if err := Default(); err != nil {
 			fmt.Fprintln(os.Stderr, err)
