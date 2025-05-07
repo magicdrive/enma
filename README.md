@@ -26,6 +26,12 @@ It's designed to supercharge your development and automation workflows.
 go install github.com/magicdrive/enma@latest
 ```
 
+You can install enma using `homebrew`:
+
+```bash
+brew install magicdrive/tap/enma
+```
+
 Alternatively, you can download a pre-built binary from the [Releases page](https://github.com/magicdrive/enma/releases).
 
 ### 2. Initialize project
