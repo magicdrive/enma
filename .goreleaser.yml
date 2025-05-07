@@ -27,8 +27,12 @@ archives:
   - id: tar.gz
     format: tar.gz
     files:
-     - src: misc/completion/enma-completion.sh
+     - src: misc/completions/enma-completion.sh
        dst: completions/enma-completion.sh
+     - src: misc/completions/zsh/_enma
+       dst: completions/zsh/_enma
+     - src: misc/completions/bash/enma-completion.bash
+       dst: completions//bash/enma-completion.bash
 
 checksum:
   name_template: "{{ .ProjectName }}_checksums.txt"
@@ -46,10 +50,8 @@ brews:
     install: |
       bin.install "enma"
     extra_install: |
-      cp "completions/enma-completion.sh", "completions/enma.zsh"
-
-      bash_completion.install "completions/enma-completion.sh" => "enma"
-      zsh_completion.install "completions/enma.zsh" => "_enma"
+      bash_completion.install "completions/bash/enma-completion.bash" => "enma"
+      zsh_completion.install "completions/zsh/_enma" => "_enma"
     test: |
       system "#{bin}/enma", "--version"
     commit_author:
