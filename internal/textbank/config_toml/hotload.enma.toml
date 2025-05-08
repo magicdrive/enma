@@ -37,5 +37,5 @@ enmaignore = [".enmaignore"]
 ## logs = "" # should be logging off.
 logs = "./.enma/log/enma_hotload.log"
 ## pid = "" # should be pid output off.
-pid = "./.enma/run/enma_watch.pid"
+pid = "./.enma/run/enma_hotload.pid"
 
