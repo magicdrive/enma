@@ -273,8 +273,8 @@ func (r *WatchRunner) computeHash(path string) ([]byte, error) {
 }
 
 func (r *WatchRunner) IsExcludedDir(path string) bool {
-	for _, d := range r.Options.ExcludeDirList {
-		if d != "" && strings.Contains(path, d) {
+	for dirname := range strings.SplitSeq(filepath.ToSlash(filepath.Dir(path)), "/") {
+		if slices.Contains(r.Options.ExcludeDirList, dirname) {
 			return true
 		}
 	}
