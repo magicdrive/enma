@@ -15,7 +15,7 @@ absolute_path = true
 args_path_style = "dirname,basename,ext"
 
 # Timing and retry
-timeout = "5s"
+timeout = "60s"
 delay = "0s"
 retry = 1
 check_content_diff = false
