@@ -369,9 +369,6 @@ func (r *WatchRunner) ShouldTrigger(event fsnotify.Event) bool {
 }
 
 func (r *WatchRunner) RunBuildSequence(attempt int, path string) bool {
-	ctx, cancel := context.WithTimeout(context.Background(), r.CmdTimeout)
-	defer cancel()
-
 	steps := []struct {
 		name string
 		fn   func(context.Context, string) error
@@ -382,7 +379,10 @@ func (r *WatchRunner) RunBuildSequence(attempt int, path string) bool {
 	}
 
 	for _, step := range steps {
-		if err := step.fn(ctx, path); err != nil {
+		ctx, cancel := context.WithTimeout(context.Background(), r.CmdTimeout)
+		err := step.fn(ctx, path)
+		cancel()
+		if err != nil {
 			log.Printf("❌  %s failed (attempt %d): %v", step.name, attempt+1, err)
 			return false
 		}

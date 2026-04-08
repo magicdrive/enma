@@ -403,9 +403,6 @@ func (r *HotloadRunner) ShouldTrigger(event fsnotify.Event) bool {
 }
 
 func (r *HotloadRunner) RunBuildSequence(attempt int, path string) bool {
-	ctx, cancel := context.WithTimeout(context.Background(), r.BuildTimeout)
-	defer cancel()
-
 	steps := []struct {
 		name string
 		fn   func(context.Context, string) error
@@ -416,7 +413,10 @@ func (r *HotloadRunner) RunBuildSequence(attempt int, path string) bool {
 	}
 
 	for _, step := range steps {
-		if err := step.fn(ctx, path); err != nil {
+		ctx, cancel := context.WithTimeout(context.Background(), r.BuildTimeout)
+		err := step.fn(ctx, path)
+		cancel()
+		if err != nil {
 			log.Printf("❌  %s failed (attempt %d): %v", step.name, attempt+1, err)
 			return false
 		}
