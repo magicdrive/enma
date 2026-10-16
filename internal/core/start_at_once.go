@@ -31,6 +31,7 @@ func (s *startAtOnce) run(fn func() error) error {
 // startAtOnceInStart runs the start-at-once step of Start: on failure the pid
 // file Start created is removed (Start returns without a shutdown); when a
 // signal interrupted it, the signal handler owns the exit and the pid file.
+// The error is not logged here: the caller prints it once, to stderr.
 func startAtOnceInStart(run func() error, pidPath string) error {
 	err := run()
 	if err == nil || errors.Is(err, errShuttingDown) {
@@ -41,7 +42,6 @@ func startAtOnceInStart(run func() error, pidPath string) error {
 			log.Printf("failed delete pidfile.: %s\n", derr.Error())
 		}
 	}
-	log.Printf("🟥 %v", err)
 	return err
 }
 
