@@ -90,6 +90,42 @@ enma watch --command "make test file={}"
 
 ---
 
+## 🏁 Run a command once at startup (`start-at-once`)
+
+Both modes can run one command once when enma starts, before anything else:
+
+```bash
+enma watch --start-at-once "make prepare" --command "make test"
+enma hotload --start-at-once "make prepare" --daemon ./my-app --build "go build -o my-app"
+```
+
+```toml
+[subcommand.watch]
+start_at_once = "make prepare"   # `start-at-once` is accepted as well
+command = "make test"
+```
+
+- **Order** — watch: `start-at-once` → file monitoring. hotload: `start-at-once` → file
+  monitoring set up → the first build (`--build-at-start`) → daemon. Monitoring starts only
+  after it has finished, so files it changes do not trigger a build or command. (As before,
+  a change during the first build may still trigger a build after it.)
+- **Once** — it runs at most once per enma process: never again on a file change, a retry or a
+  daemon restart. It is independent of `pre-build` / `build` / `post-build` and of
+  `pre-cmd` / `command` / `post-cmd`, and does not run `command` at startup.
+- **Failure** — when it exits non-zero (or cannot be run), enma reports the error and does not
+  start the build, the daemon or the monitoring.
+- It runs in `--working-dir` with `sh -c`. There is no changed file, so the placeholder is
+  **not** replaced: `{}` reaches the shell as written.
+- `--timeout`, `--retry` and `--delay` do not apply to it: it may take as long as it needs, and
+  Ctrl+C (or SIGTERM) stops it and its process group like any other command
+  (SIGTERM, then SIGKILL after the grace period; a second signal kills at once).
+- It must not leave processes behind: what is still running in its process group when it
+  returns is stopped (SIGTERM, then SIGKILL), so it cannot start a background service
+  (in hotload, use `--daemon` for that). On Windows enma cannot see a command's descendants.
+- Not set or empty: nothing runs, as before.
+
+---
+
 ## 🔐 Placeholder and the shell
 
 Commands run with `sh -c`. The changed file's path is **not** pasted into the command text:
@@ -204,6 +240,7 @@ This layered approach ensures clarity in behavior while keeping Enma fast and cu
 | `-d`, `--daemon <command>`                 | Daemon command to run (required)                                           |
 | `-b`, `--build <command>`                  | Command to build the daemon (required)                                     |
 | `-S`, `--signal <singal>`                  | Define signal to stop the daemon command. (optional. default: SIGTERM)     |
+| `--start-at-once <command>`                | Command run once at startup, before the first build (optional)             |
 | `-w`, `--watch-dir <dir_name>`             | Watch directories (comma-separated, optional. default: `$PWD`)             |
 | `-p`, `--pre-build <command>`              | Command to run before build (optional)                                     |
 | `-P`, `--post-build <command>`             | Command to run after build (optional)                                      |
@@ -235,6 +272,7 @@ This layered approach ensures clarity in behavior while keeping Enma fast and cu
 |--------------------------------------------|----------------------------------------------------------------------------|
 | `-h`, `--help`                             | Show help message and exit                                                 |
 | `-c`, `--command`, `--cmd <command>`       | Command to run on file change (required)                                   |
+| `--start-at-once <command>`                | Command run once at startup, before file monitoring starts (optional)      |
 | `-p`, `--pre-cmd <command>`                | Command to run before main command (optional)                              |
 | `-P`, `--post-cmd <command>`               | Command to run after main command (optional)                               |
 | `-w`, `--watch-dir <dir_name>`             | Watch directories (comma-separated, optional. default: `$PWD`)             |

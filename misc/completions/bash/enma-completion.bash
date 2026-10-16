@@ -18,10 +18,10 @@ _enma_bash() {
       opts="--help -h --mode --file"
       ;;
     hotload)
-      opts="--daemon --build --signal --watch-dir --pre-build --post-build --working-dir --placeholder --args-path-style --build-at-start --check-content-diff --absolute-path --timeout --delay --retry --pattern-regex --include-ext --exclude-ext --exclude-dir --ignore-dir-regex --ignore-file-regex --default-ignores --enmaignore --logs --pid"
+      opts="--daemon --build --start-at-once --signal --watch-dir --pre-build --post-build --working-dir --placeholder --args-path-style --build-at-start --check-content-diff --absolute-path --timeout --delay --retry --pattern-regex --include-ext --exclude-ext --exclude-dir --ignore-dir-regex --ignore-file-regex --default-ignores --enmaignore --logs --pid"
       ;;
     watch)
-      opts="--command --watch-dir --pre-cmd --post-cmd --working-dir --placeholder --args-path-style --check-content-diff --absolute-path --timeout --delay --retry --pattern-regex --include-ext --exclude-ext --exclude-dir --ignore-dir-regex --ignore-file-regex --default-ignores --enmaignore --logs --pid"
+      opts="--command --start-at-once --watch-dir --pre-cmd --post-cmd --working-dir --placeholder --args-path-style --check-content-diff --absolute-path --timeout --delay --retry --pattern-regex --include-ext --exclude-ext --exclude-dir --ignore-dir-regex --ignore-file-regex --default-ignores --enmaignore --logs --pid"
       ;;
     *)
       opts=$global_opts

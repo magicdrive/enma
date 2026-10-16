@@ -73,6 +73,9 @@ func waitFor(t *testing.T, d time.Duration, cond func() bool) bool {
 func killLeftovers(t *testing.T, pidFile string) {
 	t.Cleanup(func() {
 		for _, pid := range readPids(t, pidFile) {
+			if pid <= 0 { // 0 or below would signal a whole process group
+				continue
+			}
 			_ = syscall.Kill(pid, syscall.SIGKILL)
 		}
 	})

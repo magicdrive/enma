@@ -36,6 +36,19 @@ func Fallback(val, def string) string {
 	return val
 }
 
+// StartAtOnce returns the start-at-once command of a config section. The key is
+// start_at_once, like the other keys; start-at-once (the CLI spelling) is accepted
+// too. Setting both to different commands is an error.
+func StartAtOnce(key, alias string) (string, error) {
+	if strings.TrimSpace(key) == "" {
+		return alias, nil
+	}
+	if strings.TrimSpace(alias) != "" && alias != key {
+		return "", fmt.Errorf("start_at_once and start-at-once are both set to different commands")
+	}
+	return key, nil
+}
+
 func FallbackOnOffSwitch(val *bool, def bool) model.OnOffSwitch {
 	if val != nil {
 		return model.Bool2OnOffSwitch(*val)

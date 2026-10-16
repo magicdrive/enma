@@ -42,3 +42,12 @@ func WatchRunSequenceForTest(w *WatchRunner, path string) error {
 	}
 	return nil
 }
+
+// RunStartAtOnceForTest runs the runner's start-at-once step (once per runner).
+func RunStartAtOnceForTest(r *HotloadRunner) error    { return r.runStartAtOnce() }
+func WatchRunStartAtOnceForTest(w *WatchRunner) error { return w.runStartAtOnce() }
+
+// StartAtOnceInStartForTest is Start's start-at-once step (pid file handling on failure).
+func StartAtOnceInStartForTest(run func() error, pidPath string) error {
+	return startAtOnceInStart(run, pidPath)
+}

@@ -41,6 +41,7 @@ if [[ -n ${ZSH_VERSION-} ]]; then
                   '--help[Show help]' \
                   '--daemon[Daemon command]:cmd:_command_names' \
                   '--build[Build command]:cmd:_command_names' \
+                  '--start-at-once[    (optional) Command run once at startup]:cmd:_command_names' \
                   '--signal[    (optional) signal to stop daemon command]:sig:( SIGTERM SIGKILL SIGHUP SIGUSR1 SIGUSR2 SIGINT )' \
                   '--watch-dir[    (optional) Directories to watch]:dir:_files -/' \
                   '--pre-build[    (optional) Pre-build command]:cmd:_command_names' \
@@ -69,6 +70,7 @@ if [[ -n ${ZSH_VERSION-} ]]; then
                   '--help[Show help]' \
                   '--daemon[Daemon command]:cmd:_command_names' \
                   '--build[Build command]:cmd:_command_names' \
+                  '--start-at-once[    (optional) Command run once at startup]:cmd:_command_names' \
                   '--signal[    (optional) signal to stop daemon command]:sig:( SIGTERM SIGKILL SIGHUP SIGINT )' \
                   '--watch-dir[    (optional) Directories to watch]:dir:_files -/' \
                   '--pre-build[    (optional) Pre-build command]:cmd:_command_names' \
@@ -98,6 +100,7 @@ if [[ -n ${ZSH_VERSION-} ]]; then
             _values 'watch options' \
               '--help[Show help]' \
               '--command[Command to run]:cmd:_command_names' \
+              '--start-at-once[    (optional) Command run once at startup]:cmd:_command_names' \
               '--watch-dir[    (optional) Directories to watch]:dir:_files -/' \
               '--pre-cmd[    (optional) Pre-command]:cmd:_command_names' \
               '--post-cmd[    (optional) Post-command]:cmd:_command_names' \
@@ -151,10 +154,10 @@ _enma_bash() {
       opts="--help -h --mode --file"
       ;;
     hotload)
-      opts="--daemon --build --signal --watch-dir --pre-build --post-build --working-dir --placeholder --args-path-style --build-at-start --check-content-diff --absolute-path --timeout --delay --retry --pattern-regex --include-ext --exclude-ext --exclude-dir --ignore-dir-regex --ignore-file-regex --default-ignores --enmaignore --logs --pid"
+      opts="--daemon --build --start-at-once --signal --watch-dir --pre-build --post-build --working-dir --placeholder --args-path-style --build-at-start --check-content-diff --absolute-path --timeout --delay --retry --pattern-regex --include-ext --exclude-ext --exclude-dir --ignore-dir-regex --ignore-file-regex --default-ignores --enmaignore --logs --pid"
       ;;
     watch)
-      opts="--command --watch-dir --pre-cmd --post-cmd --working-dir --placeholder --args-path-style --check-content-diff --absolute-path --timeout --delay --retry --pattern-regex --include-ext --exclude-ext --exclude-dir --ignore-dir-regex --ignore-file-regex --default-ignores --enmaignore --logs --pid"
+      opts="--command --start-at-once --watch-dir --pre-cmd --post-cmd --working-dir --placeholder --args-path-style --check-content-diff --absolute-path --timeout --delay --retry --pattern-regex --include-ext --exclude-ext --exclude-dir --ignore-dir-regex --ignore-file-regex --default-ignores --enmaignore --logs --pid"
       ;;
     *)
       opts=$global_opts

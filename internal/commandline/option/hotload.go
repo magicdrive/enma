@@ -18,6 +18,7 @@ type HotloadOption struct {
 	Daemon                   string
 	SignalNameValue          string
 	SignalName               model.SignalName
+	StartAtOnce              string
 	PreBuild                 string
 	Build                    string
 	PostBuild                string
@@ -79,6 +80,9 @@ func ParseHotload(args []string) (*HotloadOption, error) {
 	// --signal
 	signalOpt := fs.String("signal", "SIGTERM", "Define a signal to stop the daemon command. (optional)")
 	fs.StringVar(signalOpt, "S", "SIGTERM", "Define a signal to stop the daemon command. (optional)")
+
+	// --start-at-once
+	startAtOnceOpt := fs.String("start-at-once", "", "Defines the command to run once at startup, before the first build (optional)")
 
 	// --pre-build
 	preBuildOpt := fs.String("pre-build", "", "Defines the command to pre-build daemon (optional)")
@@ -209,6 +213,7 @@ func ParseHotload(args []string) (*HotloadOption, error) {
 	options := &HotloadOption{
 		Daemon:                   *daemonOpt,
 		SignalNameValue:          *signalOpt,
+		StartAtOnce:              *startAtOnceOpt,
 		PreBuild:                 *preBuildOpt,
 		Build:                    *buildOpt,
 		PostBuild:                *postBuildOpt,

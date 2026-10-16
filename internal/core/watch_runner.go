@@ -36,6 +36,7 @@ type WatchRunner struct {
 	KillWait      time.Duration
 	watcher       *fsnotify.Watcher
 	scope         commandScope
+	startOnce     startAtOnce
 	mu            sync.Mutex
 	debounceTimer *time.Timer
 	fileHashes    sync.Map
@@ -66,6 +67,13 @@ func NewWatchRunner(opt *option.WatchOption) *WatchRunner {
 
 func (r *WatchRunner) stopGrace() time.Duration { return orDefault(r.StopGrace, DefaultStopGrace) }
 func (r *WatchRunner) killWait() time.Duration  { return orDefault(r.KillWait, DefaultKillWait) }
+
+// runStartAtOnce runs the start-at-once command; only the first call does anything.
+func (r *WatchRunner) runStartAtOnce() error {
+	return r.startOnce.run(func() error {
+		return runStartAtOnceCommand(r.Options.StartAtOnce, r.ExecCommand, &r.scope, r.stopGrace(), r.killWait())
+	})
+}
 
 // ReplacePlaceholders returns command with the placeholder replaced by path as plain text.
 // It is for display only: commands are run through ShellCommandArgs, which never
@@ -183,6 +191,12 @@ func (r *WatchRunner) Start() error {
 		}
 		os.Exit(code)
 	}()
+
+	// start-at-once runs before the watcher exists: file changes made meanwhile
+	// are not seen, monitoring starts after it.
+	if err := startAtOnceInStart(r.runStartAtOnce, r.Options.PidPathOpt); err != nil {
+		return startErr(err)
+	}
 
 	watcher, err := fsnotify.NewWatcher()
 	if err != nil {

@@ -36,6 +36,7 @@ _enma() {
                   '--help[Show help]' \
                   '--daemon[Daemon command]:cmd:_command_names' \
                   '--build[Build command]:cmd:_command_names' \
+                  '--start-at-once[    (optional) Command run once at startup]:cmd:_command_names' \
                   '--signal[    (optional) signal to stop daemon command]:sig:( SIGTERM SIGKILL SIGHUP SIGUSR1 SIGUSR2 SIGINT )' \
                   '--watch-dir[    (optional) Directories to watch]:dir:_files -/' \
                   '--pre-build[    (optional) Pre-build command]:cmd:_command_names' \
@@ -64,6 +65,7 @@ _enma() {
                   '--help[Show help]' \
                   '--daemon[Daemon command]:cmd:_command_names' \
                   '--build[Build command]:cmd:_command_names' \
+                  '--start-at-once[    (optional) Command run once at startup]:cmd:_command_names' \
                   '--signal[    (optional) signal to stop daemon command]:sig:( SIGTERM SIGKILL SIGHUP SIGINT )' \
                   '--watch-dir[    (optional) Directories to watch]:dir:_files -/' \
                   '--pre-build[    (optional) Pre-build command]:cmd:_command_names' \
@@ -93,6 +95,7 @@ _enma() {
             _values 'watch options' \
               '--help[Show help]' \
               '--command[Command to run]:cmd:_command_names' \
+              '--start-at-once[    (optional) Command run once at startup]:cmd:_command_names' \
               '--watch-dir[    (optional) Directories to watch]:dir:_files -/' \
               '--pre-cmd[    (optional) Pre-command]:cmd:_command_names' \
               '--post-cmd[    (optional) Post-command]:cmd:_command_names' \

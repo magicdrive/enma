@@ -14,6 +14,7 @@ import (
 )
 
 type WatchOption struct {
+	StartAtOnce              string
 	PreCmd                   string
 	Cmd                      string
 	PostCmd                  string
@@ -62,6 +63,9 @@ func (cr *WatchOption) Mode() string {
 
 func ParseWatch(args []string) (*WatchOption, error) {
 	fs := flag.NewFlagSet("hotload", flag.ExitOnError)
+
+	// --start-at-once
+	startAtOnceOpt := fs.String("start-at-once", "", "Defines the command to run once at startup, before file monitoring starts (optional)")
 
 	// --pre-command
 	preCmdOpt := fs.String("pre-command", "", "Defines the command to pre-command (optional)")
@@ -187,6 +191,7 @@ func ParseWatch(args []string) (*WatchOption, error) {
 	}
 
 	options := &WatchOption{
+		StartAtOnce:              *startAtOnceOpt,
 		PreCmd:                   *preCmdOpt,
 		Cmd:                      *cmdOpt,
 		PostCmd:                  *postCmdOpt,
