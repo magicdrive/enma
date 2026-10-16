@@ -8,6 +8,8 @@ import (
 )
 
 type TomlWatchConf struct {
+	StartAtOnce      string   `toml:"start_at_once"`
+	StartAtOnceAlias string   `toml:"start-at-once"`
 	PreCmd           string   `toml:"pre_command"`
 	Cmd              string   `toml:"command"`
 	PostCmd          string   `toml:"post_command"`
@@ -47,7 +49,13 @@ func NewWatchOptionFromTOMLConfig(h TomlWatchConf) (*option.WatchOption, error) 
 		return nil, fmt.Errorf("required fields missing in watch config")
 	}
 
+	startAtOnce, err := StartAtOnce(h.StartAtOnce, h.StartAtOnceAlias)
+	if err != nil {
+		return nil, err
+	}
+
 	opt := &option.WatchOption{
+		StartAtOnce:              startAtOnce,
 		PreCmd:                   h.PreCmd,
 		Cmd:                      cmd,
 		PostCmd:                  h.PostCmd,

@@ -10,6 +10,8 @@ import (
 type TomlHotloadConf struct {
 	Daemon           string   `toml:"daemon"`
 	Signal           string   `toml:"signal"`
+	StartAtOnce      string   `toml:"start_at_once"`
+	StartAtOnceAlias string   `toml:"start-at-once"`
 	PreBuild         string   `toml:"pre_build"`
 	Build            string   `toml:"build"`
 	PostBuild        string   `toml:"post_build"`
@@ -53,9 +55,15 @@ func NewHotloadOptionFromTOMLConfig(h TomlHotloadConf) (*option.HotloadOption, e
 		return nil, fmt.Errorf("required fields missing in hotload config")
 	}
 
+	startAtOnce, err := StartAtOnce(h.StartAtOnce, h.StartAtOnceAlias)
+	if err != nil {
+		return nil, err
+	}
+
 	opt := &option.HotloadOption{
 		Daemon:                   daemon,
 		SignalNameValue:          signal,
+		StartAtOnce:              startAtOnce,
 		PreBuild:                 h.PreBuild,
 		Build:                    build,
 		PostBuild:                h.PostBuild,

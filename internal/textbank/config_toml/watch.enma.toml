@@ -4,6 +4,7 @@ use = "watch"
 
 [subcommand.watch]
 # Basic process configuration
+## start_at_once = "make prepare" # run once at startup, before file monitoring starts. (optional)
 pre_command = "echo pre-command done."
 command = "echo Changed {}"
 post_command = "echo post-command done."

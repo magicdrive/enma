@@ -39,6 +39,7 @@ type HotloadRunner struct {
 	procMu        sync.Mutex // guards daemon
 	daemon        *managedProcess
 	scope         commandScope
+	startOnce     startAtOnce
 	mu            sync.Mutex
 	debounceTimer *time.Timer
 	fileHashes    sync.Map
@@ -69,6 +70,13 @@ func NewHotloadRunner(opt *option.HotloadOption) *HotloadRunner {
 
 func (r *HotloadRunner) stopGrace() time.Duration { return orDefault(r.StopGrace, DefaultStopGrace) }
 func (r *HotloadRunner) killWait() time.Duration  { return orDefault(r.KillWait, DefaultKillWait) }
+
+// runStartAtOnce runs the start-at-once command; only the first call does anything.
+func (r *HotloadRunner) runStartAtOnce() error {
+	return r.startOnce.run(func() error {
+		return runStartAtOnceCommand(r.Options.StartAtOnce, r.ExecCommand, &r.scope, r.stopGrace(), r.killWait())
+	})
+}
 
 // ReplacePlaceholders returns command with the placeholder replaced by path as plain text.
 // It is for display only: commands are run through ShellCommandArgs, which never
@@ -191,6 +199,12 @@ func (r *HotloadRunner) Start() error {
 		}
 		os.Exit(code)
 	}()
+
+	// start-at-once runs before the watcher exists (and, in hotload, before the
+	// first build): file changes made meanwhile are not seen, monitoring starts after it.
+	if err := startAtOnceInStart(r.runStartAtOnce, r.Options.PidPathOpt); err != nil {
+		return startErr(err)
+	}
 
 	watcher, err := fsnotify.NewWatcher()
 	if err != nil {
