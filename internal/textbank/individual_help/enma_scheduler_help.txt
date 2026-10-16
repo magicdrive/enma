@@ -1,0 +1,19 @@
+Usage: enma scheduler [OPTIONS]
+
+Runs a command on a cron schedule (one job; use a config file for several jobs).
+
+Required Options:
+  --cron <expression>                  6-field cron expression: "second minute hour day-of-month month day-of-week".
+                                       Sunday is 0. Supports * , - and */n or a-b/n. (required)
+  --command <command>                  Command to run with sh -c. (required)
+
+Optional Options:
+  --name <name>                        Job name shown in the logs. (optional. default: default)
+  --working-dir <dir_name>             Working directory of the command. (optional. default: $PWD)
+  --timezone <zone>                    Time zone of the cron expression, e.g. Asia/Tokyo. (optional. default: OS local time)
+  --timeout <time>                     Time limit of one attempt. (optional. default: none)
+  --retries <number>                   Retries after a failed attempt (non-zero exit, start failure, timeout). (optional. default: 0)
+  --retry-delay <time>                 Wait between a failed attempt and its retry. (optional. default: 10s)
+  --max-concurrent <number>            Maximum attempts running at once. (optional. default: 4)
+  --logs <log_file_path>               Path to enma log file.
+  --pid <pid_file_path>                Path to enma PID file.

@@ -7,10 +7,11 @@ import (
 )
 
 const (
-	Hotload = "hotload"
-	Watch   = "watch"
-	Init    = "init"
-	General = ""
+	Hotload   = "hotload"
+	Watch     = "watch"
+	Scheduler = "scheduler"
+	Init      = "init"
+	General   = ""
 )
 
 var HelpMessage string
@@ -24,6 +25,9 @@ func Execute(version string, args []string) error {
 		return err
 	case Watch:
 		err := subcmd.Watch(args[1:])
+		return err
+	case Scheduler:
+		err := subcmd.Scheduler(args[1:])
 		return err
 	case Init:
 		err := subcmd.Init(args[1:])

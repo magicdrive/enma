@@ -49,6 +49,12 @@ func startAtOnceInStart(run func() error, pidPath string) error {
 // command as written: no placeholder is bound (there is no changed file), so a
 // placeholder in it is plain text for the shell.
 func StartAtOnceArgs(command string) []string {
+	return plainShellArgs(command)
+}
+
+// plainShellArgs returns the arguments for `sh` that run command as written,
+// with no positional parameters (start-at-once, scheduler jobs).
+func plainShellArgs(command string) []string {
 	return []string{"-c", command, ShellArgv0}
 }
 
@@ -78,7 +84,7 @@ func runStartAtOnceCommand(command string, execCommand func(ctx context.Context,
 	runErr := cmd.Run()
 	var leftErr error
 	if cmd.Process != nil {
-		leftErr = stopLeftovers(cmd, cmd.Process.Pid, scope, grace, killWait)
+		leftErr = stopLeftovers(cmd, cmd.Process.Pid, scope, grace, killWait, "start-at-once")
 	}
 	release()
 	if scope.context().Err() != nil {
@@ -96,11 +102,12 @@ func runStartAtOnceCommand(command string, execCommand func(ctx context.Context,
 
 // stopLeftovers stops what is left of the process group led by pid after its
 // leader has been reaped: SIGTERM, grace, then SIGKILL (at once on a force kill).
-func stopLeftovers(cmd *exec.Cmd, pid int, scope *commandScope, grace, killWait time.Duration) error {
+// what names the command in the log line.
+func stopLeftovers(cmd *exec.Cmd, pid int, scope *commandScope, grace, killWait time.Duration, what string) error {
 	if !groupAlive(pid) {
 		return nil
 	}
-	log.Println("⚠️  start-at-once left processes behind; stopping them")
+	log.Printf("⚠️  %s left processes behind; stopping them", what)
 	_ = signalGroup(cmd, pid, syscall.SIGTERM)
 	if waitGroupGone(pid, grace, scope.killed()) {
 		return nil

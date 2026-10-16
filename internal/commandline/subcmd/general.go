@@ -53,6 +53,12 @@ func RunViaConfigfile(config_file_path string) error {
 		} else {
 			return RunWatch(watchOpt)
 		}
+	case "scheduler":
+		if schedulerOpt, err := configure.NewSchedulerOptionFromTOML(data); err != nil {
+			return err
+		} else {
+			return RunScheduler(schedulerOpt)
+		}
 	default:
 		return fmt.Errorf("unsupported subcommand: %s", cfg.Subcommand.Use)
 	}

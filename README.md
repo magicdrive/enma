@@ -14,6 +14,7 @@ It's designed to supercharge your development and automation workflows.
 - 🔗 Supports symlinks
 - 🧩 Flexible configuration using TOML files
 - 🔍 Ignore patterns with `.enmaignore` (`.gitignore` compatible syntax)
+- ⏰ Cron-style scheduler for one or more jobs, with timeouts, retries and a concurrency limit
 - 🧪 Ideal for CI/CD and local development
 
 ---
@@ -126,6 +127,128 @@ command = "make test"
 
 ---
 
+## ⏰ Scheduler Mode
+
+Runs commands on cron schedules. One job from the command line, any number from a config file.
+
+```bash
+enma scheduler --cron "0 */10 * * * *" --command "make sync" --name sync \
+  --timezone Asia/Tokyo --timeout 30s --retries 3 --retry-delay 10s --max-concurrent 4
+```
+
+```toml
+[subcommand]
+use = "scheduler"
+
+[subcommand.scheduler]
+timezone = "Asia/Tokyo"   # default: the OS local time zone
+max_concurrent = 4        # default: 4
+
+[[subcommand.scheduler.jobs]]
+name = "sync"             # required, unique
+cron = "0 */10 * * * *"   # required
+command = "make sync"     # required
+working_dir = "./project" # default: the directory enma was started in
+timeout = "30s"           # default: no limit
+retries = 3               # default: 0
+retry_delay = "10s"       # default: 10s
+
+[[subcommand.scheduler.jobs]]
+name = "backup"
+cron = "0 0 2 * * *"
+command = "./backup.sh"
+```
+
+`enma init --mode scheduler` writes a commented template. The command line and a config file
+are never merged: `enma scheduler ...` uses its flags only, `enma` / `enma --config <file>` the file only.
+Every setting is checked before the first job starts; an error names the job and the field, and
+enma exits with 1. Unknown keys under `[subcommand.scheduler]` are errors.
+
+### Cron expressions
+
+Six fields, seconds first: `second minute hour day-of-month month day-of-week`
+(`0-59 0-59 0-23 1-31 1-12 0-6`, Sunday is `0`). Each field is a list of `*`, `*/n`, `n`, `a-b`
+or `a-b/n`. Not supported: the 5-field form, names (`JAN`, `SUN`), `?`, `L`, `W`, `#`, `@every`
+and other `@` descriptors.
+
+Day of month and day of week: a field is *restricted* unless it starts with `*` — so `*/2` is
+unrestricted (like `*`), while `1-31/2` (the same days) is restricted. When both fields are
+restricted, a day matches if **either** matches; otherwise both must match (the unrestricted one
+matches every day). This is the classic cron rule; treating `*/n` as unrestricted is how enma
+defines it.
+
+| expression          | runs at 09:00 on (from 2026-10-31)                  |
+|---------------------|-----------------------------------------------------|
+| `0 0 9 * * 1`       | Mondays: Nov 2, 9, 16, …                            |
+| `0 0 9 1 * *`       | the 1st: Nov 1, Dec 1, …                            |
+| `0 0 9 1 * 1`       | the 1st **or** Mondays: Nov 1, 2, 9, 16, 23, 30, Dec 1, … |
+| `0 0 9 */2 * 1`     | odd days **that are** Mondays: Nov 9, 23, Dec 7, …  |
+| `0 0 9 1-31/2 * 1`  | odd days **or** Mondays: Oct 31, Nov 1, 2, 3, 5, …  |
+
+### Time
+
+- All jobs use one time zone (`timezone`, default the OS local time zone).
+- Nothing runs at start, not even when enma starts exactly at a fire time, and fire times that
+  passed while enma was stopped are not run later.
+- Daylight saving: a local time that does not exist that day is not run. When the clocks go
+  back, a local date-time (date and wall-clock time in the scheduler's time zone, whatever the
+  UTC offset) happens twice but is one fire opportunity: once enma has met its first instance —
+  run, failed, skipped (`job_busy`, `capacity_unavailable`) or missed (late, or jumped over by a
+  clock change) — the second instance does not fire. If enma was started between the two
+  instances (or exactly at the first one, which does not run at start), the second one fires
+  (the first one was not met while enma was running). Retries are
+  not fires and are not affected. Nothing of this is stored: a restarted enma starts afresh.
+- If the system clock is set forward by more than a second (or the machine slept), the fire
+  times between the old and the new time are not run: one `skip reason=clock_jump` event covers
+  them (`scheduled=` the first, `until=` about the new time). enma cannot see exactly when the
+  clock was set: fire times shortly before it noticed (usually within 15 seconds) are treated
+  as on the new time line and may still run. If the clock is set back, fire times already run do not run
+  again (also inside a repeated daylight-saving hour). enma looks at the wall clock at least
+  every 15 seconds, so after a clock change a fire may be up to that late.
+- A fire found due more than 30 seconds late (enma could not run, e.g. it was stopped with
+  SIGSTOP) is not run. When several fire times of a job are due at once, only the newest runs.
+  Either way the others are one `skip reason=missed` event with `count=` (`count=<n>+` after a
+  very long stall: at least that many).
+
+### Runs, retries and concurrency
+
+- A job never runs twice at once. A fire while the job's previous run (or its retry wait) is not
+  over is skipped (`reason=job_busy`). Fires are never queued.
+- `max_concurrent` limits the attempts running at the same time over all jobs. A fire that finds
+  no free slot is skipped (`reason=capacity_unavailable`). When several jobs fire at the same
+  second, the free slots go to them in the order of the config file.
+- An attempt fails on a non-zero exit, when the command cannot be started, or on `timeout` (the
+  limit of one attempt; its process group is killed). After a failure the job runs again
+  `retry_delay` after the attempt ended, up to `retries` times (`retries = 3`: at most 4 attempts).
+  Success or a shutdown is never retried.
+- During a retry wait the job stays busy but holds no slot. If no slot is free when the retry is
+  due, it is dropped and the run ends (`retry_capacity_unavailable`). Retries due at the same time
+  as fires are handled first, in config order.
+- A failing job never stops the scheduler or the other jobs.
+- Each job runs in its own `working_dir` with `sh -c`, in its own process group; nothing it starts
+  is left behind (as with the other modes). Its output goes to enma's stdout / stderr, so the
+  output of jobs running at the same time interleaves; the event lines name the job.
+
+### Stopping
+
+SIGINT / SIGTERM: no new fires or retries, then every running attempt gets SIGTERM at the same
+time and SIGKILL after the grace period (5s); enma exits with 0 (1 if something could not be
+stopped). A second signal kills at once (exit 1).
+
+### Log events
+
+One line per event: `⏰ scheduler event=<event> job="<name>" attempt=<n> scheduled=<time>
+start=<time> end=<time> duration=<d> exit_code=<n> reason=<reason> error="<error>"` (fields that
+apply). Events: `scheduler_start`, `scheduler_stop`, `job_start`, `job_success`, `job_failed`
+(`reason=exit|start_failed|leftover`), `job_timeout`, `job_canceled`, `retry_scheduled`
+(`retry_at=`), `retry_start`, `retry_success`, `retries_exhausted`, `retry_capacity_unavailable`,
+`retry_canceled` (a retry wait dropped at shutdown), `skip`
+(`reason=job_busy|capacity_unavailable|clock_jump|missed`, with `until=` / `count=`). Commands
+are not logged. Processes a job leaves behind are stopped and logged with the job's name.
+`--logs` / `--pid` (TOML `logs` / `pid` under `[subcommand.scheduler]`) work as in the other modes.
+
+---
+
 ## 🔐 Placeholder and the shell
 
 Commands run with `sh -c`. The changed file's path is **not** pasted into the command text:
@@ -227,7 +350,7 @@ This layered approach ensures clarity in behavior while keeping Enma fast and cu
 | Option                        | Description                                               |
 |-------------------------------|-----------------------------------------------------------|
 | `-h`, `--help`                | Show help message and exit                                |
-| `-m`, `--mode`                | Mode for config file: `hotload`,`watch` or `enmaignore` (default: `hotload`) |
+| `-m`, `--mode`                | Mode for config file: `hotload`, `watch`, `scheduler` or `enmaignore` (default: `hotload`) |
 | `-f`, `--file <filename>`     | Config filename to create (default: `./Enma.toml`)        |
 
 ---
@@ -292,6 +415,25 @@ This layered approach ensures clarity in behavior while keeping Enma fast and cu
 | `-E`, `--exclude-dir <dir_name>`           | Directories to exclude (comma-separated, optional)                         |
 | `-D`, `--default-ignores <max\|min\|none>` | Defines defualt loads enmaignore volume. (optional. default: `minimal`)      |
 | `-n`, `--enmaignore <filename>`            | enma ignore file(s) (comma-separated, optional. default: `./.enmaignore`)  |
+| `--logs <log_file_path>`                   | Log file path (optional)                                                   |
+| `--pid <pid_file_path>`                    | PID file path (optional)                                                   |
+
+---
+
+### `enma scheduler`
+
+| Option                                     | Description                                                                |
+|--------------------------------------------|----------------------------------------------------------------------------|
+| `-h`, `--help`                             | Show help message and exit                                                 |
+| `--cron <expression>`                      | 6-field cron expression (required)                                         |
+| `--command <command>`                      | Command to run (required)                                                  |
+| `--name <name>`                            | Job name (default: `default`)                                              |
+| `--working-dir <dir_name>`                 | Working directory of the command (default: `$PWD`)                         |
+| `--timezone <zone>`                        | Time zone of the cron expression (default: OS local time)                  |
+| `--timeout <time>`                         | Time limit of one attempt (default: none)                                  |
+| `--retries <number>`                       | Retries after a failed attempt (default: `0`)                              |
+| `--retry-delay <time>`                     | Wait between a failed attempt and its retry (default: `10s`)               |
+| `--max-concurrent <number>`                | Maximum attempts running at once (default: `4`)                            |
 | `--logs <log_file_path>`                   | Log file path (optional)                                                   |
 | `--pid <pid_file_path>`                    | PID file path (optional)                                                   |
 

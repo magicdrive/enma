@@ -32,6 +32,8 @@ func RunInit(opt *option.InitOption) error {
 		textString = textbank.DefaultHotloadEnmaToml
 	case "watch":
 		textString = textbank.DefaultWatchEnmaToml
+	case "scheduler":
+		textString = textbank.DefaultSchedulerEnmaToml
 	case "enmaignore":
 		textString = textbank.MinimalEnmaIgnore
 	default:

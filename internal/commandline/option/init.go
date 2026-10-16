@@ -46,6 +46,10 @@ func ParseInit(args []string) (*InitOption, error) {
 		FlagSet:     fs,
 	}
 
+	if options.HelpFlag { // the help needs no file name check (the default file may exist)
+		return options, nil
+	}
+
 	if err := options.Normalize(); err != nil {
 		return nil, err
 	}

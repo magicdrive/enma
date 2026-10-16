@@ -9,6 +9,7 @@ _enma() {
         'init:Initialize configuration'
         'hotload:Watch & reload daemon'
         'watch:Watch & run commands'
+        'scheduler:Run commands on cron schedules'
         '--help:Show help'
         '--version:Show version'
         '--config:Define enma.toml'
@@ -27,7 +28,7 @@ _enma() {
           init)
             _values 'init options' \
               '--help[Show help]' \
-              '--mode[Specify mode <hotload|watch|enmaignore>]:mode:(hotload watch enmaignore)' \
+              '--mode[Specify mode <hotload|watch|scheduler|enmaignore>]:mode:(hotload watch scheduler enmaignore)' \
               '--file[Specify output config file]:file:_files'
             ;;
           hotload)
@@ -114,6 +115,21 @@ _enma() {
               '--ignore-dir-regex[    (optional) Dir ignore regex]' \
               '--ignore-file-regex[    (optional) File ignore regex]' \
               '--enmaignore[    (optional) Ignore file list]:file:_files' \
+              '--logs[    (optional) Log file]:file:_files' \
+              '--pid[    (optional) PID file]:file:_files'
+            ;;
+          scheduler)
+            _values 'scheduler options' \
+              '--help[Show help]' \
+              '--cron[6-field cron expression]:cron:' \
+              '--command[Command to run]:cmd:_command_names' \
+              '--name[    (optional) Job name]:name:' \
+              '--working-dir[    (optional) Working directory]:dir:_files -/' \
+              '--timezone[    (optional) Time zone]:zone:' \
+              '--timeout[    (optional) Time limit of one attempt]:string:' \
+              '--retries[    (optional) Retries after a failure]:int:' \
+              '--retry-delay[    (optional) Wait before a retry]:string:' \
+              '--max-concurrent[    (optional) Maximum attempts at once]:int:' \
               '--logs[    (optional) Log file]:file:_files' \
               '--pid[    (optional) PID file]:file:_files'
             ;;
