@@ -3,7 +3,7 @@ _enma_bash() {
   local cur prev words cword
   _init_completion -n : || return
 
-  local subcommands="init hotload watch"
+  local subcommands="init hotload watch scheduler"
   local global_opts="--help -h --version -v --config -c"
   local opts
 
@@ -22,6 +22,9 @@ _enma_bash() {
       ;;
     watch)
       opts="--command --start-at-once --watch-dir --pre-cmd --post-cmd --working-dir --placeholder --args-path-style --check-content-diff --absolute-path --timeout --delay --retry --pattern-regex --include-ext --exclude-ext --exclude-dir --ignore-dir-regex --ignore-file-regex --default-ignores --enmaignore --logs --pid"
+      ;;
+    scheduler)
+      opts="--cron --command --name --working-dir --timezone --timeout --retries --retry-delay --max-concurrent --logs --pid --help"
       ;;
     *)
       opts=$global_opts

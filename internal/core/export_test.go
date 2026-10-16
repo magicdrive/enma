@@ -51,3 +51,17 @@ func WatchRunStartAtOnceForTest(w *WatchRunner) error { return w.runStartAtOnce(
 func StartAtOnceInStartForTest(run func() error, pidPath string) error {
 	return startAtOnceInStart(run, pidPath)
 }
+
+// Scheduler test hooks.
+type VirtualClock = virtualClock
+
+func NewVirtualClockForTest(wall time.Time) *VirtualClock          { return newVirtualClock(wall) }
+func (c *virtualClock) NextDeadlineForTest() (time.Duration, bool) { return c.nextDeadline() }
+func SetSchedulerOnWaitForTest(r *SchedulerRunner, f func())       { r.onWait = f }
+func SchedulerShutdownForTest(r *SchedulerRunner) error            { return r.shutdown() }
+func SetSchedulerBeforeAbortForTest(r *SchedulerRunner, f func())  { r.beforeAbort = f }
+func SchedulerPendingResultsForTest(r *SchedulerRunner) int        { return len(r.results) }
+func SchedulerForceKillForTest(r *SchedulerRunner)                 { r.forceKill() }
+func FormatSchedulerEventForTest(ev SchedulerEvent, loc *time.Location) string {
+	return formatSchedulerEvent(ev, loc)
+}

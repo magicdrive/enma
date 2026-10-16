@@ -12,11 +12,12 @@ Sub commands:
   init                                Create plain enma.toml, .enmaignore file.
   hotload                             It detects file changes and builds and loads the daemon..
   watch                               Detects file changes and executes commands.
+  scheduler                           Runs commands on cron schedules.
 
 
 init options:
   -h, --help                           Show help message and exit.
-  -m --mode <hotload|watch|enmaignore> Specify mode of the configuration file to be created. (optional. :default: hotload)
+  -m --mode <hotload|watch|scheduler|enmaignore> Specify mode of the configuration file to be created. (optional. :default: hotload)
   -f --file <filename>                 Specify filename of config file to be created. (optional. :default: ./Enma.toml|.enmaignore)
 
 hotload options:
@@ -71,6 +72,20 @@ watch options:
   -E, --exclude-dir <dir_name>         Specify watch exclude dir_name. Allows comma separated list. (optional.)
   -D, --default-ignores <max|min|none> Defines defualt loads enmaignore volume. (optional. default: minimal)
   -n, --enmaignore <path>              Defines enmaignore path. Allows comma separated list. (optional. default: ./.enmaignore)
+  --logs <log_file_path>               Specify enma log file. (optional.)
+  --pid <pid_file_path>                Specify enma pid file. (optional.)
+
+scheduler options (one job; use a config file for several jobs):
+  -h, --help                           Show help message and exit.
+  --cron <expression>                  6-field cron: "second minute hour day-of-month month day-of-week". Sunday is 0. (require)
+  --command <command>                  Defines the command to run with sh -c. (require)
+  --name <name>                        Job name shown in the logs. (optional. default: default)
+  --working-dir <dir_name>             Working directory of the command. (optional. default: $PWD)
+  --timezone <zone>                    Time zone of the cron expression. (optional. default: OS local time)
+  --timeout <time>                     Time limit of one attempt. (optional. default: none)
+  --retries <number>                   Retries after a failed attempt. (optional. default: 0)
+  --retry-delay <time>                 Wait between a failed attempt and its retry. (optional. default: 10s)
+  --max-concurrent <number>            Maximum attempts running at once. (optional. default: 4)
   --logs <log_file_path>               Specify enma log file. (optional.)
   --pid <pid_file_path>                Specify enma pid file. (optional.)
 

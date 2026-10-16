@@ -488,11 +488,13 @@ func TestLifecycle_CommandsAfterShutdownFailFast(t *testing.T) {
 // Shutdown waits for commands that are still running, even ones that ignore
 // cancellation, so nothing keeps running behind the exit (bounded by the abort timeout).
 func TestLifecycle_ShutdownWaitsForRunningCommands(t *testing.T) {
-	uncancellable := func(ctx context.Context, name string, args ...string) *exec.Cmd {
-		return exec.Command("sleep", "0.6") // not bound to ctx
-	}
 	for _, kind := range []string{"hotload", "watch"} {
 		t.Run(kind, func(t *testing.T) {
+			// the command marks that it runs, then sleeps; it is not bound to ctx
+			started := filepath.Join(t.TempDir(), "started")
+			uncancellable := func(ctx context.Context, name string, args ...string) *exec.Cmd {
+				return exec.Command("sh", "-c", `touch "$1"; sleep 1.5`, "sh", started)
+			}
 			var seq func() bool
 			var shutdown func() error
 			if kind == "hotload" {
@@ -508,7 +510,10 @@ func TestLifecycle_ShutdownWaitsForRunningCommands(t *testing.T) {
 			}
 			finished := make(chan struct{})
 			go func() { seq(); close(finished) }()
-			time.Sleep(100 * time.Millisecond)
+			// wait until the command really runs (a fixed sleep is not enough under load)
+			if !waitFor(t, 5*time.Second, func() bool { _, err := os.Stat(started); return err == nil }) {
+				t.Fatal("the command did not start")
+			}
 			start := time.Now()
 			if err := stopWithin(t, stopBound, shutdown); err != nil {
 				t.Fatal(err)

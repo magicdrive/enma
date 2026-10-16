@@ -69,6 +69,10 @@ func EnmaWatchHelpFunc() {
 	GracefulPrintOut(textbank.WatchHelpMessage, false)
 }
 
+func EnmaSchedulerHelpFunc() {
+	GracefulPrintOut(textbank.SchedulerHelpMessage, false)
+}
+
 func EnmaInitHelpFunc() {
 	GracefulPrintOut(textbank.InitHelpMessage, false)
 }

@@ -1,0 +1,53 @@
+[subcommand]
+# Which subcommand this config should use
+use = "scheduler"
+
+[subcommand.scheduler]
+# Time zone of every cron expression below, e.g. "Asia/Tokyo" or "UTC".
+# Default: the OS local time zone (leave the key out).
+## timezone = "UTC"
+
+# Maximum number of job attempts running at the same time, over all jobs.
+# A cron fire (or a retry) that finds no free slot is skipped, never queued.
+# Default: 4. Must be 1 or more.
+max_concurrent = 4
+
+# File paths (optional, as in the other modes)
+## logs = "./.enma/log/enma_scheduler.log"
+## pid = "./.enma/run/enma_scheduler.pid"
+
+# One [[subcommand.scheduler.jobs]] table per job. To add a job, copy the whole
+# table below and give it another unique name. Jobs fire in parallel; when
+# several fire at the same second, free slots go to them in the order written here.
+[[subcommand.scheduler.jobs]]
+# Unique job name (required), shown in the logs.
+name = "heartbeat"
+
+# 6-field cron expression (required): second minute hour day-of-month month day-of-week.
+# Sunday is 0. Supported: * , - */n a-b/n. This one fires at second 0 of every minute.
+cron = "0 * * * * *"
+
+# Command run with sh -c (required).
+command = "echo enma scheduler heartbeat"
+
+# Working directory of the command. Default: the directory enma was started in.
+## working_dir = "./"
+
+# Time limit of one attempt, e.g. "30s", "10m". Default: no limit (leave the key out).
+## timeout = "30s"
+
+# Retries after a failed attempt (non-zero exit, start failure or timeout).
+# retries = 3 runs the command at most 4 times. Default: 0.
+retries = 0
+
+# Wait between a failed attempt and its retry. Default: "10s".
+retry_delay = "10s"
+
+# A second job, for example:
+## [[subcommand.scheduler.jobs]]
+## name = "nightly-report"
+## cron = "0 30 2 * * 1-5"
+## command = "echo nightly report"
+## timeout = "10m"
+## retries = 2
+## retry_delay = "1m"

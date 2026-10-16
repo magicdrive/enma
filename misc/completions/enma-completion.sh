@@ -14,6 +14,7 @@ if [[ -n ${ZSH_VERSION-} ]]; then
         'init:Initialize configuration'
         'hotload:Watch & reload daemon'
         'watch:Watch & run commands'
+        'scheduler:Run commands on cron schedules'
         '--help:Show help'
         '--version:Show version'
         '--config:Define enma.toml'
@@ -32,7 +33,7 @@ if [[ -n ${ZSH_VERSION-} ]]; then
           init)
             _values 'init options' \
               '--help[Show help]' \
-              '--mode[Specify mode <hotload|watch|enmaignore>]:mode:(hotload watch enmaignore)' \
+              '--mode[Specify mode <hotload|watch|scheduler|enmaignore>]:mode:(hotload watch scheduler enmaignore)' \
               '--file[Specify output config file]:file:_files'
             ;;
           hotload)
@@ -122,6 +123,21 @@ if [[ -n ${ZSH_VERSION-} ]]; then
               '--logs[    (optional) Log file]:file:_files' \
               '--pid[    (optional) PID file]:file:_files'
             ;;
+          scheduler)
+            _values 'scheduler options' \
+              '--help[Show help]' \
+              '--cron[6-field cron expression]:cron:' \
+              '--command[Command to run]:cmd:_command_names' \
+              '--name[    (optional) Job name]:name:' \
+              '--working-dir[    (optional) Working directory]:dir:_files -/' \
+              '--timezone[    (optional) Time zone]:zone:' \
+              '--timeout[    (optional) Time limit of one attempt]:string:' \
+              '--retries[    (optional) Retries after a failure]:int:' \
+              '--retry-delay[    (optional) Wait before a retry]:string:' \
+              '--max-concurrent[    (optional) Maximum attempts at once]:int:' \
+              '--logs[    (optional) Log file]:file:_files' \
+              '--pid[    (optional) PID file]:file:_files'
+            ;;
           *)
             _message 'No subcommand matched.'
             ;;
@@ -139,7 +155,7 @@ _enma_bash() {
   local cur prev words cword
   _init_completion -n : || return
 
-  local subcommands="init hotload watch"
+  local subcommands="init hotload watch scheduler"
   local global_opts="--help -h --version -v --config -c"
   local opts
 
@@ -158,6 +174,9 @@ _enma_bash() {
       ;;
     watch)
       opts="--command --start-at-once --watch-dir --pre-cmd --post-cmd --working-dir --placeholder --args-path-style --check-content-diff --absolute-path --timeout --delay --retry --pattern-regex --include-ext --exclude-ext --exclude-dir --ignore-dir-regex --ignore-file-regex --default-ignores --enmaignore --logs --pid"
+      ;;
+    scheduler)
+      opts="--cron --command --name --working-dir --timezone --timeout --retries --retry-delay --max-concurrent --logs --pid --help"
       ;;
     *)
       opts=$global_opts
