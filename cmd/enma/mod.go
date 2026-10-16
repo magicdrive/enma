@@ -18,13 +18,14 @@ func Execute(version string) {
 			fmt.Fprintln(os.Stderr, err)
 			fmt.Fprintln(os.Stderr)
 			fmt.Fprintln(os.Stderr, textbank.ShortHelpMessage)
+			os.Exit(1)
 		}
 		os.Exit(0)
 	}
 
 	err := commandline.Execute(version, os.Args[1:])
 	if err != nil {
-		fmt.Println(err)
+		fmt.Fprintln(os.Stderr, err)
 		os.Exit(1)
 	}
 }
