@@ -1,0 +1,44 @@
+package core
+
+import (
+	"errors"
+	"time"
+)
+
+// Test hooks for the unexported process lifecycle (compiled only into tests).
+
+var ErrShuttingDownForTest = errShuttingDown
+
+func StartDaemonForTest(r *HotloadRunner) error { return r.startDaemon() }
+func StopDaemonForTest(r *HotloadRunner) error  { return r.stopDaemon() }
+func SetStopTimeoutsForTest(r *HotloadRunner, grace, kill time.Duration) {
+	r.StopGrace, r.KillWait = grace, kill
+}
+func SetWatchStopTimeoutsForTest(w *WatchRunner, grace, kill time.Duration) {
+	w.StopGrace, w.KillWait = grace, kill
+}
+
+// HandleChangeForTest runs the real change handler: build sequence, stop, start.
+func HandleChangeForTest(r *HotloadRunner, path string) { r.handleChangeDirect(path) }
+
+func ShutdownForTest(r *HotloadRunner) error    { return r.shutdown() }
+func ForceKillForTest(r *HotloadRunner)         { r.forceKill() }
+func WatchShutdownForTest(w *WatchRunner) error { return w.shutdown() }
+func WatchForceKillForTest(w *WatchRunner)      { w.forceKill() }
+
+// WatchHandleChangeForTest runs the real change handler: command sequence with retries.
+func WatchHandleChangeForTest(w *WatchRunner, path string) { w.handleChangeDirect(path) }
+
+func RunBuildSequenceForTest(r *HotloadRunner, path string) error {
+	if !r.RunBuildSequence(0, path) {
+		return errors.New("build sequence failed")
+	}
+	return nil
+}
+
+func WatchRunSequenceForTest(w *WatchRunner, path string) error {
+	if !w.RunBuildSequence(0, path) {
+		return errors.New("command sequence failed")
+	}
+	return nil
+}

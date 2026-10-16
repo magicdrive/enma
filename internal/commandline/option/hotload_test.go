@@ -162,3 +162,40 @@ func TestParseHotload_HasPlaceholderPostBuildDetection(t *testing.T) {
 		t.Errorf("expected HasPlaceholderPostBuild to be true")
 	}
 }
+
+// A-08: a placeholder the shell never expands (escaped, in a comment, in a
+// quoted here-document) is not a placeholder, so it must not skip the build at
+// start or a PreBuild/PostBuild without a path.
+func TestParseHotload_PlaceholderDetectionFollowsTheShellParse(t *testing.T) {
+	cases := []struct {
+		name, command, placeholder string
+		want                       bool
+	}{
+		{"unquoted", "echo {}", "{}", true},
+		{"quoted", `echo "{}"`, "{}", true},
+		{"escaped", `echo \{}`, "{}", false},
+		{"comment only", "echo build # {}", "{}", false},
+		{"quoted heredoc", "cat <<'EOF'\n{}\nEOF", "{}", false},
+		{"empty placeholder", "echo {}", "", false},
+	}
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			opt, err := option.ParseHotload([]string{
+				"--daemon", "./myapp",
+				"--pre-build", c.command,
+				"--build", c.command,
+				"--post-build", c.command,
+				"--placeholder", c.placeholder,
+			})
+			if err != nil {
+				t.Fatalf("unexpected error: %v", err)
+			}
+			got := []bool{opt.HasPlaceholderPreBuild, opt.HasPlaceholderBuild, opt.HasPlaceholderPostBuild}
+			for i, step := range []string{"PreBuild", "Build", "PostBuild"} {
+				if got[i] != c.want {
+					t.Errorf("HasPlaceholder%s = %v, want %v", step, got[i], c.want)
+				}
+			}
+		})
+	}
+}

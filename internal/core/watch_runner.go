@@ -25,12 +25,17 @@ import (
 )
 
 type WatchRunner struct {
-	Options       *option.WatchOption
-	CmdTimeout    time.Duration
-	Delay         time.Duration
-	ExecCommand   func(ctx context.Context, name string, args ...string) *exec.Cmd
+	Options     *option.WatchOption
+	CmdTimeout  time.Duration
+	Delay       time.Duration
+	ExecCommand func(ctx context.Context, name string, args ...string) *exec.Cmd
+	// StopGrace is how long a running command may take to exit after SIGTERM
+	// on shutdown before its process group is killed; KillWait bounds the wait
+	// after SIGKILL. Zero means DefaultStopGrace / DefaultKillWait.
+	StopGrace     time.Duration
+	KillWait      time.Duration
 	watcher       *fsnotify.Watcher
-	currentCmd    *exec.Cmd
+	scope         commandScope
 	mu            sync.Mutex
 	debounceTimer *time.Timer
 	fileHashes    sync.Map
@@ -54,9 +59,17 @@ func NewWatchRunner(opt *option.WatchOption) *WatchRunner {
 		CmdTimeout:  timeout,
 		Delay:       delay,
 		ExecCommand: exec.CommandContext,
+		StopGrace:   DefaultStopGrace,
+		KillWait:    DefaultKillWait,
 	}
 }
 
+func (r *WatchRunner) stopGrace() time.Duration { return orDefault(r.StopGrace, DefaultStopGrace) }
+func (r *WatchRunner) killWait() time.Duration  { return orDefault(r.KillWait, DefaultKillWait) }
+
+// ReplacePlaceholders returns command with the placeholder replaced by path as plain text.
+// It is for display only: commands are run through ShellCommandArgs, which never
+// splices the path into the shell source.
 func (r *WatchRunner) ReplacePlaceholders(command, path string) string {
 	return common.ReplacePlaceholders(command, r.Options.Placeholder, path)
 }
@@ -148,14 +161,27 @@ func (r *WatchRunner) Start() error {
 	}
 	go func() {
 		<-signalChan
-		r.stopCurrentCmd()
-		log.Println("🛑 Stopping file monitor daemon...")
+		log.Println("🛑 Stopping file monitor daemon... (send the signal again to force)")
+		done := make(chan error, 1)
+		go func() { done <- r.shutdown() }()
+		code := 0
+		select {
+		case err := <-done:
+			if err != nil {
+				log.Printf("❌ Shutdown incomplete: %v", err)
+				code = 1
+			}
+		case <-signalChan:
+			log.Println("⚡ Forced shutdown")
+			r.forceKill()
+			code = 1
+		}
 		if r.Options.PidPathOpt != "" {
 			if err := common.DeletePidFile(r.Options.PidPathOpt); err != nil {
 				log.Printf("failed delete pidfile.: %s\n", err.Error())
 			}
 		}
-		os.Exit(0)
+		os.Exit(code)
 	}()
 
 	watcher, err := fsnotify.NewWatcher()
@@ -242,10 +268,12 @@ func (r *WatchRunner) handleChangeDirect(pathStyled string) {
 	for i := 0; i <= r.Options.Retry; i++ {
 		if r.RunBuildSequence(i, pathStyled) {
 			log.Println("✅  Command Action success")
-			time.Sleep(r.Delay)
+			sleepCtx(r.scope.context(), r.Delay)
 			return
 		}
-		time.Sleep(1 * time.Second)
+		if !sleepCtx(r.scope.context(), 1*time.Second) {
+			return
+		}
 	}
 }
 
@@ -379,7 +407,7 @@ func (r *WatchRunner) RunBuildSequence(attempt int, path string) bool {
 	}
 
 	for _, step := range steps {
-		ctx, cancel := context.WithTimeout(context.Background(), r.CmdTimeout)
+		ctx, cancel := context.WithTimeout(r.scope.context(), r.CmdTimeout)
 		err := step.fn(ctx, path)
 		cancel()
 		if err != nil {
@@ -388,7 +416,6 @@ func (r *WatchRunner) RunBuildSequence(attempt int, path string) bool {
 		}
 	}
 
-	r.currentCmd = nil
 	return true
 }
 
@@ -396,20 +423,28 @@ func (r *WatchRunner) RunPreCmd(ctx context.Context, path string) error {
 	if r.Options.PreCmd == "" {
 		return nil
 	}
-	cmd := r.ExecCommand(ctx, "sh", "-c", r.ReplacePlaceholders(r.Options.PreCmd, path))
-	setProcessGroup(cmd)
+	cmd := r.ExecCommand(ctx, "sh", ShellCommandArgs(r.Options.PreCmd, r.Options.Placeholder, path)...)
+	killGroupOnCancel(cmd, &r.scope, r.stopGrace(), r.killWait())
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
-	r.currentCmd = cmd
+	release, err := r.scope.enter()
+	if err != nil {
+		return err
+	}
+	defer release()
 	return cmd.Run()
 }
 
 func (r *WatchRunner) RunCmd(ctx context.Context, path string) error {
-	cmd := r.ExecCommand(ctx, "sh", "-c", r.ReplacePlaceholders(r.Options.Cmd, path))
-	setProcessGroup(cmd)
+	cmd := r.ExecCommand(ctx, "sh", ShellCommandArgs(r.Options.Cmd, r.Options.Placeholder, path)...)
+	killGroupOnCancel(cmd, &r.scope, r.stopGrace(), r.killWait())
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
-	r.currentCmd = cmd
+	release, err := r.scope.enter()
+	if err != nil {
+		return err
+	}
+	defer release()
 	return cmd.Run()
 }
 
@@ -417,21 +452,32 @@ func (r *WatchRunner) RunPostCmd(ctx context.Context, path string) error {
 	if r.Options.PostCmd == "" {
 		return nil
 	}
-	cmd := r.ExecCommand(ctx, "sh", "-c", r.ReplacePlaceholders(r.Options.PostCmd, path))
-	setProcessGroup(cmd)
+	cmd := r.ExecCommand(ctx, "sh", ShellCommandArgs(r.Options.PostCmd, r.Options.Placeholder, path)...)
+	killGroupOnCancel(cmd, &r.scope, r.stopGrace(), r.killWait())
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
-	r.currentCmd = cmd
+	release, err := r.scope.enter()
+	if err != nil {
+		return err
+	}
+	defer release()
 	return cmd.Run()
 }
 
-func (r *WatchRunner) stopCurrentCmd() {
-	if r.currentCmd != nil && r.currentCmd.Process != nil {
-		log.Println("🛑 Aborting command...")
-		stopProcess(r.currentCmd)
-		_ = r.currentCmd.Wait()
-		r.currentCmd = nil
+// shutdown aborts running commands: SIGTERM to their process groups, SIGKILL
+// after StopGrace.
+func (r *WatchRunner) shutdown() error {
+	if err := r.scope.abort(r.stopGrace() + r.killWait() + time.Second); err != nil {
+		log.Printf("❌ Failed to abort command: %v", err)
+		return err
 	}
+	return nil
+}
+
+// forceKill kills the running commands' process groups at once.
+func (r *WatchRunner) forceKill() {
+	r.scope.forceKill()
+	_ = r.scope.abort(r.killWait())
 }
 
 func (r *WatchRunner) applyArgsPathStyle(path string) string {

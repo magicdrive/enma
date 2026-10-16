@@ -4,32 +4,30 @@
 package core
 
 import (
+	"errors"
 	"os/exec"
 	"syscall"
-
-	"github.com/magicdrive/enma/internal/model"
 )
 
 func setProcessGroup(cmd *exec.Cmd) {
-	cmd.SysProcAttr = &syscall.SysProcAttr{
-		Setpgid: true,
+	if cmd.SysProcAttr == nil {
+		cmd.SysProcAttr = &syscall.SysProcAttr{}
 	}
+	cmd.SysProcAttr.Setpgid = true
 }
 
-func stopDaemonProcess(cmd *exec.Cmd, signalName model.SignalName) {
-	pgid, err := syscall.Getpgid(cmd.Process.Pid)
-	if err == nil {
-		_ = syscall.Kill(-pgid, signalName.Signal())
-	} else {
-		_ = cmd.Process.Signal(signalName.Signal())
+// signalGroup sends sig to the process group led by pid (the group id equals
+// the leader's pid because of setProcessGroup).
+func signalGroup(cmd *exec.Cmd, pid int, sig syscall.Signal) error {
+	err := syscall.Kill(-pid, sig)
+	if errors.Is(err, syscall.ESRCH) {
+		return nil // nobody left
 	}
+	return err
 }
 
-func stopProcess(cmd *exec.Cmd) {
-	pgid, err := syscall.Getpgid(cmd.Process.Pid)
-	if err == nil {
-		_ = syscall.Kill(-pgid, syscall.SIGTERM)
-	} else {
-		_ = cmd.Process.Signal(syscall.SIGTERM)
-	}
+// groupAlive reports whether any process of the group still exists.
+func groupAlive(pid int) bool {
+	err := syscall.Kill(-pid, 0)
+	return err == nil || errors.Is(err, syscall.EPERM)
 }

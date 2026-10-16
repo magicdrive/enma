@@ -90,6 +90,64 @@ enma watch --command "make test file={}"
 
 ---
 
+## 🔐 Placeholder and the shell
+
+Commands run with `sh -c`. The changed file's path is **not** pasted into the command text:
+it is passed to the shell as the positional parameter `$1`, copied to the variable
+`__enma_path` at the start of the script, and each placeholder becomes a reference to that
+variable that fits its quoting:
+
+| You write             | The shell runs                              |
+|-----------------------|---------------------------------------------|
+| `echo {}`             | `echo "${__enma_path}"`                     |
+| `make test file={}`   | `make test file="${__enma_path}"`           |
+| `echo "changed: {}"`  | `echo "changed: ${__enma_path}"`            |
+| `echo 'changed: {}'`  | `echo 'changed: '"${__enma_path}"''`        |
+
+(the script starts with `__enma_path="$1"; `). So a file name containing spaces, quotes, `;`,
+`$(...)` or backquotes reaches the command as exactly one argument, and the shell never parses
+it as code. Notes:
+
+- `$0` is `enma`, `$1` is the path and `$#` is 1 inside the command.
+- An empty placeholder (`--placeholder ""`) disables substitution: no command has a placeholder.
+- The placeholder is left as it is where the shell would not expand a variable: after a
+  backslash (`\{}`), in `#` comments and in quoted here-documents (`<<'EOF'`). Such a
+  placeholder is plain text and does not count as one: `hotload` still runs the build at
+  start, and a `--pre-build` / `--post-build` without a real placeholder still runs then.
+- In an unquoted here-document the placeholder expands to the path. In a quoted
+  here-document (`<<'EOF'`) it is not replaced, by design: the body is literal text.
+- Write a command substitution that starts with a subshell as `$( (cmd) ...)`, with a space,
+  as POSIX requires; `$((` always starts arithmetic. Likewise write a nested subshell as
+  `( (cmd) )` rather than `((cmd))`.
+- `$'...'` quoting is a bash/zsh feature; `sh` implementations without it (e.g. dash) print
+  it differently, with or without enma.
+
+### ⚠️ Not covered: running the path as code again
+
+The protection above covers the shell that enma starts. **It is not guaranteed** once the
+command hands the path to something that parses it as code again: a second shell or an
+interpreter receives the path *inside its own source text*, and a file name such as
+`x'; rm -rf ~; '.go` is then executed there. This includes:
+
+- `eval {}`, and arithmetic such as `[[ {} -eq 0 ]]` or `$(( {} ))`;
+- a quoted string given to another shell: `sh -c 'cat {}'`, `bash -c "..."`,
+  `docker exec c sh -c '... {}'`, `xargs sh -c '...'`;
+- remote commands: `ssh host 'cat {}'` (ssh joins its arguments into a remote shell command);
+- interpreter source: `awk '... "{}" ...'`, `perl -e '...{}...'`, `python -c '...{}...'`.
+
+Pass the path as an **argument** instead of inside the program text:
+
+```bash
+# another shell: the path is $1 of that shell
+enma watch --command "sh -c 'cat \"\$1\"' sh {}"
+# interpreters: read it from argv
+enma watch --command "awk '{ print FILENAME \": \" \$0 }' {}"
+enma watch --command "perl -ne 'print \"\$ARGV: \$_\"' {}"
+enma watch --command "python3 -c 'import sys; print(open(sys.argv[1]).read())' {}"
+# ssh: quote the path for the remote shell yourself (bash printf %q)
+enma watch --command "bash -c 'ssh host \"cat -- \$(printf %q \"\$1\")\"' bash {}"
+```
+
 ## 🔍 File Filtering Order
 
 When monitoring file changes, Enma filters target files based on the following order:
