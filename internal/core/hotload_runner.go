@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"crypto/sha256"
+	"errors"
 	"fmt"
 	"io"
 	"log"
@@ -25,13 +26,19 @@ import (
 )
 
 type HotloadRunner struct {
-	Options       *option.HotloadOption
-	BuildTimeout  time.Duration
-	Delay         time.Duration
-	ExecCommand   func(ctx context.Context, name string, args ...string) *exec.Cmd
+	Options      *option.HotloadOption
+	BuildTimeout time.Duration
+	Delay        time.Duration
+	ExecCommand  func(ctx context.Context, name string, args ...string) *exec.Cmd
+	// StopGrace is how long the daemon may take to exit after the stop signal
+	// before its process group is killed; KillWait bounds the wait after SIGKILL.
+	// Zero means DefaultStopGrace / DefaultKillWait.
+	StopGrace     time.Duration
+	KillWait      time.Duration
 	watcher       *fsnotify.Watcher
-	cmd           *exec.Cmd
-	currentCmd    *exec.Cmd
+	procMu        sync.Mutex // guards daemon
+	daemon        *managedProcess
+	scope         commandScope
 	mu            sync.Mutex
 	debounceTimer *time.Timer
 	fileHashes    sync.Map
@@ -55,9 +62,17 @@ func NewHotloadRunner(opt *option.HotloadOption) *HotloadRunner {
 		BuildTimeout: timeout,
 		Delay:        delay,
 		ExecCommand:  exec.CommandContext,
+		StopGrace:    DefaultStopGrace,
+		KillWait:     DefaultKillWait,
 	}
 }
 
+func (r *HotloadRunner) stopGrace() time.Duration { return orDefault(r.StopGrace, DefaultStopGrace) }
+func (r *HotloadRunner) killWait() time.Duration  { return orDefault(r.KillWait, DefaultKillWait) }
+
+// ReplacePlaceholders returns command with the placeholder replaced by path as plain text.
+// It is for display only: commands are run through ShellCommandArgs, which never
+// splices the path into the shell source.
 func (r *HotloadRunner) ReplacePlaceholders(command, path string) string {
 	return common.ReplacePlaceholders(command, r.Options.Placeholder, path)
 }
@@ -154,14 +169,27 @@ func (r *HotloadRunner) Start() error {
 	}
 	go func() {
 		<-signalChan
-		r.stopDaemon()
-		r.stopCurrentCmd()
+		log.Println("🛑 Shutting down... (send the signal again to force)")
+		done := make(chan error, 1)
+		go func() { done <- r.shutdown() }()
+		code := 0
+		select {
+		case err := <-done:
+			if err != nil {
+				log.Printf("❌ Shutdown incomplete: %v", err)
+				code = 1
+			}
+		case <-signalChan:
+			log.Println("⚡ Forced shutdown")
+			r.forceKill()
+			code = 1
+		}
 		if r.Options.PidPathOpt != "" {
 			if err := common.DeletePidFile(r.Options.PidPathOpt); err != nil {
 				log.Printf("failed delete pidfile.: %s\n", err.Error())
 			}
 		}
-		os.Exit(0)
+		os.Exit(code)
 	}()
 
 	watcher, err := fsnotify.NewWatcher()
@@ -181,12 +209,12 @@ func (r *HotloadRunner) Start() error {
 		if r.Options.HasPlaceholderBuild {
 			log.Printf("❗ build command placeholder found. skip build at start.")
 			if err := r.startDaemon(); err != nil {
-				return err
+				return startErr(err)
 			}
 		} else {
 			if r.firstBuild() {
 				if err := r.startDaemon(); err != nil {
-					return err
+					return startErr(err)
 				}
 			}
 		}
@@ -256,14 +284,25 @@ func (r *HotloadRunner) Start() error {
 	select {}
 }
 
+// startErr returns err from Start, except when a signal has already begun the
+// shutdown: then the signal handler owns the exit (code and pid file), so Start
+// waits for it instead of returning a competing error.
+func startErr(err error) error {
+	if errors.Is(err, errShuttingDown) {
+		select {}
+	}
+	return err
+}
+
 func (r *HotloadRunner) firstBuild() bool {
 	for i := 0; i <= r.Options.Retry; i++ {
 		if r.RunBuildSequence(i, "") {
 			log.Println("✅  Build at start success")
-			time.Sleep(r.Delay)
-			return true
+			return sleepCtx(r.scope.context(), r.Delay)
 		}
-		time.Sleep(1 * time.Second)
+		if !sleepCtx(r.scope.context(), 1*time.Second) {
+			return false
+		}
 	}
 	log.Println("🟥  Build at start fail...")
 	return false
@@ -273,12 +312,21 @@ func (r *HotloadRunner) handleChangeDirect(pathStyled string) {
 	for i := 0; i <= r.Options.Retry; i++ {
 		if r.RunBuildSequence(i, pathStyled) {
 			log.Println("✅  Build success")
-			time.Sleep(r.Delay)
-			r.stopDaemon()
-			r.startDaemon()
+			if !sleepCtx(r.scope.context(), r.Delay) {
+				return
+			}
+			if err := r.stopDaemon(); err != nil {
+				log.Println("🟥 The previous daemon could not be stopped; not starting a new one.")
+				return
+			}
+			if err := r.startDaemon(); err != nil {
+				log.Printf("❌ Failed to start daemon: %v", err)
+			}
 			return
 		}
-		time.Sleep(1 * time.Second)
+		if !sleepCtx(r.scope.context(), 1*time.Second) {
+			return
+		}
 	}
 	log.Println("🟥  Build fail...")
 }
@@ -413,7 +461,7 @@ func (r *HotloadRunner) RunBuildSequence(attempt int, path string) bool {
 	}
 
 	for _, step := range steps {
-		ctx, cancel := context.WithTimeout(context.Background(), r.BuildTimeout)
+		ctx, cancel := context.WithTimeout(r.scope.context(), r.BuildTimeout)
 		err := step.fn(ctx, path)
 		cancel()
 		if err != nil {
@@ -422,7 +470,6 @@ func (r *HotloadRunner) RunBuildSequence(attempt int, path string) bool {
 		}
 	}
 
-	r.currentCmd = nil
 	return true
 }
 
@@ -433,20 +480,28 @@ func (r *HotloadRunner) RunPreBuild(ctx context.Context, path string) error {
 	if r.Options.HasPlaceholderPreBuild && path == "" {
 		return nil
 	}
-	cmd := r.ExecCommand(ctx, "sh", "-c", r.ReplacePlaceholders(r.Options.PreBuild, path))
-	setProcessGroup(cmd)
+	cmd := r.ExecCommand(ctx, "sh", ShellCommandArgs(r.Options.PreBuild, r.Options.Placeholder, path)...)
+	killGroupOnCancel(cmd, &r.scope, r.stopGrace(), r.killWait())
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
-	r.currentCmd = cmd
+	release, err := r.scope.enter()
+	if err != nil {
+		return err
+	}
+	defer release()
 	return cmd.Run()
 }
 
 func (r *HotloadRunner) RunBuild(ctx context.Context, path string) error {
-	cmd := r.ExecCommand(ctx, "sh", "-c", r.ReplacePlaceholders(r.Options.Build, path))
-	setProcessGroup(cmd)
+	cmd := r.ExecCommand(ctx, "sh", ShellCommandArgs(r.Options.Build, r.Options.Placeholder, path)...)
+	killGroupOnCancel(cmd, &r.scope, r.stopGrace(), r.killWait())
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
-	r.currentCmd = cmd
+	release, err := r.scope.enter()
+	if err != nil {
+		return err
+	}
+	defer release()
 	return cmd.Run()
 }
 
@@ -457,46 +512,90 @@ func (r *HotloadRunner) RunPostBuild(ctx context.Context, path string) error {
 	if r.Options.HasPlaceholderPostBuild && path == "" {
 		return nil
 	}
-	cmd := r.ExecCommand(ctx, "sh", "-c", r.ReplacePlaceholders(r.Options.PostBuild, path))
-	setProcessGroup(cmd)
+	cmd := r.ExecCommand(ctx, "sh", ShellCommandArgs(r.Options.PostBuild, r.Options.Placeholder, path)...)
+	killGroupOnCancel(cmd, &r.scope, r.stopGrace(), r.killWait())
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
-	r.currentCmd = cmd
+	release, err := r.scope.enter()
+	if err != nil {
+		return err
+	}
+	defer release()
 	return cmd.Run()
 }
 
+// currentDaemon returns the tracked daemon (nil when none).
+func (r *HotloadRunner) currentDaemon() *managedProcess {
+	r.procMu.Lock()
+	defer r.procMu.Unlock()
+	return r.daemon
+}
+
+// startDaemon starts a new daemon unless shutdown has begun or a tracked daemon
+// is still alive: at most one daemon runs at a time, and a running one is never
+// overwritten (which would orphan it). The checks and the start happen under
+// procMu, and shutdown cancels the scope before it reads the daemon, so a daemon
+// started concurrently is always seen and stopped.
 func (r *HotloadRunner) startDaemon() error {
+	r.procMu.Lock()
+	defer r.procMu.Unlock()
+	if r.scope.context().Err() != nil {
+		return errShuttingDown
+	}
+	if r.daemon != nil && !r.daemon.gone() {
+		return errDaemonRunning
+	}
 	cmd := exec.Command("sh", "-c", r.Options.Daemon)
-	setProcessGroup(cmd)
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
-	if err := cmd.Start(); err != nil {
+	p, err := startManaged(cmd)
+	if err != nil {
 		return err
 	}
 	log.Println("🚀 Start daemon")
-	r.cmd = cmd
-	go func() {
-		_ = cmd.Wait()
-	}()
+	r.daemon = p
 	return nil
 }
 
-func (r *HotloadRunner) stopDaemon() {
-	if r.cmd != nil && r.cmd.Process != nil {
-		log.Println("🛑 Stopping daemon...")
-		stopDaemonProcess(r.cmd, r.Options.SignalName)
-		_ = r.cmd.Wait()
-		r.cmd = nil
+// stopDaemon stops the running daemon and its process group: stop signal,
+// StopGrace, then SIGKILL. It returns an error, and keeps the daemon tracked,
+// when the group could not be confirmed gone.
+func (r *HotloadRunner) stopDaemon() error {
+	p := r.currentDaemon()
+	if p == nil {
+		return nil
 	}
+	log.Println("🛑 Stopping daemon...")
+	// p.stop is safe to run concurrently (shutdown and a restart may both stop p).
+	if err := p.stop(r.Options.SignalName.Signal(), r.stopGrace(), r.killWait()); err != nil {
+		log.Printf("❌ Failed to stop daemon: %v", err)
+		return err
+	}
+	r.procMu.Lock()
+	if r.daemon == p {
+		r.daemon = nil
+	}
+	r.procMu.Unlock()
+	return nil
 }
 
-func (r *HotloadRunner) stopCurrentCmd() {
-	if r.currentCmd != nil && r.currentCmd.Process != nil {
-		log.Println("🛑 Aborting build...")
-		stopProcess(r.currentCmd)
-		_ = r.currentCmd.Wait()
-		r.currentCmd = nil
+// shutdown aborts running builds (SIGTERM to their process groups, SIGKILL
+// after StopGrace), then stops the daemon. Errors are returned, not hidden.
+func (r *HotloadRunner) shutdown() error {
+	errBuild := r.scope.abort(r.stopGrace() + r.killWait() + time.Second)
+	if errBuild != nil {
+		log.Printf("❌ Failed to abort build: %v", errBuild)
 	}
+	return errors.Join(errBuild, r.stopDaemon())
+}
+
+// forceKill kills the daemon's and the running builds' process groups at once.
+func (r *HotloadRunner) forceKill() {
+	r.scope.forceKill()
+	if p := r.currentDaemon(); p != nil {
+		_ = p.kill(r.killWait())
+	}
+	_ = r.scope.abort(r.killWait())
 }
 
 func (r *HotloadRunner) applyArgsPathStyle(path string) string {

@@ -3,6 +3,14 @@
 /build
 /tmp
 
+### Ark
+CLAUDE.md
+.ark/
+.claude/
+skills/
+.mcp.json
+
+
 ### Vim
 # Swap
 [._]*.s[a-v][a-z]

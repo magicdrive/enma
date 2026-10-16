@@ -5,18 +5,19 @@ package core
 
 import (
 	"os/exec"
-
-	"github.com/magicdrive/enma/internal/model"
+	"syscall"
 )
 
-func setProcessGroup(cmd *exec.Cmd) {
-	// SysProcAttr.Setpgid is not available on Windows so it does nothing.
+// Windows has no process groups here: SysProcAttr.Setpgid does not exist.
+func setProcessGroup(cmd *exec.Cmd) {}
+
+// signalGroup can only terminate the process itself on Windows.
+func signalGroup(cmd *exec.Cmd, pid int, sig syscall.Signal) error {
+	if cmd.Process == nil {
+		return nil
+	}
+	return cmd.Process.Kill()
 }
 
-func stopDaemonProcess(cmd *exec.Cmd, signalName model.SignalName) {
-	stopProcess(cmd)
-}
-
-func stopProcess(cmd *exec.Cmd) {
-	_ = cmd.Process.Kill()
-}
+// groupAlive cannot see descendants on Windows; the leader is tracked by Wait.
+func groupAlive(pid int) bool { return false }

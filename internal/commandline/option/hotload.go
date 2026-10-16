@@ -11,6 +11,7 @@ import (
 	"github.com/magicdrive/enma/internal/common"
 	"github.com/magicdrive/enma/internal/ignorerule"
 	"github.com/magicdrive/enma/internal/model"
+	"github.com/magicdrive/enma/internal/shellcmd"
 )
 
 type HotloadOption struct {
@@ -301,10 +302,11 @@ func (cr *HotloadOption) Normalize() error {
 		}
 	}
 
-	// for buil at start. placeholder check.
-	cr.HasPlaceholderBuild = strings.Contains(cr.Build, cr.Placeholder)
-	cr.HasPlaceholderPreBuild = strings.Contains(cr.PreBuild, cr.Placeholder)
-	cr.HasPlaceholderPostBuild = strings.Contains(cr.PostBuild, cr.Placeholder)
+	// for buil at start. placeholder check: the same parse that substitutes
+	// placeholders, so a placeholder that is never replaced does not count.
+	cr.HasPlaceholderBuild = shellcmd.HasPlaceholder(cr.Build, cr.Placeholder)
+	cr.HasPlaceholderPreBuild = shellcmd.HasPlaceholder(cr.PreBuild, cr.Placeholder)
+	cr.HasPlaceholderPostBuild = shellcmd.HasPlaceholder(cr.PostBuild, cr.Placeholder)
 
 	// comma sepalated to list.
 	if cr.WatchDir != "" {
