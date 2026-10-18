@@ -1,14 +1,24 @@
 name: CI
 
+# Light gate for every push to main and every pull request.
+# The slower checks (shuffle, fuzz, more platforms) are in ci-extended.yml.
+
 on:
   push:
     branches:
       - main
   pull_request:
 
+permissions:
+  contents: read
+
 jobs:
   test:
-    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
     steps:
       - name: Checkout code
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
@@ -18,9 +28,82 @@ jobs:
         with:
           go-version-file: 'go.mod'
 
-      - name: Install dependencies
-        run: go mod download
+      - name: Check formatting
+        run: test -z "$(gofmt -l .)" || { gofmt -l .; exit 1; }
 
-      - name: Run tests
-        run: make test
+      - name: Vet
+        run: go vet ./...
 
+      # Includes the CLI end-to-end tests (internal/e2e): README commands,
+      # init templates, config validate, exit codes and process lifecycle.
+      - name: Test
+        run: go test ./...
+
+      - name: Test (race)
+        run: go test -race ./...
+
+  # The tests above use the oldest supported Go (go.mod); releases are built
+  # with the newest one, so run the tests with it too.
+  test-stable-go:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+
+      - name: Set up Go
+        uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7
+        with:
+          go-version: stable
+          check-latest: true
+
+      - name: Test (race)
+        run: go test -race ./...
+
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+
+      # staticcheck v0.8.1 needs a newer Go than go.mod's minimum.
+      - name: Set up Go
+        uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7
+        with:
+          go-version: stable
+          check-latest: true
+
+      - name: Staticcheck
+        run: go run honnef.co/go/tools/cmd/staticcheck@v0.8.1 ./...
+
+      - name: Go vet for windows
+        run: GOOS=windows go vet ./...
+
+  # Builds every release target from the real GoReleaser config and checks the
+  # archives. Nothing is published (--snapshot --skip=publish).
+  dist:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          fetch-depth: 0
+
+      # Same Go as release.yml (the newest supported release).
+      - name: Set up Go
+        uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7
+        with:
+          go-version: stable
+          check-latest: true
+
+      - name: Govulncheck (with the release toolchain)
+        run: go run golang.org/x/vuln/cmd/govulncheck@v1.8.0 ./...
+
+      - name: GoReleaser snapshot
+        uses: goreleaser/goreleaser-action@f06c13b6b1a9625abc9e6e439d9c05a8f2190e94 # v7
+        with:
+          distribution: goreleaser
+          version: v2.18.2
+          args: release --snapshot --clean --skip=publish
+
+      - name: Verify archives
+        run: sh scripts/verify-dist.sh dist snapshot

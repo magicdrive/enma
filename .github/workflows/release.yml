@@ -5,24 +5,41 @@ on:
     tags:
       - 'v*'
 
+permissions:
+  contents: read
+
 jobs:
-  # TEST
+  # TEST: with the oldest supported Go (go.mod) and with the release toolchain
   test:
+    strategy:
+      matrix:
+        go: [go.mod, stable]
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
 
-      - name: Set up Go
+      - name: Set up Go (go.mod)
+        if: matrix.go == 'go.mod'
         uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7
         with:
           go-version-file: 'go.mod'
 
+      - name: Set up Go (stable)
+        if: matrix.go == 'stable'
+        uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7
+        with:
+          go-version: stable
+          check-latest: true
+
       - name: Install dependencies
         run: go mod download
 
+      - name: Vet
+        run: go vet ./...
+
       - name: Run tests
-        run: make test
+        run: go test -race ./...
 
   # RELEASE
   release:
@@ -31,21 +48,39 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: write
-      pull-requests: write
     steps:
       - name: Checkout code
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          fetch-depth: 0  # GoReleaser builds the changelog from the tags
+          persist-credentials: false  # GoReleaser uses GITHUB_TOKEN from the environment
 
+      # Release binaries are built with the newest supported Go release, so
+      # they carry the standard library's security fixes. (go-version-file
+      # would pin the exact go.mod version, e.g. 1.25.0; go.mod only states
+      # the oldest Go that can build enma, and the tests run with it.)
       - name: Set up Go
         uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7
         with:
-          go-version-file: 'go.mod'
+          go-version: stable
+          check-latest: true
+
+      # Build and check the archives before anything is published.
+      - name: GoReleaser snapshot
+        uses: goreleaser/goreleaser-action@f06c13b6b1a9625abc9e6e439d9c05a8f2190e94 # v7
+        with:
+          distribution: goreleaser
+          version: v2.18.2
+          args: release --snapshot --clean --skip=publish
+
+      - name: Verify archives
+        run: sh scripts/verify-dist.sh dist snapshot
 
       - name: Run GoReleaser
         uses: goreleaser/goreleaser-action@f06c13b6b1a9625abc9e6e439d9c05a8f2190e94 # v7
         with:
           distribution: goreleaser
-          version: latest
+          version: v2.18.2  # pinned; the config is checked with this version
           args: release --clean
         env:
           GITHUB_TOKEN: ${{ secrets.PERSONAL_GITHUB_TOKEN }}

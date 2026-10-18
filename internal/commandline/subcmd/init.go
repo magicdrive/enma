@@ -37,12 +37,12 @@ func RunInit(opt *option.InitOption) error {
 	case "enmaignore":
 		textString = textbank.MinimalEnmaIgnore
 	default:
-		return fmt.Errorf("Invalid --mode: %s", opt.ModeOpt)
+		return fmt.Errorf("invalid --mode %q (use hotload, watch, scheduler or enmaignore)", opt.ModeOpt)
 	}
 
 	if err := common.CreateNewFileWithContent(opt.FileNameOpt, textString); err != nil {
-		fmt.Printf("%s already exists\n", opt.FileNameOpt)
+		return err
 	}
-
+	fmt.Printf("Created %s (mode %s).\n", opt.FileNameOpt, opt.ModeOpt)
 	return nil
 }

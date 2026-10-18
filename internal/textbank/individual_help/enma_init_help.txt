@@ -7,5 +7,7 @@ Options:
                                         Specify mode of the configuration file to be created.
                                         Optional. Default: hotload
 
-  -f, --file <filename>                 Specify filename of config file to be created.
+  -f, --file-name <filename>            Specify filename of config file to be created.
                                         Optional. Default: ./Enma.toml|.enmaignore
+
+  -h, --help                            Show help message and exit.

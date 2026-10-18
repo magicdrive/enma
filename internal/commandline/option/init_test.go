@@ -64,7 +64,7 @@ func TestParseInit_FileAlreadyExists(t *testing.T) {
 
 	args := []string{"--file-name", tmp}
 	_, err = option.ParseInit(args)
-	if err == nil || err.Error() != "file already exists.: "+tmp {
+	if err == nil || err.Error() != "cannot create "+tmp+": it already exists" { // message changed in H4 (was "file already exists.: <name>")
 		t.Errorf("expected file already exists error, got %v", err)
 	}
 }

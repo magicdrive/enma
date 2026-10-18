@@ -29,7 +29,7 @@ func ParseInit(args []string) (*InitOption, error) {
 	helpFlagOpt := fs.Bool("help", false, "Show help message.")
 	fs.BoolVar(helpFlagOpt, "h", false, "Show help message.")
 
-	fs.Usage = common.EnmaHelpFunc
+	fs.Usage = common.UsageErrorFunc("enma init") // parse errors; replaced by the help after parsing
 
 	// Parse flags
 	err := fs.Parse(args)
@@ -69,9 +69,9 @@ func (cr *InitOption) Normalize() error {
 	}
 
 	if stat, err := common.FileExists(cr.FileNameOpt); err != nil {
-		return fmt.Errorf("File parmission error: %v", err)
+		return fmt.Errorf("cannot create %s: %w", cr.FileNameOpt, err)
 	} else if stat {
-		return fmt.Errorf("file already exists.: %s", cr.FileNameOpt)
+		return fmt.Errorf("cannot create %s: it already exists", cr.FileNameOpt)
 	}
 
 	return nil

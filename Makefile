@@ -7,7 +7,7 @@ BINARY_NAME = enma
 VERSION = $(shell git describe --tags --always)
 LDFLAGS += -X "main.version=$(VERSION)"
 
-PLATFORMS := linux/amd64 darwin/amd64 windows/amd64
+PLATFORMS := linux/amd64 linux/arm64 darwin/amd64 darwin/arm64 windows/amd64
 GO := GO111MODULE=on CGO_ENABLED=0 go
 
 # Argments
@@ -29,13 +29,14 @@ build: clean
 release-build: clean $(PLATFORMS)
 	@echo "Release files are created in the $(BUILD_DIR) directory."
 
-# Build each platform
+# Build each platform (windows binaries get the .exe suffix)
+os = $(word 1,$(subst /, ,$@))
+arch = $(word 2,$(subst /, ,$@))
+platform_bin = $(BUILD_DIR)/$(os)-$(arch)/$(BINARY_NAME)$(if $(filter windows,$(os)),.exe)
 $(PLATFORMS):
 	@mkdir -p $(BUILD_DIR)
-	GOOS=$(word 1,$(subst /, ,$@)) GOARCH=$(word 2,$(subst /, ,$@)) \
-		 $(GO) build -o $(BUILD_DIR)/$(word 1,$(subst /, ,$@))-$(word 2,$(subst /, ,$@))/$(BINARY_NAME)\
-		 -ldflags "$(LDFAGS)" .
-	chmod 755 $(BUILD_DIR)/$(word 1,$(subst /, ,$@))-$(word 2,$(subst /, ,$@))/$(BINARY_NAME)
+	GOOS=$(os) GOARCH=$(arch) $(GO) build -o $(platform_bin) -ldflags "$(LDFLAGS)" .
+	chmod 755 $(platform_bin)
 
 # Run go test for each directory
 .PHONY: test
@@ -90,7 +91,7 @@ help:
 	@echo "Makefile commands:"
 	@echo "  make build             - Build all artifacts"
 	@echo "  make release-build     - Build artifacts for multiple platforms with version info"
-	@echo "  make install           - Install application. Use `go install`"
+	@echo "  make install           - Install application with go install"
 	@echo "  make test              - Run go test"
 	@echo "  make test-verbose      - Run go test -v with go clean -testcache"
 	@echo "  make clean             - Remove build artifacts"

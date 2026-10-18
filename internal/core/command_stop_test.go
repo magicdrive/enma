@@ -19,7 +19,12 @@ import (
 //   S2 a group ignoring SIGTERM is killed after the grace period, descendants included;
 //   S3 a force kill (second signal) cuts that grace period;
 //   S4 a timeout kills the group at once;
-//   S5 a retry wait does not delay shutdown.
+//   S5 a retry wait does not delay shutdown;
+//   S6 what a command leaves behind in its process group is stopped when it
+//      ends: SIGTERM first, then the command's result counts (owner 2026-10-17);
+//   S7 a leftover ignoring SIGTERM is killed after the grace period; once it is
+//      gone the step's result is the command's own (only a group that cannot be
+//      killed fails it).
 
 type commandPath struct {
 	name      string
@@ -237,6 +242,58 @@ func TestCommandStop_RetryWaitDoesNotDelayShutdown(t *testing.T) {
 			case <-done:
 			case <-time.After(500 * time.Millisecond):
 				t.Fatal("S5 violated: the change handler kept retrying after shutdown")
+			}
+		})
+	}
+}
+
+func TestCommandStop_LeftoversStoppedWhenTheCommandEnds(t *testing.T) {
+	dir := t.TempDir()
+	pids, mark := filepath.Join(dir, "pids"), filepath.Join(dir, "mark")
+	killLeftovers(t, pids)
+	// the command leaves a background child that notes SIGTERM and exits once
+	// that child is ready (a child still forking when SIGTERM comes could start
+	// after it and only go on SIGKILL, after the grace period)
+	ready := filepath.Join(dir, "ready")
+	command := `(trap 'echo term >> "` + mark + `"; exit 0' TERM; sleep 30 & echo $! >> '` + pids + `'; : > '` + ready + `'; wait) & ` +
+		`echo $! >> '` + pids + `'; while [ ! -e '` + ready + `' ]; do sleep 0.01; done; exit 0`
+	for _, p := range commandPaths(t, command, time.Minute, 5*time.Second, testKill, 0) {
+		t.Run(p.name, func(t *testing.T) {
+			_ = os.Remove(mark)
+			_ = os.Remove(pids)
+			_ = os.Remove(ready)
+			start := time.Now()
+			if !p.seq() {
+				t.Fatal("S6 violated: a command whose leftovers stopped on SIGTERM failed")
+			}
+			if el := time.Since(start); el > 3*time.Second {
+				t.Fatalf("S6 violated: stopping a leftover that exits on SIGTERM took %v", el)
+			}
+			if !exists(mark) {
+				t.Fatal("S6 violated: the leftover got no SIGTERM")
+			}
+			expectAllGone(t, pids)
+		})
+	}
+}
+
+func TestCommandStop_LeftoverIgnoringTermIsKilled(t *testing.T) {
+	dir := t.TempDir()
+	pids := filepath.Join(dir, "pids")
+	killLeftovers(t, pids)
+	command := `(trap '' TERM; exec sleep 30) & echo $! >> '` + pids + `'; exit 0`
+	const grace = 500 * time.Millisecond
+	for _, p := range commandPaths(t, command, time.Minute, grace, testKill, 0) {
+		t.Run(p.name, func(t *testing.T) {
+			_ = os.Remove(pids)
+			start := time.Now()
+			ok := p.seq()
+			expectAllGone(t, pids)
+			if el := time.Since(start); el < grace {
+				t.Fatalf("S7 violated: killed after %v, before the grace period %v", el, grace)
+			}
+			if !ok {
+				t.Fatal("S7 violated: a leftover killed after the grace period failed the step")
 			}
 		})
 	}

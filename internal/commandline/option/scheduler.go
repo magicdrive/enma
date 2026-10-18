@@ -45,6 +45,7 @@ type SchedulerOption struct {
 	MaxConcurrent int
 	LogPathOpt    string
 	PidPathOpt    string
+	PreviewNext   int // > 0: list the next fire times and exit (--next); nothing runs
 	HelpFlag      bool
 	FlagSet       *flag.FlagSet
 }
@@ -273,10 +274,11 @@ func ParseScheduler(args []string) (*SchedulerOption, error) {
 	maxConcurrentOpt := fs.Int("max-concurrent", SchedulerDefaultMaxConcurrent, "Maximum attempts running at once (optional)")
 	pidPathOpt := fs.String("pid", "", "Specify pid file path (optional)")
 	logPathOpt := fs.String("logs", "", "Specify log file path (optional)")
+	nextOpt := fs.Int("next", 0, "List the next N fire times of the job and exit; nothing runs (optional)")
 	helpFlagOpt := fs.Bool("help", false, "Show help message.")
 	fs.BoolVar(helpFlagOpt, "h", false, "Show help message.")
 
-	fs.Usage = common.EnmaHelpFunc
+	fs.Usage = common.UsageErrorFunc("enma scheduler") // parse errors; replaced by the help after parsing
 	if err := fs.Parse(args); err != nil {
 		return nil, err
 	}
@@ -284,6 +286,9 @@ func ParseScheduler(args []string) (*SchedulerOption, error) {
 	if *helpFlagOpt {
 		fs.Usage()
 		os.Exit(0)
+	}
+	if err := checkNext(*nextOpt); err != nil {
+		return nil, fmt.Errorf("scheduler: %w", err)
 	}
 	if fs.NArg() > 0 {
 		return nil, fmt.Errorf("scheduler: unexpected argument %q (the CLI defines one job; use a config file for more)", fs.Arg(0))
@@ -316,6 +321,6 @@ func ParseScheduler(args []string) (*SchedulerOption, error) {
 	if err != nil {
 		return nil, err
 	}
-	opt.HelpFlag, opt.FlagSet = *helpFlagOpt, fs
+	opt.HelpFlag, opt.FlagSet, opt.PreviewNext = *helpFlagOpt, fs, *nextOpt
 	return opt, nil
 }

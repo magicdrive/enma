@@ -57,6 +57,15 @@ func GetExecutableDir() (string, error) {
 	return exeDir, nil
 }
 
+// UsageErrorFunc returns the flag set's usage function for a command line that
+// could not be parsed: one hint on stderr (the flag package has already printed
+// the problem there). The full help stays on stdout, for --help only.
+func UsageErrorFunc(command string) func() {
+	return func() {
+		fmt.Fprintf(os.Stderr, "Run '%s --help' for usage\n", command)
+	}
+}
+
 func EnmaHelpFunc() {
 	GracefulPrintOut(textbank.HelpMessage, false)
 }
@@ -71,6 +80,10 @@ func EnmaWatchHelpFunc() {
 
 func EnmaSchedulerHelpFunc() {
 	GracefulPrintOut(textbank.SchedulerHelpMessage, false)
+}
+
+func EnmaConfigHelpFunc() {
+	GracefulPrintOut(textbank.ConfigHelpMessage, false)
 }
 
 func EnmaInitHelpFunc() {
@@ -108,16 +121,6 @@ func RemoveFileIfContains(path string, keyword string) error {
 	}
 
 	return nil
-}
-
-func CreatePidFile(path string) error {
-	pid := os.Getpid()
-	return CreateFileWithDirs(path, fmt.Sprintf("%d", pid))
-}
-
-func DeletePidFile(path string) error {
-	pid := os.Getpid()
-	return RemoveFileIfContains(path, fmt.Sprintf("%d", pid))
 }
 
 func ToAbsolutePath(relPath string) string {
@@ -200,8 +203,13 @@ func FindEnmaConfigFile() (string, error) {
 }
 
 func CreateNewFileWithContent(filename string, content string) error {
-	if stat, err := FileExists(filename); err != nil || stat {
-		return fmt.Errorf("already exists or permission error: %s. %v", filename, err)
+	if stat, err := FileExists(filename); err != nil {
+		return fmt.Errorf("cannot create %s: %w", filename, err)
+	} else if stat {
+		return fmt.Errorf("cannot create %s: it already exists", filename)
 	}
-	return CreateFileWithDirs(filename, content)
+	if err := CreateFileWithDirs(filename, content); err != nil {
+		return fmt.Errorf("cannot create %s: %w", filename, err)
+	}
+	return nil
 }

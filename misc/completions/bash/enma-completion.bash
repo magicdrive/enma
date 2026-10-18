@@ -3,7 +3,7 @@ _enma_bash() {
   local cur prev words cword
   _init_completion -n : || return
 
-  local subcommands="init hotload watch scheduler"
+  local subcommands="init hotload watch scheduler config"
   local global_opts="--help -h --version -v --config -c"
   local opts
 
@@ -15,16 +15,26 @@ _enma_bash() {
   local subcmd=${COMP_WORDS[1]}
   case "$subcmd" in
     init)
-      opts="--help -h --mode --file"
+      opts="--help -h --mode -m --file-name -f"
       ;;
     hotload)
-      opts="--daemon --build --start-at-once --signal --watch-dir --pre-build --post-build --working-dir --placeholder --args-path-style --build-at-start --check-content-diff --absolute-path --timeout --delay --retry --pattern-regex --include-ext --exclude-ext --exclude-dir --ignore-dir-regex --ignore-file-regex --default-ignores --enmaignore --logs --pid"
+      opts="--help -h --daemon --build --start-at-once --signal --watch-dir --pre-build --post-build --working-dir --placeholder --args-path-style --build-at-start --check-content-diff --absolute-path --timeout --delay --retry --pattern-regex --include-ext --exclude-ext --exclude-dir --ignore-dir-regex --ignore-file-regex --default-ignores --enmaignore --logs --pid"
       ;;
     watch)
-      opts="--command --start-at-once --watch-dir --pre-cmd --post-cmd --working-dir --placeholder --args-path-style --check-content-diff --absolute-path --timeout --delay --retry --pattern-regex --include-ext --exclude-ext --exclude-dir --ignore-dir-regex --ignore-file-regex --default-ignores --enmaignore --logs --pid"
+      opts="--help -h --command --start-at-once --watch-dir --pre-cmd --post-cmd --working-dir --placeholder --args-path-style --check-content-diff --absolute-path --timeout --delay --retry --pattern-regex --include-ext --exclude-ext --exclude-dir --ignore-dir-regex --ignore-file-regex --default-ignores --enmaignore --logs --pid"
       ;;
     scheduler)
-      opts="--cron --command --name --working-dir --timezone --timeout --retries --retry-delay --max-concurrent --logs --pid --help"
+      opts="--cron --command --name --working-dir --timezone --timeout --retries --retry-delay --max-concurrent --next --logs --pid --help"
+      ;;
+    config)
+      if [[ ${COMP_CWORD} -eq 2 ]]; then
+        opts="validate --help -h"
+      elif [[ "$prev" == "--config" || "$prev" == "-c" || "$prev" == "-f" ]]; then
+        COMPREPLY=( $(compgen -f -- "$cur") )
+        return 0
+      else
+        opts="--config -c -f --next --help -h"
+      fi
       ;;
     *)
       opts=$global_opts

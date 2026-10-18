@@ -30,9 +30,12 @@ func Execute(version string) {
 	}
 }
 
+// errNoConfig: enma without arguments (or with flags only) found no config file.
+var errNoConfig = errors.New(subcmd.NoConfigMessage)
+
 func Default() error {
 	if path, err := common.FindEnmaConfigFile(); err != nil {
-		return errors.New("Cann't find enma config file. (Enma.toml, .enma.toml, .enma/enma.toml)")
+		return errNoConfig
 	} else {
 		if err := subcmd.RunViaConfigfile(path); err != nil {
 			return err

@@ -6,17 +6,12 @@ import (
 	"crypto/sha256"
 	"errors"
 	"fmt"
-	"io"
 	"log"
 	"os"
 	"os/exec"
-	"os/signal"
 	"path/filepath"
-	"runtime"
 	"slices"
-	"strings"
 	"sync"
-	"syscall"
 	"time"
 
 	"github.com/fsnotify/fsnotify"
@@ -39,6 +34,7 @@ type HotloadRunner struct {
 	procMu        sync.Mutex // guards daemon
 	daemon        *managedProcess
 	scope         commandScope
+	paths         watchScope // the project and watch directories for the watch rules
 	startOnce     startAtOnce
 	mu            sync.Mutex
 	debounceTimer *time.Timer
@@ -85,41 +81,11 @@ func (r *HotloadRunner) ReplacePlaceholders(command, path string) string {
 	return common.ReplacePlaceholders(command, r.Options.Placeholder, path)
 }
 
+// CollectWatchDirs returns root and the directories below it to watch (see collectWatchDirs).
 func (r *HotloadRunner) CollectWatchDirs(root string) ([]string, error) {
-	var result []string
-	visited := make(map[string]bool)
-
-	return result, filepath.WalkDir(root, func(path string, d os.DirEntry, err error) error {
-		if err != nil {
-			return err
-		}
-
-		abs, err := filepath.Abs(path)
-		if err != nil {
-			return err
-		}
-
-		real, err := filepath.EvalSymlinks(abs)
-		if err != nil {
-			return nil
-		}
-
-		if !d.IsDir() {
-			return nil
-		}
-
-		if r.IsExcludedDir(real) {
-			return filepath.SkipDir
-		}
-
-		if visited[real] {
-			return filepath.SkipDir
-		}
-
-		visited[real] = true
-		result = append(result, real)
-		return nil
-	})
+	r.paths.init(r.Options.WatchDirList)
+	// directories rejected by --exclude-dir or .enmaignore are not descended into
+	return collectWatchDirs(root, func(dir string) bool { return r.dirExcluded(dir) || r.ignored(dir) })
 }
 
 func (r *HotloadRunner) AddWatchDirs(dirs []string) {
@@ -149,56 +115,17 @@ func (r *HotloadRunner) SetWatcher(w *fsnotify.Watcher) {
 	r.watcher = w
 }
 
-func (r *HotloadRunner) Start() error {
-	if r.Options.PidPathOpt != "" {
-		if err := common.CreatePidFile(r.Options.PidPathOpt); err != nil {
-			return err
-		}
+func (r *HotloadRunner) Start() (err error) {
+	env, err := openStartEnv(r.Options.PidPathOpt, r.Options.LogPathOpt)
+	if err != nil {
+		return err
 	}
-
-	if r.Options.LogPathOpt != "" {
-		createErr := common.CreateFileWithDirs(r.Options.LogPathOpt, "")
-		f, openErr := os.OpenFile(r.Options.LogPathOpt, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0644)
-		multi := io.MultiWriter(os.Stdout, f)
-		if createErr == nil && openErr == nil {
-			log.SetOutput(multi)
-			defer f.Close()
-		}
-	}
+	defer env.failed(&err)
 
 	fmt.Println(common.StartMessage())
 	fmt.Printf("Start Hotload mode.\n\n\n")
 
-	signalChan := make(chan os.Signal, 1)
-	if runtime.GOOS != "windows" {
-		signal.Notify(signalChan, syscall.SIGINT, syscall.SIGTERM, syscall.SIGHUP)
-	} else {
-		signal.Notify(signalChan, os.Interrupt, os.Kill)
-	}
-	go func() {
-		<-signalChan
-		log.Println("🛑 Shutting down... (send the signal again to force)")
-		done := make(chan error, 1)
-		go func() { done <- r.shutdown() }()
-		code := 0
-		select {
-		case err := <-done:
-			if err != nil {
-				log.Printf("❌ Shutdown incomplete: %v", err)
-				code = 1
-			}
-		case <-signalChan:
-			log.Println("⚡ Forced shutdown")
-			r.forceKill()
-			code = 1
-		}
-		if r.Options.PidPathOpt != "" {
-			if err := common.DeletePidFile(r.Options.PidPathOpt); err != nil {
-				log.Printf("failed delete pidfile.: %s\n", err.Error())
-			}
-		}
-		os.Exit(code)
-	}()
+	env.handleSignals("🛑 Shutting down...", r.shutdown, r.forceKill)
 
 	// start-at-once runs before the watcher exists (and, in hotload, before the
 	// first build): file changes made meanwhile are not seen, monitoring starts after it.
@@ -242,53 +169,19 @@ func (r *HotloadRunner) Start() error {
 					info, err := os.Lstat(event.Name)
 					if err == nil {
 						if info.Mode()&os.ModeSymlink != 0 {
-							resolved, err := filepath.EvalSymlinks(event.Name)
-							if err == nil {
-								info, err = os.Stat(resolved)
-								if err == nil && info.IsDir() && !r.IsExcludedDir(resolved) {
-									_ = r.AddWatchRecursive(resolved)
-									log.Printf("👀 Watching symlinked dir: %s", resolved)
-								}
+							if resolved, ok := r.paths.symlinkedDirToFollow(event.Name); ok && !r.dirExcluded(resolved) {
+								_ = r.AddWatchRecursive(resolved)
+								log.Printf("👀 Watching symlinked dir: %s", resolved)
 							}
-						} else if info.IsDir() && !r.IsExcludedDir(event.Name) {
+						} else if info.IsDir() && r.ShouldWatchDir(event.Name) {
 							_ = r.AddWatchRecursive(event.Name)
 							log.Printf("👀 Watching new dir: %s", event.Name)
+							r.enqueueFilesIn(event.Name)
 						}
 					}
 				}
 
-				if r.ShouldTrigger(event) {
-					absPath := filepath.Clean(event.Name)
-					pendingMuHotload.Lock()
-					pendingHotload[absPath] = pendingChangeHotload{path: absPath, time: time.Now()}
-					pendingMuHotload.Unlock()
-
-					if r.debounceTimer != nil {
-						r.debounceTimer.Stop()
-					}
-					r.debounceTimer = time.AfterFunc(300*time.Millisecond, func() {
-						pendingMuHotload.Lock()
-						for _, change := range pendingHotload {
-							r.mu.Lock()
-							resolvedPath := r.applyArgsPathStyle(change.path)
-
-							if r.Options.CheckContentDiff.Bool() {
-								if !r.hasChanged(change.path) {
-									log.Printf("🔁 Skipped: %s has no content change", change.path)
-									r.mu.Unlock()
-									continue
-								} else {
-									log.Printf("🔔 Change confirmed in: %s", change.path)
-								}
-							}
-
-							r.handleChangeDirect(resolvedPath)
-							r.mu.Unlock()
-						}
-						pendingHotload = make(map[string]pendingChangeHotload)
-						pendingMuHotload.Unlock()
-					})
-				}
+				r.enqueue(event)
 			case err := <-watcher.Errors:
 				log.Println("Watcher error:", err)
 			}
@@ -296,6 +189,65 @@ func (r *HotloadRunner) Start() error {
 	}()
 
 	select {}
+}
+
+// enqueue records a change that passes the watch rules and (re)starts the
+// debounce timer. It is called from the watcher goroutine only.
+func (r *HotloadRunner) enqueue(event fsnotify.Event) {
+	if !r.ShouldTrigger(event) {
+		return
+	}
+	absPath := filepath.Clean(event.Name)
+	pendingMuHotload.Lock()
+	pendingHotload[absPath] = pendingChangeHotload{path: absPath, time: time.Now()}
+	pendingMuHotload.Unlock()
+
+	if r.debounceTimer != nil {
+		r.debounceTimer.Stop()
+	}
+	r.debounceTimer = time.AfterFunc(300*time.Millisecond, func() {
+		pendingMuHotload.Lock()
+		for _, change := range pendingHotload {
+			r.mu.Lock()
+			resolvedPath := r.applyArgsPathStyle(change.path)
+
+			if r.Options.CheckContentDiff.Bool() {
+				if !r.hasChanged(change.path) {
+					log.Printf("🔁 Skipped: %s has no content change", change.path)
+					r.mu.Unlock()
+					continue
+				} else {
+					log.Printf("🔔 Change confirmed in: %s", change.path)
+				}
+			}
+
+			r.handleChangeDirect(resolvedPath)
+			r.mu.Unlock()
+		}
+		pendingHotload = make(map[string]pendingChangeHotload)
+		pendingMuHotload.Unlock()
+	})
+}
+
+// enqueueFilesIn queues the files already in a directory that was just added to
+// the watcher: they may have been written before its watch existed, and their
+// events are then lost (the debounce merges any that did arrive).
+func (r *HotloadRunner) enqueueFilesIn(dir string) {
+	_ = filepath.WalkDir(dir, func(path string, d os.DirEntry, err error) error {
+		if err != nil {
+			return nil
+		}
+		if d.IsDir() {
+			if !r.ShouldWatchDir(path) { // the same rules as for watching (A4R2-01)
+				return filepath.SkipDir
+			}
+			return nil
+		}
+		if d.Type().IsRegular() {
+			r.enqueue(fsnotify.Event{Name: path, Op: fsnotify.Create})
+		}
+		return nil
+	})
 }
 
 // startErr returns err from Start, except when a signal has already begun the
@@ -368,13 +320,28 @@ func (r *HotloadRunner) computeHash(path string) ([]byte, error) {
 	return h[:], nil
 }
 
+// IsExcludedDir reports whether a directory above path (a file or directory),
+// within the project, is named in --exclude-dir.
 func (r *HotloadRunner) IsExcludedDir(path string) bool {
-	for dirname := range strings.SplitSeq(filepath.ToSlash(filepath.Dir(path)), "/") {
-		if slices.Contains(r.Options.ExcludeDirList, dirname) {
-			return true
-		}
+	r.paths.init(r.Options.WatchDirList)
+	return hasExcludedElement(r.paths.rel(path), r.Options.ExcludeDirList, false)
+}
+
+// dirExcluded reports whether the directory dir or one above it, within the
+// project, is named in --exclude-dir.
+func (r *HotloadRunner) dirExcluded(dir string) bool {
+	r.paths.init(r.Options.WatchDirList)
+	return hasExcludedElement(r.paths.rel(dir), r.Options.ExcludeDirList, true)
+}
+
+// ignored reports whether .enmaignore rules (on the project-relative path) reject path.
+func (r *HotloadRunner) ignored(path string) bool {
+	if r.Options.EnmaIgnore == nil {
+		return false
 	}
-	return false
+	r.paths.init(r.Options.WatchDirList)
+	rel := r.paths.rel(path)
+	return rel != "." && r.Options.EnmaIgnore.Matches(rel)
 }
 
 func (r *HotloadRunner) ShouldWatchDir(dir string) bool {
@@ -384,11 +351,11 @@ func (r *HotloadRunner) ShouldWatchDir(dir string) bool {
 	}
 
 	// --exclude-dir
-	if r.Options.ExcludeDir != "" && r.IsExcludedDir(absDir) {
+	if r.Options.ExcludeDir != "" && r.dirExcluded(absDir) {
 		return false
 	}
 
-	// --ignore-dir-regex
+	// --ignore-dir-regex (on the absolute path, as documented)
 	if r.Options.IgnoreDirRegexp != nil {
 		if r.Options.IgnoreDirRegexp.MatchString(absDir) {
 			return false
@@ -396,10 +363,8 @@ func (r *HotloadRunner) ShouldWatchDir(dir string) bool {
 	}
 
 	// .enmaignore
-	if r.Options.EnmaIgnore != nil {
-		if r.Options.EnmaIgnore.Matches(common.TrimDotSlash(absDir)) {
-			return false
-		}
+	if r.ignored(absDir) {
+		return false
 	}
 
 	return true
@@ -416,7 +381,7 @@ func (r *HotloadRunner) ShouldTrigger(event fsnotify.Event) bool {
 	if r.Options.PatternRegexp != nil {
 		baseName := filepath.Base(absPath)
 		result := r.Options.PatternRegexp.MatchString(baseName)
-		if result == false {
+		if !result {
 			return false
 		}
 	}
@@ -435,7 +400,7 @@ func (r *HotloadRunner) ShouldTrigger(event fsnotify.Event) bool {
 	if r.Options.IgnoreDirRegexp != nil {
 		dir := filepath.Dir(absPath)
 		result := r.Options.IgnoreDirRegexp.MatchString(dir)
-		if result == true {
+		if result {
 			return false
 		}
 	}
@@ -443,15 +408,13 @@ func (r *HotloadRunner) ShouldTrigger(event fsnotify.Event) bool {
 	if r.Options.IgnoreFileRegexp != nil {
 		baseName := filepath.Base(absPath)
 		result := r.Options.IgnoreFileRegexp.MatchString(baseName)
-		if result == true {
+		if result {
 			return false
 		}
 	}
 
-	if r.Options.EnmaIgnore != nil {
-		if r.Options.EnmaIgnore.Matches(common.TrimDotSlash(path)) {
-			return false
-		}
+	if r.ignored(path) {
+		return false
 	}
 
 	if r.Options.ExcludeExt != "" {
@@ -476,7 +439,7 @@ func (r *HotloadRunner) RunBuildSequence(attempt int, path string) bool {
 
 	for _, step := range steps {
 		ctx, cancel := context.WithTimeout(r.scope.context(), r.BuildTimeout)
-		err := step.fn(ctx, path)
+		err := timeoutError(step.fn(ctx, path), r.BuildTimeout)
 		cancel()
 		if err != nil {
 			log.Printf("❌  %s failed (attempt %d): %v", step.name, attempt+1, err)
@@ -498,12 +461,7 @@ func (r *HotloadRunner) RunPreBuild(ctx context.Context, path string) error {
 	killGroupOnCancel(cmd, &r.scope, r.stopGrace(), r.killWait())
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
-	release, err := r.scope.enter()
-	if err != nil {
-		return err
-	}
-	defer release()
-	return cmd.Run()
+	return runInScope(cmd, &r.scope, r.stopGrace(), r.killWait(), "pre-build")
 }
 
 func (r *HotloadRunner) RunBuild(ctx context.Context, path string) error {
@@ -511,12 +469,7 @@ func (r *HotloadRunner) RunBuild(ctx context.Context, path string) error {
 	killGroupOnCancel(cmd, &r.scope, r.stopGrace(), r.killWait())
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
-	release, err := r.scope.enter()
-	if err != nil {
-		return err
-	}
-	defer release()
-	return cmd.Run()
+	return runInScope(cmd, &r.scope, r.stopGrace(), r.killWait(), "build")
 }
 
 func (r *HotloadRunner) RunPostBuild(ctx context.Context, path string) error {
@@ -530,12 +483,7 @@ func (r *HotloadRunner) RunPostBuild(ctx context.Context, path string) error {
 	killGroupOnCancel(cmd, &r.scope, r.stopGrace(), r.killWait())
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
-	release, err := r.scope.enter()
-	if err != nil {
-		return err
-	}
-	defer release()
-	return cmd.Run()
+	return runInScope(cmd, &r.scope, r.stopGrace(), r.killWait(), "post-build")
 }
 
 // currentDaemon returns the tracked daemon (nil when none).

@@ -36,7 +36,7 @@ type TomlWatchConf struct {
 func NewWatchOptionFromTOMLConfig(h TomlWatchConf) (*option.WatchOption, error) {
 	cmd := Fallback(h.Cmd, "")
 	defaultIgnores := Fallback(h.DefaultIgnore, "minimal")
-	watchDir := FallbackArray(h.WatchDir, []string{})
+	watchDir := FallbackArray(h.WatchDir, []string{"./"}) // like hotload: the working directory (F10)
 	workingDir := Fallback(h.WorkingDir, common.GetCurrentDir())
 	placeholder := Fallback(h.Placeholder, "{}")
 	argPathStyle := Fallback(h.ArgsPathStyle, "dirname,basename,extension")
@@ -46,7 +46,7 @@ func NewWatchOptionFromTOMLConfig(h TomlWatchConf) (*option.WatchOption, error) 
 	delay := Fallback(h.Delay, "1sec")
 
 	if cmd == "" {
-		return nil, fmt.Errorf("required fields missing in watch config")
+		return nil, fmt.Errorf("required fields missing in watch config: command")
 	}
 
 	startAtOnce, err := StartAtOnce(h.StartAtOnce, h.StartAtOnceAlias)

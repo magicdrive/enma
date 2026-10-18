@@ -72,7 +72,7 @@ func TrimSpaceAndUniq(values []string) []string {
 
 func JoinComma(values []string) string {
 	uniqValues := TrimSpaceAndUniq(values)
-	if uniqValues == nil || len(uniqValues) == 0 {
+	if len(uniqValues) == 0 {
 		return ""
 	}
 	return strings.Join(uniqValues, ",")
@@ -100,6 +100,7 @@ type TomlConfig struct {
 
 func FindEnmaToml() (string, error) {
 
+	//lint:ignore ST1005 the message starts with a file name
 	return "", errors.New("Enma.toml not found")
 
 }

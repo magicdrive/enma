@@ -5,6 +5,8 @@ package model_test
 
 import (
 	"slices"
+	"sort"
+	"strings"
 	"syscall"
 	"testing"
 
@@ -85,6 +87,19 @@ func TestAllowedSignals(t *testing.T) {
 		}
 		if !found {
 			t.Errorf("allowedSignals() missing expected signal %q", expected)
+		}
+	}
+}
+
+// F19: the allowed names are listed in a stable (sorted) order.
+func TestAllowedSignals_Sorted(t *testing.T) {
+	first := model.AllowedSignals()
+	if !sort.StringsAreSorted(first) {
+		t.Fatalf("not sorted: %v", first)
+	}
+	for range 20 {
+		if got := model.AllowedSignals(); strings.Join(got, ",") != strings.Join(first, ",") {
+			t.Fatalf("order changed: %v vs %v", got, first)
 		}
 	}
 }

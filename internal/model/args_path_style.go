@@ -47,12 +47,12 @@ func (m *ArgsPathStyleString) Set(value string) error {
 		part := strings.TrimSpace(s)
 		if styleName, ok := styleNameUnitMap[part]; ok {
 			if _, exist := dict[styleName]; exist {
-				return fmt.Errorf("invalid value: %s. Allowed values exist once part name.\n", value)
+				return fmt.Errorf("invalid value: %s. Allowed values exist once part name", value)
 			} else {
 				dict[styleNameUnitMap[part]] = "!"
 			}
 		} else {
-			return fmt.Errorf("invalid value: %s. Allowed values must match part name comma separated.\n", value)
+			return fmt.Errorf("invalid value: %s. Allowed values must match part name comma separated", value)
 		}
 	}
 
@@ -67,7 +67,8 @@ func (m *ArgsPathStyleString) String() string {
 func (m *ArgsPathStyleString) ArgsPathStyleObj() (*ArgsPathStyleObj, error) {
 	result := &ArgsPathStyleObj{}
 	for part := range strings.SplitSeq(m.String(), ",") {
-		if styleName, ok := styleNameUnitMap[part]; ok {
+		// spaces around a name are allowed, as Set allows them (F11: "dirname, basename")
+		if styleName, ok := styleNameUnitMap[strings.TrimSpace(part)]; ok {
 			switch styleName {
 			case DIRNAME:
 				result.DirNameFlag = true

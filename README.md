@@ -1,9 +1,15 @@
 # enma
 
-> Yet another integration software with file monitoring.
+[![CI](https://github.com/magicdrive/enma/actions/workflows/ci.yml/badge.svg)](https://github.com/magicdrive/enma/actions/workflows/ci.yml)
+[![Release](https://img.shields.io/github/v/release/magicdrive/enma)](https://github.com/magicdrive/enma/releases)
+[![Go Reference](https://pkg.go.dev/badge/github.com/magicdrive/enma.svg)](https://pkg.go.dev/github.com/magicdrive/enma)
+[![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 
-`enma` is a file-watching tool that monitors specified files or directories and automatically executes commands or rebuilds and restarts daemons.<br>
-It's designed to supercharge your development and automation workflows.
+> Yet another event-driven command runner.
+
+`enma` runs your commands when something happens: it rebuilds and restarts a daemon when files change,
+runs a command on each change, or runs jobs on cron schedules. It is a single small binary meant to run
+for a long time without surprises.
 
 ## ✨ Features
 
@@ -15,39 +21,101 @@ It's designed to supercharge your development and automation workflows.
 - 🧩 Flexible configuration using TOML files
 - 🔍 Ignore patterns with `.enmaignore` (`.gitignore` compatible syntax)
 - ⏰ Cron-style scheduler for one or more jobs, with timeouts, retries and a concurrency limit
-- 🧪 Ideal for CI/CD and local development
+- 📦 A single self-contained binary for Linux, macOS and Windows
 
 ---
 
 ## 🚀 Quick Start
 
-### 1. Installation
+### What enma is
+
+It has three modes:
+
+| Mode | Runs | Typical use |
+|---|---|---|
+| `hotload` | a build on each change, then restarts a long-running daemon | a web server you are developing |
+| `watch` | a command on each change (the changed path can be passed to it) | tests, linters, code generation |
+| `scheduler` | commands on cron schedules (seconds field, time zones, retries) | periodic jobs without a system cron |
+
+### Install
 
 ```bash
-go install github.com/magicdrive/enma@latest
+go install github.com/magicdrive/enma@latest   # Go 1.25 or later (the newest Go is recommended)
+brew install magicdrive/tap/enma               # or Homebrew
 ```
 
-You can install enma using `homebrew`:
+Pre-built binaries are on the [Releases page](https://github.com/magicdrive/enma/releases).
+Upgrading from v1.2.10 or earlier? Some behaviour changed: see [CHANGELOG.md](CHANGELOG.md).
+
+### Run it
+
+Run the tests whenever a Go file below the current directory changes:
 
 ```bash
-brew install magicdrive/tap/enma
+enma watch --command "go test ./..." --include-ext .go --timeout 5m
 ```
 
-Alternatively, you can download a pre-built binary from the [Releases page](https://github.com/magicdrive/enma/releases).
+Stop it with Ctrl-C. A command (or build) that runs longer than `--timeout` (default: 5 seconds
+in watch and hotload, no limit in scheduler) is stopped and reported as timed out, so give slow
+commands a longer one. `enma hotload --build "go build -o ./app ." --daemon ./app --timeout 2m`
+rebuilds and restarts a server the same way.
 
-### 2. Initialize project
+### Create a config file
 
 ```bash
-enma init
+enma init --mode watch                  # writes Enma.toml (modes: hotload, watch, scheduler)
+enma init --mode enmaignore             # writes .enmaignore (paths to leave alone, .gitignore syntax)
 ```
 
-This generates `Enma.toml` and `.enmaignore`.
+Edit `Enma.toml`, then run `enma` in that directory (or `enma --config <file>`).
 
-> You can specify the mode or config file name:
->
-> ```bash
-> enma init --mode watch --file ./myconfig.enma.toml
-> ```
+### Check a config file
+
+```bash
+enma config validate                    # or: enma config validate --config ./Enma.toml
+```
+
+It loads the file exactly like a run does and reports the problems it finds, each line naming
+the file: all problems of one check together (for example every invalid value), later checks
+once those are fixed.
+Nothing is started: no command runs, and no pid or log file is written. Exit code 0 means valid.
+
+### Schedule a job
+
+```bash
+enma scheduler --cron "0 */10 * * * *" --command "make sync" --timezone Asia/Tokyo
+```
+
+The six cron fields start with seconds. For several jobs, use `enma init --mode scheduler`.
+
+### See when jobs will run
+
+```bash
+enma scheduler --cron "0 30 2 * * *" --command "./backup.sh" --timezone Europe/Berlin --next 5
+enma config validate --next 5           # every job of a scheduler config file
+```
+
+`--next` prints the next fire times of each job, with the time zone and UTC offset, and exits.
+They come from the scheduler's own calculation, so daylight-saving changes are handled the
+same way: a local time that occurs twice runs once, and one that does not exist that day
+(the clocks go forward over it) does not run. See [Time](#time).
+
+### Platforms
+
+Linux and macOS (amd64, arm64) are fully supported and tested. Windows (amd64) builds work with
+limits: commands run with `sh -c`, so a POSIX shell (e.g. from Git for Windows or MSYS2) must be on `PATH`; they
+run without process groups, so enma cannot stop processes a command leaves behind, and enma
+itself stops on Ctrl-C or SIGTERM only. File watching uses inotify on Linux and kqueue on
+macOS (one file descriptor per watched file; see [What is watched](#what-is-watched)).
+Release archives are also built for linux/386, windows/386 and windows/arm64; those builds are
+not tested.
+
+### Learn more
+
+- [Hotload mode](#-hotload-mode), [Watch mode](#-watch-mode), [Scheduler mode](#-scheduler-mode)
+- [File filtering](#-file-filtering-order) and [`.enmaignore`](#-example-enmaignore)
+- [Output, logs and exit codes](#-output-logs-and-exit-codes)
+- [Full command reference](#-full-command-reference) (`enma --help`, `enma <mode> --help`)
 
 ---
 
@@ -58,16 +126,22 @@ Use this when you want to automate build and daemon restarts.
 ### Example Config (`Enma.toml`)
 
 ```toml
-name = "my-app"
+[subcommand]
+use = "hotload"
+
+[subcommand.hotload]
 daemon = "./my-app"
-build = "go build -o my-app main.go"
-watch-dir = ["./cmd", "./internal"]
+build = "go build -o my-app ."
+watch_dir = ["./cmd", "./internal"]
+include_ext = [".go"]
 ```
+
+`enma init --mode hotload` writes a template with every key.
 
 ### Run
 
 ```bash
-enma hotload --daemon ./my-app --build "go build -o my-app main.go"
+enma hotload --daemon ./my-app --build "go build -o my-app ."
 ```
 
 ---
@@ -79,9 +153,15 @@ Executes commands on file changes without restarting daemons.
 ### Example Config (`Enma.toml`)
 
 ```toml
+[subcommand]
+use = "watch"
+
+[subcommand.watch]
 command = "make test"
-watch-dir = ["./pkg", "./lib"]
+watch_dir = ["./pkg", "./lib"]
 ```
+
+`enma init --mode watch` writes a template with every key.
 
 ### Run
 
@@ -101,6 +181,9 @@ enma hotload --start-at-once "make prepare" --daemon ./my-app --build "go build 
 ```
 
 ```toml
+[subcommand]
+use = "watch"
+
 [subcommand.watch]
 start_at_once = "make prepare"   # `start-at-once` is accepted as well
 command = "make test"
@@ -331,6 +414,91 @@ This filtering order is designed to be both **efficient** and **intuitive**:
 
 This layered approach ensures clarity in behavior while keeping Enma fast and customizable.
 
+### What is watched
+
+- `--watch-dir` defaults to the working directory (`--working-dir`, or where enma was started).
+  A watch config without `watch_dir` watches the working directory as well.
+- `--exclude-dir` and `.enmaignore` rules look at paths **relative to the working directory**
+  (for a watch directory outside it: relative to that watch directory). The directories
+  *above* the project never match, so a project inside `~/.enma/`, `vendor/` or `tmp/` is
+  watched normally, while `.enma/`, `.git/`, ... inside it are still ignored.
+- `.enmaignore` uses `.gitignore` syntax: `*`, `?`, `**`, character classes (`*.py[cod]`,
+  `[!a]x`), `\` escapes (also `\ ` for a trailing space), `!` negation, the last matching line
+  wins; a leading or middle `/` anchors a pattern to the working directory (`/build` is the
+  top-level `build` only, `vendor/bundle/` the top-level `vendor/bundle`). Not supported:
+  POSIX classes such as `[[:alpha:]]`. A pattern ending in `/` also matches a file of that
+  name, so `!dir/` re-includes files named `dir` too. `!dir/` also re-includes everything
+  below `dir/` (`*.log` + `!logs/` watches `logs/a.log` and `logs/sub/b.log`), and the
+  whitelist idiom `*` + `!*/` re-includes everything. As in git, nothing inside an ignored directory can be re-included
+  (`build/` + `!build/keep/` keeps `build/keep` ignored; use `build/*` + `!build/keep/`).
+  An invalid line is reported and skipped. enma reads the `.enmaignore` of the working
+  directory and the files given with `--enmaignore`; it does not search parent directories.
+- `--ignore-dir-regex` is matched against the absolute directory path.
+- A subdirectory that cannot be read is reported and left out; the rest is watched.
+- Symlinked directories are not followed when monitoring starts. A symlink created later is
+  followed only if it points inside the watch directories (one pointing elsewhere is reported).
+- Several files changed within the 300 ms debounce window run the command (or build) once
+  **per file**, each with its own path for the placeholder.
+- A directory that appears while enma runs (created, moved in, unpacked) is watched, and the
+  files already in it count as changed — one run per file, as above — unless the watch rules
+  reject the directory.
+- macOS (kqueue) uses one file descriptor per watched file: for large trees raise the limit
+  (`ulimit -n`) or narrow `--watch-dir`; files that cannot be watched are reported.
+
+### Processes a command leaves behind
+
+`pre-build` / `build` / `post-build` and `pre-cmd` / `command` / `post-cmd` run with `sh -c` in
+their own process group. When the command returns, whatever it left running in that group
+(e.g. `something &`) is stopped: SIGTERM, then SIGKILL after the grace period (5s). Use
+`--daemon` (hotload) for a process that should keep running. Only a group that cannot be
+stopped at all fails the step. On Windows enma cannot see a command's descendants.
+
+### Changes since v1.2.10
+
+Some behaviour differs from v1.2.10 and earlier (processes left behind are stopped,
+`.enmaignore` lookup, the default watch directory, error output, ...): see
+[CHANGELOG.md](CHANGELOG.md).
+
+### PID file (`--pid`)
+
+The file holds enma's process id (decimal, nothing else). enma writes it whole before it starts
+anything, and removes it when it exits on a signal or when the start fails. It removes it only
+while it still holds its own pid, so a file another enma has written since is kept. When an
+existing file names a process that is still running, enma replaces it and prints a warning.
+A pid file cannot be removed after `kill -9`, a crash or a power loss; the next start replaces
+it. The pid in a stale file may by then belong to an unrelated process.
+
+---
+
+## 📋 Output, logs and exit codes
+
+- **Errors** go to stderr, once, and name what is wrong: errors in a config file name the file
+  (with the line and column of a TOML syntax error) and the key, and scheduler errors the job
+  and field; missing flags are named. A directory that cannot be used when a run starts is
+  reported with its path and the system's reason (`enma config validate` names the key too).
+  An unknown key in a `[subcommand.hotload]` / `[subcommand.watch]` section is reported as a
+  warning and ignored; the scheduler section rejects it.
+- **enma's own log lines** (with a timestamp) go to stderr; with `--logs <file>` they go to
+  stdout and to the file instead. A new log file is created with mode `0600`; an existing one
+  keeps its mode (e.g. `0644` from an older enma), and a symlink at that path is followed.
+- **Commands' output** (build, daemon, command, start-at-once, scheduler jobs) goes straight to
+  enma's stdout / stderr; it is not copied into the `--logs` file, and the output of commands
+  running at the same time interleaves (scheduler event lines name the job). To keep a job's
+  output apart, redirect it in the command: `command = "./report.sh >> report.log 2>&1"`.
+- enma never logs the commands it runs or the environment; they may hold secrets. Log lines
+  name files, jobs and errors.
+- If the reader of enma's output goes away (e.g. `enma watch ... | head`), enma keeps running
+  and keeps writing the `--logs` file; stop it with a signal as usual. The commands share that
+  output, so one that writes to it ends with SIGPIPE as usual (a daemon too).
+
+| Exit code | When |
+|---|---|
+| `0` | `--help`, `--version`, `init` succeeded; a run stopped by SIGINT / SIGTERM / SIGHUP whose shutdown completed |
+| `1` | any error: config file, invalid setting, unknown subcommand, missing required flag, a start that failed (watch directory, `start-at-once`, pid file), `init` that could not write; a shutdown that could not stop everything; a forced stop (second signal) |
+| `2` | a command line the flag parser rejects (unknown flag, a flag without its value) |
+
+A failing scheduler job does not end enma or change its exit code: it is reported as an event.
+
 ---
 
 ## 🧾 Full Command Reference
@@ -341,7 +509,7 @@ This layered approach ensures clarity in behavior while keeping Enma fast and cu
 |--------------------------------|-------------------------------------------------------------------------------------------------|
 | `-h`, `--help`                 | Show help message and exit                                                                      |
 | `-v`, `--version`              | Show version                                                                                    |
-| `-c`, `--config`               | Specify config file. Default: `./Enma.toml`, `./.enma.toml`, or `./.enma/enma.toml`            |
+| `-c`, `--config`               | Specify config file. Default: `./Enma.toml`, `./.enma.toml`, `./.enma/enma.toml` or `./.config/enma.toml` |
 
 ---
 
@@ -351,7 +519,7 @@ This layered approach ensures clarity in behavior while keeping Enma fast and cu
 |-------------------------------|-----------------------------------------------------------|
 | `-h`, `--help`                | Show help message and exit                                |
 | `-m`, `--mode`                | Mode for config file: `hotload`, `watch`, `scheduler` or `enmaignore` (default: `hotload`) |
-| `-f`, `--file <filename>`     | Config filename to create (default: `./Enma.toml`)        |
+| `-f`, `--file-name <filename>` | Config filename to create (default: `./Enma.toml`, `.enmaignore` for that mode) |
 
 ---
 
@@ -362,9 +530,9 @@ This layered approach ensures clarity in behavior while keeping Enma fast and cu
 | `-h`, `--help`                             | Show help message and exit                                                 |
 | `-d`, `--daemon <command>`                 | Daemon command to run (required)                                           |
 | `-b`, `--build <command>`                  | Command to build the daemon (required)                                     |
-| `-S`, `--signal <singal>`                  | Define signal to stop the daemon command. (optional. default: SIGTERM)     |
+| `-S`, `--signal <signal>`                  | Signal to stop the daemon command (optional. default: SIGTERM)             |
 | `--start-at-once <command>`                | Command run once at startup, before the first build (optional)             |
-| `-w`, `--watch-dir <dir_name>`             | Watch directories (comma-separated, optional. default: `$PWD`)             |
+| `-w`, `--watch-dir <dir_name>`             | Watch directories (comma-separated, optional. default: the working dir)     |
 | `-p`, `--pre-build <command>`              | Command to run before build (optional)                                     |
 | `-P`, `--post-build <command>`             | Command to run after build (optional)                                      |
 | `-W`, `--working-dir <dir_name>`           | Working directory (default: `$PWD`)                                        |
@@ -378,11 +546,11 @@ This layered approach ensures clarity in behavior while keeping Enma fast and cu
 | `-r`, `--retry <number>`                   | Retry count (default: `0`)                                                 |
 | `-x`, `--pattern-regex <regex>`            | Regex pattern to watch (optional)                                          |
 | `-i`, `--include-ext <ext>`                | File extensions to include (comma-separated, optional)                     |
-| `-g`, `--ignore-dir-regex <regex>`         | Regex to ignore directories (optional)                                     |
-| `-G`, `--ignore-file-regex <regex> `       | Regex to ignore files (optional)                                           |
+| `-g`, `--ignore-file-regex <regex>`        | Regex to ignore files (optional)                                           |
+| `-G`, `--ignore-dir-regex <regex>`         | Regex to ignore directories (optional)                                     |
 | `-e`, `--exclude-ext <ext>`                | File extensions to exclude (comma-separated, optional)                     |
 | `-E`, `--exclude-dir <dir_name>`           | Directories to exclude (comma-separated, optional)                         |
-| `-D`, `--default-ignores <max\|min\|none>` | Defines defualt loads enmaignore volume. (optional. default: `minimal`)      |
+| `-D`, `--default-ignores <max\|min\|none>` | Built-in ignore rules to load (optional. default: `minimal`)               |
 | `-n`, `--enmaignore <filename>`            | enma ignore file(s) (comma-separated, optional. default: `./.enmaignore`)  |
 | `--logs <log_file_path>`                   | Log file path (optional)                                                   |
 | `--pid <pid_file_path>`                    | PID file path (optional)                                                   |
@@ -398,7 +566,7 @@ This layered approach ensures clarity in behavior while keeping Enma fast and cu
 | `--start-at-once <command>`                | Command run once at startup, before file monitoring starts (optional)      |
 | `-p`, `--pre-cmd <command>`                | Command to run before main command (optional)                              |
 | `-P`, `--post-cmd <command>`               | Command to run after main command (optional)                               |
-| `-w`, `--watch-dir <dir_name>`             | Watch directories (comma-separated, optional. default: `$PWD`)             |
+| `-w`, `--watch-dir <dir_name>`             | Watch directories (comma-separated, optional. default: the working dir)     |
 | `-W`, `--working-dir <dir_name>`           | Working directory (optional. default: `$PWD`)                              |
 | `-I`, `--placeholder`                      | Placeholder in command for changed file (default: `{}`)                    |
 | `-s`, `--args-path-style <style>`          | filepath-style where event in command. <br> (optional. default: `dir,base,ext`) |
@@ -409,11 +577,11 @@ This layered approach ensures clarity in behavior while keeping Enma fast and cu
 | `-r`, `--retry <number>`                   | Retry count (default: `0`)                                                 |
 | `-x`, `--pattern-regex <regex>`            | Regex pattern to watch (optional)                                          |
 | `-i`, `--include-ext <ext>`                | File extensions to include (comma-separated, optional)                     |
-| `-g`, `--ignore-dir-regex <regex>`         | Regex to ignore directories (optional)                                     |
-| `-G`, `--ignore-file-regex <regex>`        | Regex to ignore files (optional)                                           |
+| `-g`, `--ignore-file-regex <regex>`        | Regex to ignore files (optional)                                           |
+| `-G`, `--ignore-dir-regex <regex>`         | Regex to ignore directories (optional)                                     |
 | `-e`, `--exclude-ext <ext>`                | File extensions to exclude (comma-separated, optional)                     |
 | `-E`, `--exclude-dir <dir_name>`           | Directories to exclude (comma-separated, optional)                         |
-| `-D`, `--default-ignores <max\|min\|none>` | Defines defualt loads enmaignore volume. (optional. default: `minimal`)      |
+| `-D`, `--default-ignores <max\|min\|none>` | Built-in ignore rules to load (optional. default: `minimal`)               |
 | `-n`, `--enmaignore <filename>`            | enma ignore file(s) (comma-separated, optional. default: `./.enmaignore`)  |
 | `--logs <log_file_path>`                   | Log file path (optional)                                                   |
 | `--pid <pid_file_path>`                    | PID file path (optional)                                                   |
@@ -434,8 +602,23 @@ This layered approach ensures clarity in behavior while keeping Enma fast and cu
 | `--retries <number>`                       | Retries after a failed attempt (default: `0`)                              |
 | `--retry-delay <time>`                     | Wait between a failed attempt and its retry (default: `10s`)               |
 | `--max-concurrent <number>`                | Maximum attempts running at once (default: `4`)                            |
+| `--next <number>`                          | List the next N fire times of the job and exit; nothing runs (at most 100) |
 | `--logs <log_file_path>`                   | Log file path (optional)                                                   |
 | `--pid <pid_file_path>`                    | PID file path (optional)                                                   |
+
+---
+
+### `enma config validate`
+
+| Option                                     | Description                                                                |
+|--------------------------------------------|----------------------------------------------------------------------------|
+| `-h`, `--help`                             | Show help message and exit                                                 |
+| `-c`, `-f`, `--config <file>`              | Config file to check (default: the file a plain `enma` would run)          |
+| `--next <number>`                          | Scheduler configs: list the next N fire times of each job (at most 100)    |
+
+Loads the file like a run does and reports the problems it finds, each line naming the file (all
+problems of one check together; a later check runs once the earlier ones pass). Nothing is
+started and nothing is written. Exit code: `0` valid, `1` invalid, `2` unknown flag.
 
 ---
 
@@ -460,6 +643,23 @@ The syntax of .enmaignore is a compatible syntax of [.gitignore](https://git-scm
 *.sublime-project
 *.sublime-workspace
 ```
+
+---
+
+## Security
+
+enma runs the commands you give it with `sh -c`, as the user that started it. Treat a config
+file like a shell script: run `enma` / `enma --config` only on files you trust, and note that a
+plain `enma` reads `Enma.toml` (or `.enma.toml`, `.enma/enma.toml`, `.config/enma.toml`) from
+the current directory. `enma config validate` checks a file without running anything.
+File paths reach commands safely as described in
+[Placeholder and the shell](#-placeholder-and-the-shell), with the limits listed there.
+Report vulnerabilities privately as described in [SECURITY.md](SECURITY.md).
+
+## Contributing
+
+Bug reports and pull requests are welcome. See [CONTRIBUTING.md](CONTRIBUTING.md) for how to
+build and test, and [CHANGELOG.md](CHANGELOG.md) for what changed.
 
 ---
 

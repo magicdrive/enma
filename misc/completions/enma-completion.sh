@@ -15,6 +15,7 @@ if [[ -n ${ZSH_VERSION-} ]]; then
         'hotload:Watch & reload daemon'
         'watch:Watch & run commands'
         'scheduler:Run commands on cron schedules'
+        'config:Check a config file without running it (validate)'
         '--help:Show help'
         '--version:Show version'
         '--config:Define enma.toml'
@@ -34,10 +35,10 @@ if [[ -n ${ZSH_VERSION-} ]]; then
             _values 'init options' \
               '--help[Show help]' \
               '--mode[Specify mode <hotload|watch|scheduler|enmaignore>]:mode:(hotload watch scheduler enmaignore)' \
-              '--file[Specify output config file]:file:_files'
+              '--file-name[Specify output config file]:file:_files'
             ;;
           hotload)
-            if [[ "$OSTYPE" == (linux*|darwin*|freebsd*|openbsd*|netbsd*) ]]; then
+            if case $OSTYPE in linux*|darwin*|freebsd*|openbsd*|netbsd*) true ;; *) false ;; esac; then # bash parses this file too
                 _values 'hotload options' \
                   '--help[Show help]' \
                   '--daemon[Daemon command]:cmd:_command_names' \
@@ -107,7 +108,7 @@ if [[ -n ${ZSH_VERSION-} ]]; then
               '--post-cmd[    (optional) Post-command]:cmd:_command_names' \
               '--working-dir[    (optional) Working directory]:dir:_files -/' \
               '--placeholder[    (optional) Placeholder token]:token:' \
-              '--args-path-style[    (optional) Filepath style]:style:(dir base ext full)' \
+              '--args-path-style[    (optional) Filepath style]:style:(dir base ext)' \
               '--check-content-diff[    (optional) Only on content change]:bool:(on off)' \
               '--absolute-path[    (optional) Use absolute path]:bool:(on off)' \
               '--timeout[    (optional) Timeout duration]:string:' \
@@ -119,6 +120,7 @@ if [[ -n ${ZSH_VERSION-} ]]; then
               '--exclude-dir[    (optional) Dirs to exclude]:dir:_files -/' \
               '--ignore-dir-regex[    (optional) Dir ignore regex]' \
               '--ignore-file-regex[    (optional) File ignore regex]' \
+              '--default-ignores[    (optional) Specify default ignore volume <max|min|none>]:mode:(maximum minimal none)' \
               '--enmaignore[    (optional) Ignore file list]:file:_files' \
               '--logs[    (optional) Log file]:file:_files' \
               '--pid[    (optional) PID file]:file:_files'
@@ -135,8 +137,16 @@ if [[ -n ${ZSH_VERSION-} ]]; then
               '--retries[    (optional) Retries after a failure]:int:' \
               '--retry-delay[    (optional) Wait before a retry]:string:' \
               '--max-concurrent[    (optional) Maximum attempts at once]:int:' \
+              '--next[    (optional) List the next N fire times and exit]:int:' \
               '--logs[    (optional) Log file]:file:_files' \
               '--pid[    (optional) PID file]:file:_files'
+            ;;
+          config)
+            _values 'config options' \
+              'validate[Check a config file without running it]' \
+              '--help[Show help]' \
+              '--config[Config file to check]:file:_files' \
+              '--next[    (optional) Scheduler configs: list the next N fire times]:int:'
             ;;
           *)
             _message 'No subcommand matched.'
@@ -155,7 +165,7 @@ _enma_bash() {
   local cur prev words cword
   _init_completion -n : || return
 
-  local subcommands="init hotload watch scheduler"
+  local subcommands="init hotload watch scheduler config"
   local global_opts="--help -h --version -v --config -c"
   local opts
 
@@ -167,16 +177,26 @@ _enma_bash() {
   local subcmd=${COMP_WORDS[1]}
   case "$subcmd" in
     init)
-      opts="--help -h --mode --file"
+      opts="--help -h --mode -m --file-name -f"
       ;;
     hotload)
-      opts="--daemon --build --start-at-once --signal --watch-dir --pre-build --post-build --working-dir --placeholder --args-path-style --build-at-start --check-content-diff --absolute-path --timeout --delay --retry --pattern-regex --include-ext --exclude-ext --exclude-dir --ignore-dir-regex --ignore-file-regex --default-ignores --enmaignore --logs --pid"
+      opts="--help -h --daemon --build --start-at-once --signal --watch-dir --pre-build --post-build --working-dir --placeholder --args-path-style --build-at-start --check-content-diff --absolute-path --timeout --delay --retry --pattern-regex --include-ext --exclude-ext --exclude-dir --ignore-dir-regex --ignore-file-regex --default-ignores --enmaignore --logs --pid"
       ;;
     watch)
-      opts="--command --start-at-once --watch-dir --pre-cmd --post-cmd --working-dir --placeholder --args-path-style --check-content-diff --absolute-path --timeout --delay --retry --pattern-regex --include-ext --exclude-ext --exclude-dir --ignore-dir-regex --ignore-file-regex --default-ignores --enmaignore --logs --pid"
+      opts="--help -h --command --start-at-once --watch-dir --pre-cmd --post-cmd --working-dir --placeholder --args-path-style --check-content-diff --absolute-path --timeout --delay --retry --pattern-regex --include-ext --exclude-ext --exclude-dir --ignore-dir-regex --ignore-file-regex --default-ignores --enmaignore --logs --pid"
       ;;
     scheduler)
-      opts="--cron --command --name --working-dir --timezone --timeout --retries --retry-delay --max-concurrent --logs --pid --help"
+      opts="--cron --command --name --working-dir --timezone --timeout --retries --retry-delay --max-concurrent --next --logs --pid --help"
+      ;;
+    config)
+      if [[ ${COMP_CWORD} -eq 2 ]]; then
+        opts="validate --help -h"
+      elif [[ "$prev" == "--config" || "$prev" == "-c" || "$prev" == "-f" ]]; then
+        COMPREPLY=( $(compgen -f -- "$cur") )
+        return 0
+      else
+        opts="--config -c -f --next --help -h"
+      fi
       ;;
     *)
       opts=$global_opts

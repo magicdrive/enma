@@ -1,0 +1,85 @@
+name: CI (extended)
+
+# Slower checks, run by hand or once a week: tests in random order several
+# times, a short fuzz run of every fuzz target, tests on linux/arm64, and a
+# smoke run of the real binary on Windows.
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: '0 18 * * 0'  # Mondays 03:00 JST
+
+permissions:
+  contents: read
+
+jobs:
+  shuffle:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, ubuntu-24.04-arm, macos-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+
+      - name: Set up Go
+        uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7
+        with:
+          go-version-file: 'go.mod'
+
+      - name: Test (race, shuffled, 3 times)
+        run: go test -race -count=3 -shuffle=on ./...
+
+  fuzz:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+
+      - name: Set up Go
+        uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7
+        with:
+          go-version-file: 'go.mod'
+
+      - name: Fuzz every target for 30s
+        run: |
+          set -eu
+          pkgs=$(go list ./...)
+          n=0
+          for pkg in $pkgs; do
+            list=$(go test -list '^Fuzz' "$pkg")  # fails the step if the tests do not build
+            for target in $(echo "$list" | grep '^Fuzz' || true); do
+              echo "== $pkg $target"
+              go test -run '^$' -fuzz "^${target}\$" -fuzztime 30s "$pkg"
+              n=$((n + 1))
+            done
+          done
+          echo "fuzzed $n targets"
+          [ "$n" -gt 0 ]
+
+  # Windows is supported with limits (see README "Platforms"): the binary is
+  # built and run natively here; the Unix-only tests are not run.
+  windows-smoke:
+    runs-on: windows-latest
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+
+      - name: Set up Go
+        uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7
+        with:
+          go-version-file: 'go.mod'
+
+      - name: Build and run
+        run: |
+          set -eu
+          go build -o enma.exe .
+          ./enma.exe --version
+          ./enma.exe --help >/dev/null
+          mkdir smoke && cd smoke
+          ../enma.exe init --mode scheduler
+          ../enma.exe config validate --next 3

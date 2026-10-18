@@ -97,9 +97,14 @@ func TestHotloadRunnerRunBuild_Timeout(t *testing.T) {
 		t.Errorf("HotloadOption normalize error: %v", err)
 	}
 
-	err := r.RunBuild(context.Background(), "./main.go")
-	if err == nil {
+	// the time limit applies to a build step of the sequence (RunBuild alone has
+	// none: called with context.Background() it would wait for the helper forever)
+	start := time.Now()
+	if err := core.RunBuildSequenceForTest(r, "./main.go"); err == nil {
 		t.Fatal("expected timeout error, got nil")
+	}
+	if el := time.Since(start); el < 900*time.Millisecond || el > 5*time.Second {
+		t.Fatalf("the timed-out build took %v: want the 1s limit, not an early failure or a hang", el)
 	}
 }
 
@@ -315,7 +320,9 @@ func TestHotloadRunnerHelperProcess(t *testing.T) {
 	}
 	args := os.Args
 	if len(args) > 3 && args[3] == "sleep" {
-		select {} // block forever
+		// sleep, not `select {}`: a blocked select may end the process as a
+		// deadlock on one platform and hang on another
+		time.Sleep(time.Hour)
 	}
 	os.Exit(0)
 }

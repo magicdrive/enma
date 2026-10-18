@@ -2,6 +2,8 @@ package commandline
 
 import (
 	_ "embed"
+	"fmt"
+	"strings"
 
 	"github.com/magicdrive/enma/internal/commandline/subcmd"
 )
@@ -11,6 +13,7 @@ const (
 	Watch     = "watch"
 	Scheduler = "scheduler"
 	Init      = "init"
+	Config    = "config"
 	General   = ""
 )
 
@@ -32,7 +35,12 @@ func Execute(version string, args []string) error {
 	case Init:
 		err := subcmd.Init(args[1:])
 		return err
+	case Config:
+		return subcmd.Config(args[1:])
 	default:
+		if !strings.HasPrefix(subcommand, "-") {
+			return fmt.Errorf("unknown subcommand %q (use hotload, watch, scheduler, init or config)\nRun 'enma --help' for usage", subcommand)
+		}
 		err := subcmd.General(version, args)
 		return err
 	}

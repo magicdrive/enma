@@ -98,3 +98,18 @@ func TestArgsPathString(t *testing.T) {
 		}
 	}
 }
+
+// F11: spaces after the commas are accepted by Set, so they must not drop a part.
+func TestArgsPathStyle_SpacesAroundNames(t *testing.T) {
+	var s model.ArgsPathStyleString
+	if err := s.Set("dirname, basename , ext"); err != nil {
+		t.Fatal(err)
+	}
+	obj, err := s.ArgsPathStyleObj()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !obj.DirNameFlag || !obj.BaseNameFlag || !obj.ExtensionFlag {
+		t.Fatalf("parts lost: %+v", obj)
+	}
+}

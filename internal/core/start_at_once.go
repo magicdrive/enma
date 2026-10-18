@@ -9,6 +9,7 @@ import (
 	"os/exec"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"syscall"
 	"time"
 
@@ -69,7 +70,7 @@ func runStartAtOnceCommand(command string, execCommand func(ctx context.Context,
 	if strings.TrimSpace(command) == "" {
 		return nil
 	}
-	log.Printf("🏁 Run start-at-once: %s", command)
+	log.Println("🏁 Run start-at-once") // the command text is not logged: it may hold secrets
 	if execCommand == nil {
 		execCommand = exec.CommandContext
 	}
@@ -108,9 +109,17 @@ func stopLeftovers(cmd *exec.Cmd, pid int, scope *commandScope, grace, killWait 
 		return nil
 	}
 	log.Printf("⚠️  %s left processes behind; stopping them", what)
-	_ = signalGroup(cmd, pid, syscall.SIGTERM)
-	if waitGroupGone(pid, grace, scope.killed()) {
-		return nil
+	// During shutdown a leader killed by SIGKILL normally got it as a member of
+	// its group (the escalation after the grace period, a force kill): the rest
+	// had its SIGTERM and grace already. Then only SIGKILL and the reaping are
+	// left — no second grace period (it would stretch shutdown). Outside shutdown
+	// the leftovers always get SIGTERM and the grace period first: the leader may
+	// have been killed alone (kill -9, OOM).
+	if !(scope.context().Err() != nil && killedBySIGKILL(cmd)) {
+		_ = signalGroup(cmd, pid, syscall.SIGTERM)
+		if waitGroupGone(pid, grace, scope.killed()) {
+			return nil
+		}
 	}
 	_ = signalGroup(cmd, pid, syscall.SIGKILL)
 	if waitGroupGone(pid, killWait, nil) {
@@ -137,4 +146,80 @@ func waitGroupGone(pid int, d time.Duration, stop <-chan struct{}) bool {
 			return !groupAlive(pid)
 		}
 	}
+}
+
+// runInScope runs cmd as a command of scope (it fails at once after shutdown
+// began) and then stops what the command left behind in its process group:
+// SIGTERM, grace, SIGKILL. what names the command in log lines and errors.
+func runInScope(cmd *exec.Cmd, scope *commandScope, grace, killWait time.Duration, what string) error {
+	release, err := scope.enter()
+	if err != nil {
+		return err
+	}
+	defer release()
+	// The command's own deadline (--timeout) cancels it only while it runs;
+	// stopping what it left behind afterwards does not count (H6A2-01).
+	var deadlineHit atomic.Bool
+	if cancel := cmd.Cancel; cancel != nil {
+		cmd.Cancel = func() error {
+			if scope.context().Err() == nil { // not a shutdown: the step's deadline
+				deadlineHit.Store(true)
+			}
+			return cancel()
+		}
+	}
+	runErr := cmd.Run()
+	// (a deadline already over at start, e.g. --timeout 0sec, fails Start
+	// with the context's error without calling Cancel)
+	expiredAtStart := errors.Is(runErr, context.DeadlineExceeded) && scope.context().Err() == nil
+	if runErr != nil && (deadlineHit.Load() || expiredAtStart) {
+		runErr = &stepTimeoutError{err: runErr}
+	}
+	var leftErr error
+	// During shutdown a command that ended on SIGKILL was stopped with its whole
+	// group (SIGTERM, grace, SIGKILL): nothing of it is left to stop, and the
+	// shutdown, which waits for this command, gets no extra work.
+	shutdownKilled := scope.context().Err() != nil && killedBySIGKILL(cmd)
+	switch {
+	case cmd.Process == nil:
+	case shutdownKilled:
+		// should the leader alone have been killed (kill -9, OOM), what is left gets
+		// SIGKILL too, without a wait (A4R2-02)
+		_ = signalGroup(cmd, cmd.Process.Pid, syscall.SIGKILL)
+	default:
+		leftErr = stopLeftovers(cmd, cmd.Process.Pid, scope, grace, killWait, what)
+	}
+	if runErr != nil {
+		return runErr
+	}
+	if leftErr != nil {
+		return fmt.Errorf("%s left processes behind: %w", what, leftErr)
+	}
+	return nil
+}
+
+// stepTimeoutError marks a command that its step's deadline stopped while it
+// was running.
+type stepTimeoutError struct{ err error }
+
+func (e *stepTimeoutError) Error() string { return e.err.Error() }
+func (e *stepTimeoutError) Unwrap() error { return e.err }
+
+// timeoutError names the --timeout when a step failed because it ran past it
+// (its own deadline, not a shutdown), so that "signal: killed" is explained.
+func timeoutError(err error, timeout time.Duration) error {
+	var t *stepTimeoutError
+	if errors.As(err, &t) {
+		return fmt.Errorf("timed out after %s (--timeout): %w", timeout, err)
+	}
+	return err
+}
+
+// killedBySIGKILL reports whether cmd's process ended on SIGKILL.
+func killedBySIGKILL(cmd *exec.Cmd) bool {
+	if cmd.ProcessState == nil {
+		return false
+	}
+	ws, ok := cmd.ProcessState.Sys().(syscall.WaitStatus)
+	return ok && ws.Signaled() && ws.Signal() == syscall.SIGKILL
 }

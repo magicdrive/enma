@@ -1,4 +1,3 @@
-
 package option_test
 
 import (

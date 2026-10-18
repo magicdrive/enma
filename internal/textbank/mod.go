@@ -22,6 +22,9 @@ var WatchHelpMessage string
 //go:embed individual_help/enma_scheduler_help.txt
 var SchedulerHelpMessage string
 
+//go:embed individual_help/enma_config_help.txt
+var ConfigHelpMessage string
+
 //go:embed individual_help/enma_init_help.txt
 var InitHelpMessage string
 

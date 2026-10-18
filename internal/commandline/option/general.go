@@ -30,13 +30,14 @@ func ParseGeneral(args []string) (*GeneralOption, error) {
 	versionFlagOpt := fs.Bool("version", false, "Show version.")
 	fs.BoolVar(versionFlagOpt, "v", false, "Show version.")
 
-	fs.Usage = common.EnmaHelpFunc
+	fs.Usage = common.UsageErrorFunc("enma")
 
 	// Parse flags
 	err := fs.Parse(args)
 	if err != nil {
 		return nil, err
 	}
+	fs.Usage = common.EnmaHelpFunc // --help prints the full help to stdout
 
 	options := &GeneralOption{
 		ConfigFilePath: *configOpt,
@@ -56,13 +57,13 @@ func (cr *GeneralOption) Normalize() error {
 
 	if cr.ConfigFilePath != "" {
 		if stat, err := common.FileExists(cr.ConfigFilePath); err != nil {
-			return err
-		} else if !stat  {
-			return fmt.Errorf("failed load configfile: %v",err)
+			return fmt.Errorf("failed load configfile %s: %w", cr.ConfigFilePath, err)
+		} else if !stat {
+			return fmt.Errorf("failed load configfile %s: no such file", cr.ConfigFilePath)
 		}
 	}
 
-	if cr.HelpFlag == false && cr.VersionFlag == false && cr.ConfigFilePath == "" {
+	if !cr.HelpFlag && !cr.VersionFlag && cr.ConfigFilePath == "" {
 		if path, err := common.FindEnmaConfigFile(); err == nil {
 			cr.ConfigFilePath = path
 		}
