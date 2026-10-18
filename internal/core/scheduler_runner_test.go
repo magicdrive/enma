@@ -763,13 +763,16 @@ func TestScheduler_ParallelShutdown(t *testing.T) {
 
 func TestScheduler_ShutdownSendsTermFirst(t *testing.T) {
 	dir := t.TempDir()
-	mark := filepath.Join(dir, "term")
+	mark, ready := filepath.Join(dir, "term"), filepath.Join(dir, "ready")
 	h := newHarness(t, t0, nil, 4, jobSpec{name: "a", cron: "0 0 * * * *",
-		command: `trap 'echo term >> "` + mark + `"; exit 0' TERM; while :; do sleep 0.05; done`})
+		command: `trap 'echo term >> "` + mark + `"; exit 0' TERM; : > '` + ready + `'; while :; do sleep 0.05; done`})
 	h.quiesce = false // the jobs keep running
 	h.advance(time.Hour)
 	h.waitCount(core.EventJobStart, "a", 1)
-	time.Sleep(100 * time.Millisecond)
+	// shut down once the job's trap is set (it reports ready), not after a fixed sleep
+	if !waitFor(t, 5*time.Second, func() bool { _, err := os.Stat(ready); return err == nil }) {
+		t.Fatal("the job did not report ready")
+	}
 	if err := core.SchedulerShutdownForTest(h.r); err != nil {
 		t.Fatal(err)
 	}

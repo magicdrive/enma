@@ -49,12 +49,18 @@ func TestRunInScope_TimeoutOnlyWhileRunning(t *testing.T) {
 
 	t.Run("failure before the deadline, leftovers stopped after it", func(t *testing.T) {
 		var scope commandScope
-		// the leftover ignores SIGTERM, so stopping it takes the grace period
-		// (1.5s), which ends after the 1s deadline
+		// the leftover ignores SIGTERM (its trap is set before the command
+		// exits: ready), so stopping it takes the grace period (1.5s), which
+		// ends after the 1s deadline
+		ready := t.TempDir() + "/ready"
+		start := time.Now()
 		err := runStep(t, &scope, time.Second, 1500*time.Millisecond,
-			`sh -c 'trap "" TERM; sleep 30' & sleep 0.2; exit 3`)
+			`sh -c 'trap "" TERM; : > "$0"; sleep 30' '`+ready+`' & `+awaitReadySh(ready)+`; exit 3`)
 		if err == nil || strings.Contains(err.Error(), "timed out") || !strings.Contains(err.Error(), "exit status 3") {
 			t.Fatalf("got %v", err)
+		}
+		if el := time.Since(start); el < 1500*time.Millisecond {
+			t.Fatalf("precondition: stopping the leftover took %v, not the grace period (the scenario did not happen)", el)
 		}
 	})
 

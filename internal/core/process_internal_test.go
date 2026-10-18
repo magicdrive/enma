@@ -5,6 +5,7 @@ package core
 import (
 	"os"
 	"os/exec"
+	"path/filepath"
 	"syscall"
 	"testing"
 	"time"
@@ -151,7 +152,10 @@ func TestStopLeftovers_NoSecondGraceAfterSIGKILL(t *testing.T) {
 	var s commandScope
 	s.context()
 	s.cancel() // shutting down
-	cmd := exec.Command("sh", "-c", `(trap '' TERM; exec sleep 30) & sleep 0.2; kill -KILL $$`)
+	// the leader is killed once its child ignores SIGTERM (ready), not after a fixed sleep
+	ready := filepath.Join(t.TempDir(), "ready")
+	cmd := exec.Command("sh", "-c", `(trap '' TERM; : > '`+ready+`'; exec sleep 30) & `+
+		awaitReadySh(ready)+`; kill -KILL $$`)
 	setProcessGroup(cmd)
 	_ = cmd.Run()
 	if !killedBySIGKILL(cmd) {
@@ -176,8 +180,11 @@ func TestStopLeftovers_NoSecondGraceAfterSIGKILL(t *testing.T) {
 // got SIGKILL: what it left behind gets SIGTERM and the grace period first (A4R2-02).
 func TestStopLeftovers_LeaderKilledAloneLeftoversGetTerm(t *testing.T) {
 	var s commandScope
-	mark := t.TempDir() + "/term"
-	cmd := exec.Command("sh", "-c", `(trap 'echo term > "`+mark+`"; exit 0' TERM; sleep 30 & wait) & sleep 0.3; kill -KILL $$`)
+	dir := t.TempDir()
+	mark, ready := dir+"/term", dir+"/ready"
+	// the leader is killed once the leftover's trap is set (ready)
+	cmd := exec.Command("sh", "-c", `(trap 'echo term > "`+mark+`"; exit 0' TERM; : > '`+ready+`'; sleep 30 & wait) & `+
+		awaitReadySh(ready)+`; kill -KILL $$`)
 	setProcessGroup(cmd)
 	_ = cmd.Run()
 	if !killedBySIGKILL(cmd) {

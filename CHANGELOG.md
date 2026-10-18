@@ -49,3 +49,13 @@ All notable changes to enma are listed here. Releases up to v1.2.10 are describe
   `--ignore-file-regex` and `-G` `--ignore-dir-regex`; the combined completion script can be
   sourced by bash.
 - `make release-build` embeds the version, builds arm64 and names Windows binaries `.exe`.
+
+### Known issues
+
+- macOS / BSD (known limitation, accepted and monitored, not fixed): when a directory is
+  created while enma runs and files are added to it right away, files added to it afterwards
+  can, rarely, be missed until enma is restarted; one file descriptor can also stay open after
+  that directory is deleted. The first is caused by a race
+  in fsnotify's kqueue backend (reproduced with fsnotify alone); the second is presumed to have
+  the same cause. Not observed on Linux, which is not a proof that Linux cannot be affected.
+  See README "What is watched".

@@ -12,9 +12,12 @@ test suite (many tests start real processes).
 ```bash
 go build -o enma .        # the binary is built from the repository root
 go vet ./...
-go test ./...             # unit tests and the CLI end-to-end tests (internal/e2e)
-go test -race ./...
+go test -count=1 ./...        # unit tests and the CLI end-to-end tests (internal/e2e)
+go test -count=1 -race ./...
 ```
+
+`-count=1` skips cached results: the end-to-end tests build enma with `go build`, so a change
+of enma alone would not invalidate their cached result.
 
 CI runs these on Linux and macOS for every pull request with the Go version in `go.mod`, and
 `go test -race` with the newest Go release, plus `gofmt`, `staticcheck`, a Windows `go vet`,
@@ -22,7 +25,9 @@ CI runs these on Linux and macOS for every pull request with the Go version in `
 A weekly job runs shuffled tests, short fuzzing and a Windows smoke test.
 
 Dependencies and GitHub Actions are updated by Renovate. The tool versions pinned in the
-workflows (`staticcheck@…`, `govulncheck@…`, GoReleaser `version:`) are updated by hand.
+workflows and the Makefile (`STATICCHECK`, `govulncheck@…`, GoReleaser `version:`) are updated
+by hand. Run `make staticcheck` (Go 1.26 or later; CI uses the newest Go) to use the same
+staticcheck as CI.
 
 ## Pull requests
 

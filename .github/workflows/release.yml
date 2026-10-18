@@ -39,7 +39,7 @@ jobs:
         run: go vet ./...
 
       - name: Run tests
-        run: go test -race ./...
+        run: go test -count=1 -race ./...  # no cached results (see ci.yml)
 
   # RELEASE
   release:

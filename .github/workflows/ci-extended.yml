@@ -28,8 +28,16 @@ jobs:
         with:
           go-version-file: 'go.mod'
 
+      # observations of the known limitation G4-04 (see ci.yml)
+      - name: G4-04 observation log
+        run: echo "ENMA_G404_LOG=$RUNNER_TEMP/enma-G4-04.log" >> "$GITHUB_ENV"
+
       - name: Test (race, shuffled, 3 times)
         run: go test -race -count=3 -shuffle=on ./...
+
+      - name: G4-04 observations
+        if: always()
+        run: sh scripts/g404-report.sh
 
   fuzz:
     runs-on: ubuntu-latest

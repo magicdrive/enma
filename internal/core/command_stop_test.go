@@ -131,6 +131,7 @@ func TestCommandStop_ShutdownSendsTermFirst(t *testing.T) {
 			_ = os.Remove(mark)
 			_ = os.Remove(pids)
 			result := startSeq(t, p, pids)
+			waitExeced(t, readPids(t, pids)[0], "sleep")
 			start := time.Now()
 			if err := stopWithin(t, stopBound, p.shutdown); err != nil {
 				t.Fatalf("shutdown: %v", err)
@@ -174,14 +175,18 @@ func TestCommandStop_ShutdownKillsAfterGrace(t *testing.T) {
 
 func TestCommandStop_ForceKillCutsTheGracePeriod(t *testing.T) {
 	dir := t.TempDir()
-	pids, mark := filepath.Join(dir, "pids"), filepath.Join(dir, "mark")
+	pids, mark, ready := filepath.Join(dir, "pids"), filepath.Join(dir, "mark"), filepath.Join(dir, "ready")
 	killLeftovers(t, pids)
 	// The leader notes SIGTERM and keeps running; its child ignores SIGTERM.
-	command := `trap 'echo term >> "` + mark + `"' TERM; (trap '' TERM; exec sleep 30) & echo $! >> '` + pids + `'; echo $$ >> '` + pids + `'; while :; do wait; done`
+	// The pids are written once the child's trap is set (startSeq waits for them).
+	command := `trap 'echo term >> "` + mark + `"' TERM; (trap '' TERM; : > '` + ready + `'; exec sleep 30) & ` +
+		awaitReadySh(ready) + `; ` +
+		`echo $! >> '` + pids + `'; echo $$ >> '` + pids + `'; while :; do wait; done`
 	for _, p := range commandPaths(t, command, time.Minute, 5*time.Second, testKill, 0) {
 		t.Run(p.name, func(t *testing.T) {
 			_ = os.Remove(mark)
 			_ = os.Remove(pids)
+			_ = os.Remove(ready)
 			result := startSeq(t, p, pids)
 			done := make(chan error, 1)
 			go func() { done <- p.shutdown() }() // graceful: would wait 5s
@@ -251,12 +256,14 @@ func TestCommandStop_LeftoversStoppedWhenTheCommandEnds(t *testing.T) {
 	dir := t.TempDir()
 	pids, mark := filepath.Join(dir, "pids"), filepath.Join(dir, "mark")
 	killLeftovers(t, pids)
-	// the command leaves a background child that notes SIGTERM and exits once
-	// that child is ready (a child still forking when SIGTERM comes could start
-	// after it and only go on SIGKILL, after the grace period)
+	// the command leaves a background shell that notes SIGTERM itself, and exits
+	// once that shell is ready (its trap set). The leftover runs short sleeps in
+	// the foreground instead of a long background one: a SIGTERM reaching a
+	// background child between its fork and its exec can be lost (CI7B-02), the
+	// shell itself then waits only for the current short sleep.
 	ready := filepath.Join(dir, "ready")
-	command := `(trap 'echo term >> "` + mark + `"; exit 0' TERM; sleep 30 & echo $! >> '` + pids + `'; : > '` + ready + `'; wait) & ` +
-		`echo $! >> '` + pids + `'; while [ ! -e '` + ready + `' ]; do sleep 0.01; done; exit 0`
+	command := `(trap 'echo term >> "` + mark + `"; exit 0' TERM; : > '` + ready + `'; while :; do sleep 0.05; done) & ` +
+		`echo $! >> '` + pids + `'; ` + awaitReadySh(ready) + `; exit 0`
 	for _, p := range commandPaths(t, command, time.Minute, 5*time.Second, testKill, 0) {
 		t.Run(p.name, func(t *testing.T) {
 			_ = os.Remove(mark)
@@ -279,13 +286,19 @@ func TestCommandStop_LeftoversStoppedWhenTheCommandEnds(t *testing.T) {
 
 func TestCommandStop_LeftoverIgnoringTermIsKilled(t *testing.T) {
 	dir := t.TempDir()
-	pids := filepath.Join(dir, "pids")
+	pids, ready := filepath.Join(dir, "pids"), filepath.Join(dir, "ready")
 	killLeftovers(t, pids)
-	command := `(trap '' TERM; exec sleep 30) & echo $! >> '` + pids + `'; exit 0`
+	// The leftover must ignore SIGTERM before the command returns (that is when
+	// it gets SIGTERM): it reports ready once its trap is set, and the command
+	// exits only then. Without this, a leftover still starting up dies on
+	// SIGTERM at once — correct behaviour (S6), but not what S7 tests.
+	command := `(trap '' TERM; : > '` + ready + `'; exec sleep 30) & echo $! >> '` + pids + `'; ` +
+		awaitReadySh(ready) + `; exit 0`
 	const grace = 500 * time.Millisecond
 	for _, p := range commandPaths(t, command, time.Minute, grace, testKill, 0) {
 		t.Run(p.name, func(t *testing.T) {
 			_ = os.Remove(pids)
+			_ = os.Remove(ready)
 			start := time.Now()
 			ok := p.seq()
 			expectAllGone(t, pids)

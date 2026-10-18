@@ -106,7 +106,8 @@ Linux and macOS (amd64, arm64) are fully supported and tested. Windows (amd64) b
 limits: commands run with `sh -c`, so a POSIX shell (e.g. from Git for Windows or MSYS2) must be on `PATH`; they
 run without process groups, so enma cannot stop processes a command leaves behind, and enma
 itself stops on Ctrl-C or SIGTERM only. File watching uses inotify on Linux and kqueue on
-macOS (one file descriptor per watched file; see [What is watched](#what-is-watched)).
+macOS (one file descriptor per watched file, and a rare race for new directories; see
+[What is watched](#what-is-watched)).
 Release archives are also built for linux/386, windows/386 and windows/arm64; those builds are
 not tested.
 
@@ -444,6 +445,18 @@ This layered approach ensures clarity in behavior while keeping Enma fast and cu
   reject the directory.
 - macOS (kqueue) uses one file descriptor per watched file: for large trees raise the limit
   (`ulimit -n`) or narrow `--watch-dir`; files that cannot be watched are reported.
+- Known limitation on macOS and BSD (kqueue), accepted and monitored, not fixed: when files are
+  created in a directory right after the directory itself appears, enma can, rarely, stop
+  noticing files added to that new directory: files and subdirectories created in it later are
+  then not seen until enma is restarted. Files that existed when the directory was picked up
+  are not affected. From the code, the same race is presumed possible (not observed) for a
+  directory being added while its parent changes, e.g. at startup.
+  The cause is a race in the file-watching library (fsnotify, kqueue backend) between its own
+  registration of a new directory and enma's: it was reproduced with fsnotify alone. A related
+  symptom, one file descriptor kept open after such a directory is deleted, is presumed to have
+  the same cause (seen only in enma). It has not been observed on Linux (inotify backend, which
+  registers directories differently); that is not a proof that Linux cannot be affected. This
+  will be revisited once fsnotify fixes it.
 
 ### Processes a command leaves behind
 
