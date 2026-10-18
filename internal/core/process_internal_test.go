@@ -3,7 +3,9 @@
 package core
 
 import (
+	"os"
 	"os/exec"
+	"path/filepath"
 	"syscall"
 	"testing"
 	"time"
@@ -117,5 +119,83 @@ func TestManagedProcess_LatchesGroupEmptiedAfterTheLeader(t *testing.T) {
 	var ws syscall.WaitStatus
 	if pid, _ := syscall.Wait4(other.Process.Pid, &ws, syscall.WNOHANG, nil); pid != 0 {
 		t.Fatalf("an unrelated process group was signalled (status %v)", ws)
+	}
+}
+
+// signalGroup never reaches a group enma did not start: pid 0 (kill(0) is the
+// caller's own group), 1 (kill(-1) is every process) and enma's own group are
+// refused. Probed with signal 0, which delivers nothing even if a guard breaks.
+func TestSignalGroup_RefusesForeignGroups(t *testing.T) {
+	for _, pid := range []int{-5, 0, 1, syscall.Getpgrp()} {
+		if err := signalGroup(nil, pid, syscall.Signal(0)); err != errNotAChildGroup {
+			t.Errorf("signalGroup(%d) = %v, want refusal", pid, err)
+		}
+		if pid <= 1 && groupAlive(pid) {
+			t.Errorf("groupAlive(%d) = true", pid)
+		}
+	}
+	child := exec.Command("sleep", "30")
+	setProcessGroup(child)
+	if err := child.Start(); err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = syscall.Kill(-child.Process.Pid, syscall.SIGKILL); _ = child.Wait() })
+	if err := signalGroup(child, child.Process.Pid, syscall.Signal(0)); err != nil {
+		t.Fatalf("own child's group refused: %v", err)
+	}
+}
+
+// During shutdown a leader that ended on SIGKILL (the shutdown's escalation)
+// needs no second grace period for what it left behind: its group is killed at
+// once instead of waiting for a SIGTERM that is ignored.
+func TestStopLeftovers_NoSecondGraceAfterSIGKILL(t *testing.T) {
+	var s commandScope
+	s.context()
+	s.cancel() // shutting down
+	// the leader is killed once its child ignores SIGTERM (ready), not after a fixed sleep
+	ready := filepath.Join(t.TempDir(), "ready")
+	cmd := exec.Command("sh", "-c", `(trap '' TERM; : > '`+ready+`'; exec sleep 30) & `+
+		awaitReadySh(ready)+`; kill -KILL $$`)
+	setProcessGroup(cmd)
+	_ = cmd.Run()
+	if !killedBySIGKILL(cmd) {
+		t.Fatalf("precondition: leader state %v", cmd.ProcessState)
+	}
+	pid := cmd.Process.Pid
+	t.Cleanup(func() { _ = signalGroup(cmd, pid, syscall.SIGKILL) })
+	const grace = 3 * time.Second
+	start := time.Now()
+	if err := stopLeftovers(cmd, pid, &s, grace, 2*time.Second, "test"); err != nil {
+		t.Fatal(err)
+	}
+	if el := time.Since(start); el >= grace {
+		t.Fatalf("waited %v: a second grace period after SIGKILL", el)
+	}
+	if groupAlive(pid) {
+		t.Fatal("the leftover survived")
+	}
+}
+
+// Outside shutdown a leader killed alone (kill -9, OOM) does not mean its group
+// got SIGKILL: what it left behind gets SIGTERM and the grace period first (A4R2-02).
+func TestStopLeftovers_LeaderKilledAloneLeftoversGetTerm(t *testing.T) {
+	var s commandScope
+	dir := t.TempDir()
+	mark, ready := dir+"/term", dir+"/ready"
+	// the leader is killed once the leftover's trap is set (ready)
+	cmd := exec.Command("sh", "-c", `(trap 'echo term > "`+mark+`"; exit 0' TERM; : > '`+ready+`'; sleep 30 & wait) & `+
+		awaitReadySh(ready)+`; kill -KILL $$`)
+	setProcessGroup(cmd)
+	_ = cmd.Run()
+	if !killedBySIGKILL(cmd) {
+		t.Fatalf("precondition: leader state %v", cmd.ProcessState)
+	}
+	pid := cmd.Process.Pid
+	t.Cleanup(func() { _ = signalGroup(cmd, pid, syscall.SIGKILL) })
+	if err := stopLeftovers(cmd, pid, &s, 3*time.Second, 2*time.Second, "test"); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := os.Stat(mark); err != nil {
+		t.Fatal("the leftover got SIGKILL without SIGTERM first")
 	}
 }

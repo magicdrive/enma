@@ -135,6 +135,7 @@ func shells() []string {
 func runShell(t *testing.T, shell, dir string, args ...string) (string, int) {
 	t.Helper()
 	cmd := exec.Command(shell, args...)
+	core.AdaptShellForTest(cmd) // as enma runs its commands
 	cmd.Dir = dir
 	var out bytes.Buffer
 	cmd.Stdout, cmd.Stderr = &out, &out
@@ -318,6 +319,7 @@ func FuzzShellCommandArgs(f *testing.F) {
 		if form.arg[0] != '$' && !strings.HasPrefix(form.arg, "\"`") {
 			cmd = exec.Command("sh", cmd.Args[1:]...)
 		}
+		core.AdaptShellForTest(cmd) // as enma runs its commands
 		cmd.Dir = dir
 		if b, err := cmd.CombinedOutput(); err != nil {
 			t.Fatalf("shell failed for %q: %v %s", path, err, b)

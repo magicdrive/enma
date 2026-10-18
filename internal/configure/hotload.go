@@ -2,6 +2,7 @@ package configure
 
 import (
 	"fmt"
+	"strings"
 
 	"github.com/magicdrive/enma/internal/commandline/option"
 	"github.com/magicdrive/enma/internal/common"
@@ -52,7 +53,14 @@ func NewHotloadOptionFromTOMLConfig(h TomlHotloadConf) (*option.HotloadOption, e
 	delay := Fallback(h.Delay, "1sec")
 
 	if daemon == "" || build == "" {
-		return nil, fmt.Errorf("required fields missing in hotload config")
+		var missing []string
+		if daemon == "" {
+			missing = append(missing, "daemon")
+		}
+		if build == "" {
+			missing = append(missing, "build")
+		}
+		return nil, fmt.Errorf("required fields missing in hotload config: %s", strings.Join(missing, ", "))
 	}
 
 	startAtOnce, err := StartAtOnce(h.StartAtOnce, h.StartAtOnceAlias)

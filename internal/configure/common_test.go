@@ -1,4 +1,3 @@
-
 package configure_test
 
 import (

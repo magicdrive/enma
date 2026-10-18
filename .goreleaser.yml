@@ -1,3 +1,5 @@
+version: 2
+
 project_name: enma
 
 release:
@@ -5,7 +7,7 @@ release:
     owner: magicdrive
     name: enma
   draft: false
-  prerelease: "false"
+  prerelease: auto  # a tag like v1.3.0-rc.1 is published as a pre-release
 
 builds:
   - id: enma
@@ -25,18 +27,31 @@ builds:
 
 archives:
   - id: tar.gz
-    format: tar.gz
+    formats: [tar.gz]
+    format_overrides:
+      - goos: windows
+        formats: [zip]
     files:
-     - src: misc/completions/enma-completion.sh
-       dst: completions/enma-completion.sh
-     - src: misc/completions/zsh/_enma
-       dst: completions/zsh/_enma
-     - src: misc/completions/bash/enma-completion.bash
-       dst: completions//bash/enma-completion.bash
+      - LICENSE
+      - README.md
+      - src: misc/completions/enma-completion.sh
+        dst: completions/enma-completion.sh
+      - src: misc/completions/zsh/_enma
+        dst: completions/zsh/_enma
+      - src: misc/completions/bash/enma-completion.bash
+        dst: completions/bash/enma-completion.bash
 
 checksum:
   name_template: "{{ .ProjectName }}_checksums.txt"
+  algorithm: sha256
 
+snapshot:
+  version_template: "{{ incpatch .Version }}-snapshot"
+
+# `brews` is deprecated in GoReleaser v2 in favour of `homebrew_casks`.
+# It is kept on purpose (owner decision 2026-10-18): moving to a cask changes
+# what the tap publishes (a formula -> a cask in Casks/). `goreleaser check`
+# reports the deprecation (exits non-zero); the release still works.
 brews:
   - name: enma
     repository:
@@ -44,9 +59,10 @@ brews:
       name: homebrew-tap
       branch: main
     homepage: "https://github.com/magicdrive/enma"
-    description: "Yet another integration software with file monitoring."
+    description: "Yet another event-driven command runner."
     license: "MIT"
     ids: [tar.gz]
+    skip_upload: auto  # a pre-release does not update the Homebrew tap
     install: |
       bin.install "enma"
     extra_install: |
@@ -57,4 +73,3 @@ brews:
     commit_author:
       name: magicdrive bot
       email: hiroshi.ikegami+githubbot@magicdrive.jp
-

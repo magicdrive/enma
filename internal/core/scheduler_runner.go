@@ -4,16 +4,12 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"io"
 	"log"
 	"os"
 	"os/exec"
-	"os/signal"
-	"runtime"
 	"strings"
 	"sync"
 	"sync/atomic"
-	"syscall"
 	"time"
 
 	"github.com/magicdrive/enma/internal/commandline/option"
@@ -192,54 +188,17 @@ func (r *SchedulerRunner) init() {
 // Start runs the scheduler until a signal stops it, like the other modes:
 // pid file, log file, first signal → graceful shutdown (exit 0, or 1 when it
 // is incomplete), second signal → kill at once (exit 1).
-func (r *SchedulerRunner) Start() error {
-	if r.Options.PidPathOpt != "" {
-		if err := common.CreatePidFile(r.Options.PidPathOpt); err != nil {
-			return err
-		}
+func (r *SchedulerRunner) Start() (err error) {
+	env, err := openStartEnv(r.Options.PidPathOpt, r.Options.LogPathOpt)
+	if err != nil {
+		return err
 	}
-	if r.Options.LogPathOpt != "" {
-		createErr := common.CreateFileWithDirs(r.Options.LogPathOpt, "")
-		f, openErr := os.OpenFile(r.Options.LogPathOpt, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0644)
-		if createErr == nil && openErr == nil {
-			log.SetOutput(io.MultiWriter(os.Stdout, f))
-			defer f.Close()
-		}
-	}
+	defer env.failed(&err)
 
 	fmt.Println(common.StartMessage())
 	fmt.Printf("Start Scheduler mode.\n\n\n")
 
-	signalChan := make(chan os.Signal, 1)
-	if runtime.GOOS != "windows" {
-		signal.Notify(signalChan, syscall.SIGINT, syscall.SIGTERM, syscall.SIGHUP)
-	} else {
-		signal.Notify(signalChan, os.Interrupt, syscall.SIGTERM) // os.Kill cannot be caught
-	}
-	go func() {
-		<-signalChan
-		log.Println("🛑 Stopping scheduler... (send the signal again to force)")
-		done := make(chan error, 1)
-		go func() { done <- r.shutdown() }()
-		code := 0
-		select {
-		case err := <-done:
-			if err != nil {
-				log.Printf("❌ Shutdown incomplete: %v", err)
-				code = 1
-			}
-		case <-signalChan:
-			log.Println("⚡ Forced shutdown")
-			r.forceKill()
-			code = 1
-		}
-		if r.Options.PidPathOpt != "" {
-			if err := common.DeletePidFile(r.Options.PidPathOpt); err != nil {
-				log.Printf("failed delete pidfile.: %s\n", err.Error())
-			}
-		}
-		os.Exit(code)
-	}()
+	env.handleSignals("🛑 Stopping scheduler...", r.shutdown, r.forceKill)
 
 	if err := r.Serve(); err != nil {
 		return err

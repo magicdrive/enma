@@ -2,6 +2,7 @@ package model
 
 import (
 	"fmt"
+	"sort"
 	"syscall"
 )
 
@@ -31,5 +32,6 @@ func AllowedSignals() []string {
 	for name := range signalMap {
 		list = append(list, name)
 	}
+	sort.Strings(list) // a stable order in messages (F19)
 	return list
 }

@@ -2,7 +2,7 @@ package ignorerule
 
 import (
 	"bufio"
-	"fmt"
+	"log"
 	"os"
 	"path/filepath"
 	"regexp"
@@ -17,17 +17,11 @@ type IgnorePattern struct {
 }
 
 type GitIgnore struct {
-	registeredPatternMap map[string]bool
-	registeredStringMap  map[string]string
-	patterns             []*IgnorePattern
+	patterns []*IgnorePattern
 }
 
 func NewPlainIgnoreRule() *GitIgnore {
-	return &GitIgnore{
-		registeredPatternMap: map[string]bool{},
-		registeredStringMap:  map[string]string{},
-		patterns:             []*IgnorePattern{},
-	}
+	return &GitIgnore{patterns: []*IgnorePattern{}}
 }
 
 func CompileIgnoreText(text string) (*GitIgnore, error) {
@@ -66,35 +60,28 @@ func AppendIgnoreFile(gi *GitIgnore, path string) (*GitIgnore, error) {
 	return AppendIgnoreLines(gi, lines...)
 }
 
+// AppendIgnoreLines adds patterns; as in .gitignore the last matching pattern
+// decides, so a repeated line is kept (it may override a negation before it).
+// A line that does not compile (e.g. the class "[z-a]") is reported and skipped;
+// the other lines still apply.
 func AppendIgnoreLines(gi *GitIgnore, lines ...string) (*GitIgnore, error) {
 	for i, raw := range lines {
-		line := strings.TrimRight(raw, "\r")
-		line = strings.TrimSpace(line)
+		line := trimIgnoreLine(strings.TrimRight(raw, "\r"))
 		if line == "" || strings.HasPrefix(line, "#") {
 			continue
 		}
 
-		if gi.registeredPatternMap[line] {
-			continue
-		}
-
-		escaped := strings.HasPrefix(raw, `\!`) || strings.HasPrefix(raw, `\#`)
-		negate := false
-		if strings.HasPrefix(line, "!") && !escaped {
+		negate := false // a leading `\!` is a literal "!" (handled by the translation)
+		if strings.HasPrefix(line, "!") {
 			negate = true
 			line = line[1:]
-		}
-
-		line = unescapeGitignore(line)
-
-		if strings.HasSuffix(line, "/") {
-			line += "**"
 		}
 
 		reStr := gitignorePatternToRegex(line)
 		re, err := regexp.Compile(reStr)
 		if err != nil {
-			return nil, fmt.Errorf("invalid pattern on line %d: %w", i+1, err)
+			log.Printf("⚠️  ignore pattern %q (line %d) is invalid and skipped: %v", raw, i+1, err)
+			continue
 		}
 
 		gi.patterns = append(gi.patterns, &IgnorePattern{
@@ -103,45 +90,153 @@ func AppendIgnoreLines(gi *GitIgnore, lines ...string) (*GitIgnore, error) {
 			LineNo: i + 1,
 			Raw:    raw,
 		})
-		gi.registeredPatternMap[line] = true
-		gi.registeredStringMap[line] = reStr
 	}
 	return gi, nil
 }
 
-func unescapeGitignore(line string) string {
-	line = strings.ReplaceAll(line, `\\`, `\`)
-	line = strings.ReplaceAll(line, `\ `, ` `)
-	if strings.HasPrefix(line, `\!`) || strings.HasPrefix(line, `\#`) {
-		line = line[1:]
+// trimIgnoreLine removes leading spaces (as enma always did) and trailing
+// spaces unless the last one is escaped with a backslash (as in .gitignore).
+func trimIgnoreLine(line string) string {
+	line = strings.TrimLeft(line, " \t")
+	trimmed := strings.TrimRight(line, " \t")
+	if len(trimmed) < len(line) {
+		// an odd number of backslashes at the end escapes the first space
+		n := len(trimmed) - len(strings.TrimRight(trimmed, `\`))
+		if n%2 == 1 {
+			return trimmed + " "
+		}
 	}
-	return line
+	return trimmed
 }
 
+// gitignorePatternToRegex translates one .gitignore-style pattern into a
+// regexp matched against a slash-separated path relative to the directory the
+// patterns belong to (the project directory):
+//   - a leading or middle slash anchors the pattern to that directory; without
+//     one it matches at any depth;
+//   - a trailing slash matches the directory and everything below it;
+//   - `*` and `?` do not cross a slash, `**` does (`**/x`, `x/**`, `a/**/b`);
+//   - `[abc]`, `[a-z]` and `[!abc]` are character classes;
+//   - a backslash makes the next character literal (`\#`, `\!`, `\*`, `\ `).
 func gitignorePatternToRegex(pattern string) string {
+	dirOnly := strings.HasSuffix(pattern, "/") && !strings.HasSuffix(pattern, `\/`)
+	if dirOnly {
+		pattern = strings.TrimRight(pattern, "/")
+	}
 	anchor := strings.HasPrefix(pattern, "/")
-	if anchor {
-		pattern = pattern[1:]
+	pattern = strings.TrimPrefix(pattern, "/")
+	if strings.Contains(pattern, "/") {
+		anchor = true
 	}
 
-	pattern = regexp.QuoteMeta(pattern)
-
-	pattern = strings.ReplaceAll(pattern, `/\*\*/`, `(?:/[^/]*)*/`)
-
-	pattern = strings.ReplaceAll(pattern, `\*\*/`, `(?:.*/)?`)
-	pattern = strings.ReplaceAll(pattern, `/\*\*`, `(?:/.*)?`)
-	pattern = strings.ReplaceAll(pattern, `\*\*`, `.*`)
-
-	pattern = strings.ReplaceAll(pattern, `\*`, `[^/]*`)
-	pattern = strings.ReplaceAll(pattern, `\?`, `[^/]`)
-
-	if anchor {
-		pattern = "^" + pattern + "$"
-	} else {
-		pattern = "(^|/)" + pattern + "$"
+	var b strings.Builder
+	segs := strings.Split(pattern, "/")
+	needSlash := false
+	for i, seg := range segs {
+		if seg == "**" {
+			switch {
+			case i == len(segs)-1 && i == 0:
+				b.WriteString(`.*`)
+			case i == len(segs)-1: // x/**: everything below x, not x itself (as in git)
+				b.WriteString(`/.*`)
+			default: // **/x, a/**/b: any number of directories
+				if needSlash {
+					b.WriteString("/")
+				}
+				b.WriteString(`(?:.*/)?`)
+			}
+			needSlash = false
+			continue
+		}
+		if needSlash {
+			b.WriteString("/")
+		}
+		b.WriteString(globSegmentToRegex(seg))
+		needSlash = true
 	}
+	re := b.String()
+	if dirOnly {
+		re += `(?:/.*)?`
+	}
+	if anchor {
+		return "^" + re + "$"
+	}
+	return "(^|/)" + re + "$"
+}
 
-	return pattern
+// globSegmentToRegex translates one path segment of a pattern.
+func globSegmentToRegex(seg string) string {
+	var b strings.Builder
+	for i := 0; i < len(seg); i++ {
+		c := seg[i]
+		switch c {
+		case '\\':
+			if i+1 < len(seg) {
+				i++
+				b.WriteString(regexp.QuoteMeta(seg[i : i+1]))
+			} else {
+				b.WriteString(`\\`)
+			}
+		case '*':
+			for i+1 < len(seg) && seg[i+1] == '*' { // a ** inside a segment acts like *
+				i++
+			}
+			b.WriteString(`[^/]*`)
+		case '?':
+			b.WriteString(`[^/]`)
+		case '[':
+			if class, n, ok := bracketClass(seg[i:]); ok {
+				b.WriteString(class)
+				i += n - 1
+			} else {
+				b.WriteString(`\[`)
+			}
+		default:
+			b.WriteString(regexp.QuoteMeta(seg[i : i+1]))
+		}
+	}
+	return b.String()
+}
+
+// bracketClass translates the bracket expression at the start of s ("[...]")
+// and returns the regexp class and the bytes it used; ok is false when s has
+// no closing bracket (the "[" is then literal).
+func bracketClass(s string) (class string, n int, ok bool) {
+	i := 1
+	negate := false
+	if i < len(s) && (s[i] == '!' || s[i] == '^') {
+		negate = true
+		i++
+	}
+	var body strings.Builder
+	first := true
+	for ; i < len(s); i++ {
+		c := s[i]
+		if c == ']' && !first {
+			if body.Len() == 0 {
+				return "", 0, false
+			}
+			if negate {
+				return "[^/" + body.String() + "]", i + 1, true
+			}
+			return "[" + body.String() + "]", i + 1, true
+		}
+		first = false
+		if c == '\\' && i+1 < len(s) { // an escaped character is literal
+			i++
+			c = s[i]
+		} else if c == '-' { // a range, as in a-z
+			body.WriteByte(c)
+			continue
+		}
+		// letters and digits stand for themselves; anything else is escaped, so
+		// that no character becomes a regexp escape such as \d
+		if c < 0x80 && !(c >= 'a' && c <= 'z' || c >= 'A' && c <= 'Z' || c >= '0' && c <= '9') {
+			body.WriteByte('\\')
+		}
+		body.WriteByte(c)
+	}
+	return "", 0, false
 }
 
 func CompileIgnoreFile(path string) (*GitIgnore, error) {

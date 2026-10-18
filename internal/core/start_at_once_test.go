@@ -201,8 +201,9 @@ func TestStartAtOnce_RunsInTheCurrentDirectory(t *testing.T) {
 
 func TestStartAtOnce_LeftoversAreStopped(t *testing.T) {
 	cases := map[string]string{
-		"term":        `sleep 1000 & echo $! >> '%s'`,
-		"ignore-term": `sh -c "trap '' TERM; echo \$\$ >> '%s'; while :; do sleep 0.05; done" & sleep 0.2`,
+		"term": `sleep 1000 & echo $! >> '%s'`,
+		"ignore-term": `sh -c "trap '' TERM; echo \$\$ >> '%s'; : > '%s.ready'; while :; do sleep 0.05; done" & ` +
+			awaitReadySh("%s.ready") + `; rm -f '%s.ready'`,
 	}
 	for name, tmpl := range cases {
 		t.Run(name, func(t *testing.T) {
@@ -239,6 +240,7 @@ func TestStartAtOnce_ShutdownStopsItTermFirst(t *testing.T) {
 			if !waitFor(t, 2*time.Second, func() bool { return len(readPids(t, pids)) == n+1 }) {
 				t.Fatal("start-at-once did not start")
 			}
+			waitExeced(t, readPids(t, pids)[n], "sleep")
 			if err := stopWithin(t, stopBound, r.shutdown); err != nil {
 				t.Fatalf("shutdown: %v", err)
 			}
@@ -266,7 +268,10 @@ func TestStartAtOnce_LeftoversGetTermFirst(t *testing.T) {
 	dir := t.TempDir()
 	pids, mark := filepath.Join(dir, "pids"), filepath.Join(dir, "term")
 	killLeftovers(t, pids)
-	command := `sh -c "trap 'echo term >> ` + mark + `; exit 0' TERM; echo \$\$ >> ` + pids + `; while :; do sleep 0.05; done" & sleep 0.2`
+	// the leader exits once the leftover's trap is set (ready), not after a fixed sleep
+	ready := pids + ".ready"
+	command := `sh -c "trap 'echo term >> \"` + mark + `\"; exit 0' TERM; echo \$\$ >> '` + pids + `'; : > '` + ready + `'; while :; do sleep 0.05; done" & ` +
+		awaitReadySh(ready) + `; rm -f '` + ready + `'`
 	for _, r := range startAtOnceRunners(t, command, 0) {
 		if err := stopWithin(t, stopBound, r.run); err != nil {
 			t.Fatalf("%s: %v", r.name, err)
@@ -317,7 +322,12 @@ func TestStartAtOnce_ForceKillCutsTheLeftoverGrace(t *testing.T) {
 	pids := filepath.Join(dir, "pids")
 	killLeftovers(t, pids)
 	const grace = 5 * time.Second
-	command := `sh -c "trap '' TERM; echo \$\$ >> ` + pids + `; while :; do sleep 0.05; done" & sleep 0.2`
+	// the leader records its pid, and exits once the leftover's trap is set (it
+	// then gets SIGTERM)
+	ready, leader := pids+".ready", filepath.Join(dir, "leader")
+	command := `echo $$ > '` + leader + `'; ` +
+		`sh -c "trap '' TERM; echo \$\$ >> '` + pids + `'; : > '` + ready + `'; while :; do sleep 0.05; done" & ` +
+		awaitReadySh(ready) + `; rm -f '` + ready + `'`
 	for _, r := range startAtOnceRunners(t, command, 0) {
 		t.Run(r.name, func(t *testing.T) {
 			n := len(readPids(t, pids))
@@ -331,8 +341,12 @@ func TestStartAtOnce_ForceKillCutsTheLeftoverGrace(t *testing.T) {
 			if !waitFor(t, 3*time.Second, func() bool { return len(readPids(t, pids)) == n+1 }) {
 				t.Fatal("start-at-once did not start")
 			}
-			// the leader exits after 0.2s; then the leftover ignores SIGTERM and its grace runs
-			time.Sleep(600 * time.Millisecond)
+			// once the leader has exited, the leftover ignores SIGTERM and its grace
+			// runs: the force kill below must cut that grace, not the leader's run
+			leaderPid := readPids(t, leader)[0]
+			if !waitFor(t, 3*time.Second, func() bool { return !alive(leaderPid) }) {
+				t.Fatal("the leader did not exit")
+			}
 			select {
 			case err := <-done:
 				t.Fatalf("returned before the grace ran out: %v", err)

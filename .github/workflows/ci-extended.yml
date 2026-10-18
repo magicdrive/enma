@@ -1,0 +1,138 @@
+name: CI (extended)
+
+# Slower checks, run by hand, once a week, or on a pull request labeled
+# `ci-extended`: tests in random order with several seeds, a short fuzz run of
+# every fuzz target, tests on linux/arm64, and a smoke run of the real binary on
+# Windows.
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: '0 18 * * 0'  # Mondays 03:00 JST
+  # A pull request runs it only while it carries the label `ci-extended` (the
+  # light gate in ci.yml runs on every pull request). The workflow then comes
+  # from the pull request itself, so it can be run before it is on main.
+  pull_request:
+    types: [opened, synchronize, reopened, labeled]
+
+permissions:
+  contents: read
+
+# a newer push or label on the same pull request supersedes a running check
+concurrency:
+  group: ci-extended-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  shuffle:
+    if: github.event_name != 'pull_request' || contains(github.event.pull_request.labels.*.name, 'ci-extended')
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, ubuntu-24.04-arm, macos-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+
+      - name: Set up Go
+        uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7
+        with:
+          go-version-file: 'go.mod'
+
+      # observations of the known limitation G4-04 (see ci.yml)
+      - name: G4-04 observation log
+        run: echo "ENMA_G404_LOG=$RUNNER_TEMP/enma-G4-04.log" >> "$GITHUB_ENV"
+
+      # three runs, each with its own random order (the seed is printed as
+      # -test.shuffle N, so a failing order can be replayed with -shuffle=N)
+      - name: Test (race, shuffled, 3 seeds)
+        run: |
+          set -eu
+          for i in 1 2 3; do
+            echo "== shuffled run $i"
+            go test -count=1 -race -shuffle=on ./...
+          done
+
+      # the process-stopping tests (S7 and the related timing checks) repeated
+      - name: Test process stopping (race, shuffled, 10 times)
+        run: go test -count=10 -race -shuffle=on -run 'TestCommandStop_|TestLifecycle_|TestStartAtOnce_|TestStopLeftovers|TestRunInScope|TestScheduler_ShutdownSendsTermFirst' ./internal/core/
+
+      - name: G4-04 observations
+        if: always()
+        run: sh scripts/g404-report.sh
+
+  fuzz:
+    if: github.event_name != 'pull_request' || contains(github.event.pull_request.labels.*.name, 'ci-extended')
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+
+      - name: Set up Go
+        uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7
+        with:
+          go-version-file: 'go.mod'
+
+      - name: Fuzz every target for 30s
+        run: |
+          set -eu
+          pkgs=$(go list ./...)
+          n=0
+          for pkg in $pkgs; do
+            list=$(go test -list '^Fuzz' "$pkg")  # fails the step if the tests do not build
+            for target in $(echo "$list" | grep '^Fuzz' || true); do
+              echo "== $pkg $target"
+              # -timeout: a hang fails with a stack dump instead of running on
+              go test -run '^$' -fuzz "^${target}\$" -fuzztime 30s -timeout 10m "$pkg"
+              n=$((n + 1))
+            done
+          done
+          echo "fuzzed $n targets"
+          [ "$n" -gt 0 ]
+
+      # a failing input is written to testdata/fuzz/<Target>/ (see the go test
+      # output for `go test -run=<Target>/<name>` to replay it)
+      - name: Failing fuzz inputs
+        if: failure()
+        run: |
+          find . -path '*/testdata/fuzz/*' -type f -newer go.mod -print -exec cat {} \; || true
+
+  # Windows is supported with limits (see README "Platforms"): the binary is
+  # built and run natively here; the Unix-only tests are not run.
+  windows-smoke:
+    if: github.event_name != 'pull_request' || contains(github.event.pull_request.labels.*.name, 'ci-extended')
+    runs-on: windows-latest
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+
+      - name: Set up Go
+        uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7
+        with:
+          go-version-file: 'go.mod'
+
+      # the tests that build on Windows (the Unix-only ones are excluded by
+      # their build tags), then the real binary
+      - name: Test
+        run: go test -count=1 ./...
+
+      # MSYS=noglob changes how the MSYS2 sh splits its command line: the
+      # command-passing tests must hold with it too
+      - name: Command passing with MSYS=noglob
+        env:
+          MSYS: noglob
+        run: go test -count=1 -run 'TestCommandSafety|TestShell|FuzzShellCommandArgs|TestEnvArgs' ./internal/core ./internal/shellcmd
+
+      - name: Build and run
+        run: |
+          set -eu
+          go build -o enma.exe .
+          ./enma.exe --version
+          ./enma.exe --help >/dev/null
+          mkdir smoke && cd smoke
+          ../enma.exe init --mode scheduler
+          ../enma.exe config validate --next 3

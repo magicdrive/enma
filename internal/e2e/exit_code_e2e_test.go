@@ -111,7 +111,7 @@ func TestE2E_ExitCode_DefaultInvocationFailures(t *testing.T) {
 	cases := []struct {
 		name, conf, msg string
 	}{
-		{"no config file", "", "Cann't find enma config file"},
+		{"no config file", "", "can't find an enma config file"}, // wording fixed in H4 (was "Cann't find enma config file")
 		{"invalid TOML", "[subcommand\nuse = ", "failed to parse config"},
 		{"unsupported mode", "[subcommand]\nuse = \"bogus\"\n", "unsupported subcommand: bogus"},
 		{"empty mode", "[subcommand]\n", "unsupported subcommand: "},
@@ -149,7 +149,7 @@ func TestE2E_ExitCode_ConfigOptionFailures(t *testing.T) {
 		args []string
 		msg  string
 	}{
-		// the message itself is poor ("failed load configfile: <nil>"): reported, not changed here
+		// H4: the message names the file and the cause (it used to be "failed load configfile: <nil>")
 		{"missing file", []string{"--config", filepath.Join(dir, "none.toml")}, "failed load configfile"},
 		{"invalid TOML", []string{"--config", write("bad.toml", "[x")}, "failed to parse config"},
 		{"unsupported mode", []string{"-c", write("mode.toml", "[subcommand]\nuse = \"bogus\"\n")}, "unsupported subcommand: bogus"},
@@ -179,7 +179,7 @@ func TestE2E_ExitCode_SubcommandFailures(t *testing.T) {
 			expectFailure(t, runEnma(t, dir, tc.args...), tc.msg)
 		})
 	}
-	// unchanged: a missing required flag prints the usage and exits 1
+	// a missing required flag is an error (stderr, exit 1); since H4 without the usage on stdout
 	if r := runEnma(t, dir, "watch"); r.code != 1 {
 		t.Errorf("enma watch without --command: exit %d, want 1", r.code)
 	}

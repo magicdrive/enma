@@ -7,8 +7,16 @@ BINARY_NAME = enma
 VERSION = $(shell git describe --tags --always)
 LDFLAGS += -X "main.version=$(VERSION)"
 
-PLATFORMS := linux/amd64 darwin/amd64 windows/amd64
+PLATFORMS := linux/amd64 linux/arm64 darwin/amd64 darwin/arm64 windows/amd64
 GO := GO111MODULE=on CGO_ENABLED=0 go
+
+# staticcheck, pinned (CI runs `make staticcheck` too; needs Go 1.26 or later).
+# 2026.2.1 (v0.8.1) cannot read Go 1.27.2's export data ("export data version 5
+# is greater than maximum supported version 4"). This development commit can; it
+# was verified with Go 1.27.2 (no finding here, findings still reported) and is
+# the one used by a sibling project's CI. The release 2026.2.2 (v0.8.2) also
+# works with Go 1.27.2: moving to it is a separate decision.
+STATICCHECK := honnef.co/go/tools/cmd/staticcheck@v0.7.0-0.dev.0.20261009230814-452d5bb86b45
 
 # Argments
 tag =
@@ -29,13 +37,14 @@ build: clean
 release-build: clean $(PLATFORMS)
 	@echo "Release files are created in the $(BUILD_DIR) directory."
 
-# Build each platform
+# Build each platform (windows binaries get the .exe suffix)
+os = $(word 1,$(subst /, ,$@))
+arch = $(word 2,$(subst /, ,$@))
+platform_bin = $(BUILD_DIR)/$(os)-$(arch)/$(BINARY_NAME)$(if $(filter windows,$(os)),.exe)
 $(PLATFORMS):
 	@mkdir -p $(BUILD_DIR)
-	GOOS=$(word 1,$(subst /, ,$@)) GOARCH=$(word 2,$(subst /, ,$@)) \
-		 $(GO) build -o $(BUILD_DIR)/$(word 1,$(subst /, ,$@))-$(word 2,$(subst /, ,$@))/$(BINARY_NAME)\
-		 -ldflags "$(LDFAGS)" .
-	chmod 755 $(BUILD_DIR)/$(word 1,$(subst /, ,$@))-$(word 2,$(subst /, ,$@))/$(BINARY_NAME)
+	GOOS=$(os) GOARCH=$(arch) $(GO) build -o $(platform_bin) -ldflags "$(LDFLAGS)" .
+	chmod 755 $(platform_bin)
 
 # Run go test for each directory
 .PHONY: test
@@ -47,6 +56,11 @@ test:
 test-verbose:
 	@$(GO) clean -testcache
 	@$(GO) test -v $(CURDIR)/...
+
+# Run the pinned staticcheck
+.PHONY: staticcheck
+staticcheck:
+	@$(GO) run $(STATICCHECK) ./...
 
 # Install application. Use `go install`
 .PHONY: install
@@ -90,9 +104,10 @@ help:
 	@echo "Makefile commands:"
 	@echo "  make build             - Build all artifacts"
 	@echo "  make release-build     - Build artifacts for multiple platforms with version info"
-	@echo "  make install           - Install application. Use `go install`"
+	@echo "  make install           - Install application with go install"
 	@echo "  make test              - Run go test"
 	@echo "  make test-verbose      - Run go test -v with go clean -testcache"
+	@echo "  make staticcheck       - Run the pinned staticcheck"
 	@echo "  make clean             - Remove build artifacts"
 	@echo "  make dev-tools         - Install dev tools"
 	@echo "  make goreg             - Execute goreg -w to entire gofile"

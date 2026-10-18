@@ -280,7 +280,7 @@ func TestWatchRunnerHelperProcess(t *testing.T) {
 	}
 	args := os.Args
 	if len(args) > 3 && args[3] == "sleep" {
-		select {} // block forever
+		time.Sleep(time.Hour) // see TestHotloadRunnerHelperProcess
 	}
 	os.Exit(0)
 }

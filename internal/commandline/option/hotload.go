@@ -123,6 +123,7 @@ func ParseHotload(args []string) (*HotloadOption, error) {
 	// --check-content-diff
 	checkContentDiffFlagOpt :=
 		fs.String("check-content-diff", "on", "Fires only when the file contents are changed. (optional)")
+	fs.StringVar(checkContentDiffFlagOpt, "C", "on", "Fires only when the file contents are changed. (optional)") // documented as -C; was missing
 
 	// --absolute-path
 	absolutePathFlagOpt :=
@@ -147,8 +148,9 @@ func ParseHotload(args []string) (*HotloadOption, error) {
 	fs.StringVar(defaultIgnoresOpt, "D", "minimal", "Defines defualt loads enmaignore volume. (optional)")
 
 	// --watch-dir
-	watchDirOpt := fs.String("watch-dir", currentDir, "Specify watch directories (optional)")
-	fs.StringVar(watchDirOpt, "w", currentDir, "Specify watch directories (optional)")
+	// the default is the working directory: "./" is resolved after the switch to --working-dir (F09)
+	watchDirOpt := fs.String("watch-dir", "./", "Specify watch directories (optional)")
+	fs.StringVar(watchDirOpt, "w", "./", "Specify watch directories (optional)")
 
 	// --pattern-regex
 	patternRegexOpt := fs.String("pattern-regex", ".*", "Specify watch file pattern regexp (optional)")
@@ -188,7 +190,7 @@ func ParseHotload(args []string) (*HotloadOption, error) {
 	helpFlagOpt := fs.Bool("help", false, "Show help message.")
 	fs.BoolVar(helpFlagOpt, "h", false, "Show help message.")
 
-	fs.Usage = common.EnmaHelpFunc
+	fs.Usage = common.UsageErrorFunc("enma hotload") // parse errors; replaced by the help after parsing
 
 	// Parse flags
 	err := fs.Parse(args)
@@ -204,10 +206,8 @@ func ParseHotload(args []string) (*HotloadOption, error) {
 		os.Exit(0)
 	}
 	// Validate required flags
-	if *daemonOpt == "" || *buildOpt == "" {
-		fmt.Println("Missing required flags for hotload")
-		fs.Usage()
-		os.Exit(1)
+	if missing := missingFlags(map[string]string{"--daemon (-d)": *daemonOpt, "--build (-b)": *buildOpt}); missing != "" {
+		return nil, fmt.Errorf("hotload: missing required flags: %s\nRun 'enma hotload --help' for usage", missing)
 	}
 
 	options := &HotloadOption{

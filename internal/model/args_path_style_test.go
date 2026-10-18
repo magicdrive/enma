@@ -91,10 +91,28 @@ func TestArgsPathString(t *testing.T) {
 		if err != nil {
 			t.Errorf("expected success for %q, got error: %v", c.styleStr, err)
 		}
+		// the cases are written with "/": on Windows the input and the result
+		// use its separator (enma passes native paths, README: filepath-style)
+		c.path, c.expected = filepath.FromSlash(c.path), filepath.FromSlash(c.expected)
 		output := obj.ArgsPathString(c.path)
 		if output != c.expected {
 			t.Errorf("for style=%q path=%q expected=%q, got=%q",
 				c.styleStr, c.path, c.expected, output)
 		}
+	}
+}
+
+// F11: spaces after the commas are accepted by Set, so they must not drop a part.
+func TestArgsPathStyle_SpacesAroundNames(t *testing.T) {
+	var s model.ArgsPathStyleString
+	if err := s.Set("dirname, basename , ext"); err != nil {
+		t.Fatal(err)
+	}
+	obj, err := s.ArgsPathStyleObj()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !obj.DirNameFlag || !obj.BaseNameFlag || !obj.ExtensionFlag {
+		t.Fatalf("parts lost: %+v", obj)
 	}
 }

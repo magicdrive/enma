@@ -96,7 +96,7 @@ func TestLifecycle_ForceKillAloneStopsEverything(t *testing.T) {
 	dir := t.TempDir()
 	pids := filepath.Join(dir, "pids")
 	killLeftovers(t, pids)
-	r := newDaemonRunner(t, `echo $$ >> '`+pids+`'; trap '' TERM; while :; do sleep 0.05; done`)
+	r := newDaemonRunner(t, `trap '' TERM; echo $$ >> '`+pids+`'; while :; do sleep 0.05; done`)
 	if err := core.StartDaemonForTest(r); err != nil {
 		t.Fatal(err)
 	}
@@ -130,7 +130,7 @@ func TestLifecycle_StopEscalatesWhenTermIgnored(t *testing.T) {
 	dir := t.TempDir()
 	pids := filepath.Join(dir, "pids")
 	killLeftovers(t, pids)
-	r := newDaemonRunner(t, `echo $$ >> '`+pids+`'; trap '' TERM; while :; do sleep 0.05; done`)
+	r := newDaemonRunner(t, `trap '' TERM; echo $$ >> '`+pids+`'; while :; do sleep 0.05; done`)
 	if err := core.StartDaemonForTest(r); err != nil {
 		t.Fatal(err)
 	}
@@ -155,7 +155,8 @@ func TestLifecycle_StopKillsDescendants(t *testing.T) {
 	pids := filepath.Join(dir, "pids")
 	killLeftovers(t, pids)
 	// The leader exits on TERM; its child ignores TERM and would survive a leader-only stop.
-	r := newDaemonRunner(t, `sh -c 'echo $$ >> "$0"; trap "" TERM; exec sleep 1000' '`+pids+`' & wait`)
+	// (the child sets its trap before it records its pid, which the test waits for)
+	r := newDaemonRunner(t, `sh -c 'trap "" TERM; echo $$ >> "$0"; exec sleep 1000' '`+pids+`' & wait`)
 	if err := core.StartDaemonForTest(r); err != nil {
 		t.Fatal(err)
 	}
@@ -264,7 +265,7 @@ func TestLifecycle_ShutdownAbortsRunningCommand(t *testing.T) {
 			dir := t.TempDir()
 			pids := filepath.Join(dir, "pids")
 			killLeftovers(t, pids)
-			command := `echo $$ >> '` + pids + `'; trap '' TERM; sleep 30`
+			command := `trap '' TERM; echo $$ >> '` + pids + `'; sleep 30`
 			var seq func() bool
 			var shutdown func() error
 			if kind == "hotload" {
@@ -307,7 +308,7 @@ func TestLifecycle_ForceKillCutsTheGracePeriod(t *testing.T) {
 	dir := t.TempDir()
 	pids := filepath.Join(dir, "pids")
 	killLeftovers(t, pids)
-	r := newDaemonRunner(t, `echo $$ >> '`+pids+`'; trap '' TERM; while :; do sleep 0.05; done`)
+	r := newDaemonRunner(t, `trap '' TERM; echo $$ >> '`+pids+`'; while :; do sleep 0.05; done`)
 	core.SetStopTimeoutsForTest(r, 5*time.Second, testKill)
 	if err := core.StartDaemonForTest(r); err != nil {
 		t.Fatal(err)
@@ -337,7 +338,7 @@ func TestLifecycle_StopFailureIsReported(t *testing.T) {
 	dir := t.TempDir()
 	pids := filepath.Join(dir, "pids")
 	killLeftovers(t, pids)
-	r := newDaemonRunner(t, `echo $$ >> '`+pids+`'; trap '' TERM; while :; do sleep 0.05; done`)
+	r := newDaemonRunner(t, `trap '' TERM; echo $$ >> '`+pids+`'; while :; do sleep 0.05; done`)
 	// No time to confirm the group is gone after SIGKILL: the stop must fail, not pretend.
 	core.SetStopTimeoutsForTest(r, time.Nanosecond, time.Nanosecond)
 	if err := core.StartDaemonForTest(r); err != nil {
@@ -378,10 +379,20 @@ func TestLifecycle_ChangeRestartsExactlyOneDaemon(t *testing.T) {
 	if err := core.StartDaemonForTest(r); err != nil {
 		t.Fatal(err)
 	}
+	// each daemon records its pid once it runs; the next change replaces it only
+	// then (stopping one that has not written its pid yet would lose that pid)
+	started := func(n int) bool {
+		return waitFor(t, 5*time.Second, func() bool { return len(readPids(t, pids)) == n })
+	}
+	if !started(1) {
+		t.Fatal("the first daemon did not start")
+	}
 	for i := 0; i < 3; i++ {
 		core.HandleChangeForTest(r, "")
+		if !started(i + 2) {
+			t.Fatalf("daemon %d did not start", i+2)
+		}
 	}
-	waitFor(t, 2*time.Second, func() bool { return len(readPids(t, pids)) == 4 })
 	all := readPids(t, pids)
 	if len(all) != 4 {
 		t.Fatalf("want 4 daemon starts, got %d", len(all))
@@ -403,7 +414,7 @@ func TestLifecycle_NoNewDaemonWhenStopFails(t *testing.T) {
 	dir := t.TempDir()
 	pids := filepath.Join(dir, "pids")
 	killLeftovers(t, pids)
-	r := newChangeRunner(t, `echo $$ >> '`+pids+`'; trap '' TERM; while :; do sleep 0.05; done`)
+	r := newChangeRunner(t, `trap '' TERM; echo $$ >> '`+pids+`'; while :; do sleep 0.05; done`)
 	core.SetStopTimeoutsForTest(r, time.Nanosecond, time.Nanosecond)
 	if err := core.StartDaemonForTest(r); err != nil {
 		t.Fatal(err)

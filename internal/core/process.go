@@ -40,6 +40,7 @@ type managedProcess struct {
 
 // startManaged starts cmd in its own process group and reaps it in the background.
 func startManaged(cmd *exec.Cmd) (*managedProcess, error) {
+	adaptShell(cmd)
 	setProcessGroup(cmd)
 	if err := cmd.Start(); err != nil {
 		return nil, err
@@ -47,7 +48,7 @@ func startManaged(cmd *exec.Cmd) (*managedProcess, error) {
 	p := &managedProcess{cmd: cmd, pid: cmd.Process.Pid, done: make(chan struct{})}
 	go func() {
 		p.err = cmd.Wait()
-		if !groupAlive(p.pid) {
+		if !groupAliveAfterLeader(p.pid) {
 			p.groupGone.Store(true)
 		}
 		close(p.done)
@@ -55,7 +56,7 @@ func startManaged(cmd *exec.Cmd) (*managedProcess, error) {
 		// and latch it then, so a pid reused later is never taken for our group.
 		for !p.groupGone.Load() {
 			time.Sleep(groupWatchInterval)
-			if !groupAlive(p.pid) {
+			if !groupAliveAfterLeader(p.pid) {
 				p.groupGone.Store(true)
 			}
 		}
@@ -81,7 +82,7 @@ func (p *managedProcess) gone() bool {
 	if p.groupGone.Load() {
 		return true
 	}
-	if !groupAlive(p.pid) {
+	if !groupAliveAfterLeader(p.pid) { // the leader was reaped (exited)
 		p.groupGone.Store(true)
 		return true
 	}
@@ -143,6 +144,7 @@ func (p *managedProcess) kill(killWait time.Duration) error {
 // group is killed at once. On shutdown the group gets SIGTERM and grace to exit
 // first, like the daemon; it is killed when grace runs out or on a force kill.
 func killGroupOnCancel(cmd *exec.Cmd, s *commandScope, grace, killWait time.Duration) {
+	adaptShell(cmd) // every command enma runs passes here or through startManaged
 	setProcessGroup(cmd)
 	if cmd.Cancel == nil { // not created by exec.CommandContext
 		return

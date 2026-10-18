@@ -2,12 +2,20 @@ package core
 
 import (
 	"errors"
+	"os/exec"
 	"time"
 )
 
 // Test hooks for the unexported process lifecycle (compiled only into tests).
 
 var ErrShuttingDownForTest = errShuttingDown
+
+// AdaptShellForTest prepares a `sh -c` command as enma does for its commands.
+func AdaptShellForTest(cmd *exec.Cmd) { adaptShell(cmd) }
+
+// EnvShellForTest applies the Windows way of passing a command (envShell) on
+// any platform.
+func EnvShellForTest(cmd *exec.Cmd) { envShell(cmd) }
 
 func StartDaemonForTest(r *HotloadRunner) error { return r.startDaemon() }
 func StopDaemonForTest(r *HotloadRunner) error  { return r.stopDaemon() }

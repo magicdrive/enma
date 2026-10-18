@@ -103,6 +103,7 @@ func ParseWatch(args []string) (*WatchOption, error) {
 	// --check-content-diff
 	checkContentDiffFlagOpt :=
 		fs.String("check-content-diff", "on", "Fires only when the file contents are changed.  (optional)")
+	fs.StringVar(checkContentDiffFlagOpt, "C", "on", "Fires only when the file contents are changed.  (optional)") // documented as -C; was missing
 
 	// --absolute-path
 	absolutePathFlagOpt :=
@@ -127,8 +128,9 @@ func ParseWatch(args []string) (*WatchOption, error) {
 	fs.StringVar(defaultIgnoresOpt, "D", "minimal", "Define defualt ignores volume (optional)")
 
 	// --watch-dir
-	watchDirOpt := fs.String("watch-dir", currentDir, "Specify watch directories (optional)")
-	fs.StringVar(watchDirOpt, "w", currentDir, "Specify watch directories (optinal)")
+	// the default is the working directory: "./" is resolved after the switch to --working-dir (F09)
+	watchDirOpt := fs.String("watch-dir", "./", "Specify watch directories (optional)")
+	fs.StringVar(watchDirOpt, "w", "./", "Specify watch directories (optinal)")
 
 	// --pattern-regex
 	patternRegexOpt := fs.String("pattern-regex", "", "Specify watch file pattern regexp (optional)")
@@ -168,7 +170,7 @@ func ParseWatch(args []string) (*WatchOption, error) {
 	helpFlagOpt := fs.Bool("help", false, "Show help message.")
 	fs.BoolVar(helpFlagOpt, "h", false, "Show help message.")
 
-	fs.Usage = common.EnmaHelpFunc
+	fs.Usage = common.UsageErrorFunc("enma watch") // parse errors; replaced by the help after parsing
 
 	// Parse flags
 	err := fs.Parse(args)
@@ -184,10 +186,8 @@ func ParseWatch(args []string) (*WatchOption, error) {
 		os.Exit(0)
 	}
 	// Validate required flags
-	if *cmdOpt == "" {
-		fmt.Println("Missing required flags for watch")
-		fs.Usage()
-		os.Exit(1)
+	if missing := missingFlags(map[string]string{"--command (-c)": *cmdOpt}); missing != "" {
+		return nil, fmt.Errorf("watch: missing required flags: %s\nRun 'enma watch --help' for usage", missing)
 	}
 
 	options := &WatchOption{
