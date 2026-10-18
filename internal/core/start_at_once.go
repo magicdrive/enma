@@ -104,8 +104,9 @@ func runStartAtOnceCommand(command string, execCommand func(ctx context.Context,
 // stopLeftovers stops what is left of the process group led by pid after its
 // leader has been reaped: SIGTERM, grace, then SIGKILL (at once on a force kill).
 // what names the command in the log line.
+// It is called once the command's leader has been reaped (cmd.Run returned).
 func stopLeftovers(cmd *exec.Cmd, pid int, scope *commandScope, grace, killWait time.Duration, what string) error {
-	if !groupAlive(pid) {
+	if !groupAliveAfterLeader(pid) {
 		return nil
 	}
 	log.Printf("⚠️  %s left processes behind; stopping them", what)
@@ -129,21 +130,22 @@ func stopLeftovers(cmd *exec.Cmd, pid int, scope *commandScope, grace, killWait 
 }
 
 // waitGroupGone polls until the group led by pid is empty, d passes or stop is closed.
+// Only stopLeftovers calls it, after the leader was reaped.
 func waitGroupGone(pid int, d time.Duration, stop <-chan struct{}) bool {
 	deadline := time.NewTimer(d)
 	defer deadline.Stop()
 	tick := time.NewTicker(reapPollInterval)
 	defer tick.Stop()
 	for {
-		if !groupAlive(pid) {
+		if !groupAliveAfterLeader(pid) {
 			return true
 		}
 		select {
 		case <-tick.C:
 		case <-deadline.C:
-			return !groupAlive(pid)
+			return !groupAliveAfterLeader(pid)
 		case <-stop:
-			return !groupAlive(pid)
+			return !groupAliveAfterLeader(pid)
 		}
 	}
 }

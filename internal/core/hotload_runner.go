@@ -11,6 +11,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"slices"
+	"strings"
 	"sync"
 	"time"
 
@@ -44,11 +45,21 @@ type HotloadRunner struct {
 type pendingChangeHotload struct {
 	path string
 	time time.Time
+	// batch marks a new directory picked up with the files already in it
+	// (PRA-02): it is built once, for all of them. files holds those files and
+	// the changes below the directory that arrive while it is pending. Batches
+	// are made only when no build command has a placeholder (batchNewDirs).
+	batch bool
+	files []string
 }
 
 var (
 	pendingHotload   = make(map[string]pendingChangeHotload)
 	pendingMuHotload sync.Mutex
+	hotloadDebounce  = 300 * time.Millisecond // a variable for tests
+	// pendingBatchDirs lists the batches in pendingHotload, so that a change
+	// is matched against them only, not against every pending change.
+	pendingBatchDirs []string
 )
 
 func NewHotloadRunner(opt *option.HotloadOption) *HotloadRunner {
@@ -176,6 +187,10 @@ func (r *HotloadRunner) Start() (err error) {
 						} else if info.IsDir() && r.ShouldWatchDir(event.Name) {
 							_ = r.AddWatchRecursive(event.Name)
 							log.Printf("👀 Watching new dir: %s", event.Name)
+							if r.batchNewDirs() {
+								r.enqueueNewDir(event.Name) // its own Create is part of the batch
+								continue
+							}
 							r.enqueueFilesIn(event.Name)
 						}
 					}
@@ -199,19 +214,33 @@ func (r *HotloadRunner) enqueue(event fsnotify.Event) {
 	}
 	absPath := filepath.Clean(event.Name)
 	pendingMuHotload.Lock()
-	pendingHotload[absPath] = pendingChangeHotload{path: absPath, time: time.Now()}
+	if b, ok := pendingBatchOf(absPath); ok {
+		b.files = append(b.files, absPath) // built with the new directory
+		pendingHotload[b.path] = b
+	} else {
+		pendingHotload[absPath] = pendingChangeHotload{path: absPath, time: time.Now()}
+	}
 	pendingMuHotload.Unlock()
+	r.restartDebounce()
+}
 
+// restartDebounce (re)starts the timer that handles the pending changes. It
+// is called from the watcher goroutine only.
+func (r *HotloadRunner) restartDebounce() {
 	if r.debounceTimer != nil {
 		r.debounceTimer.Stop()
 	}
-	r.debounceTimer = time.AfterFunc(300*time.Millisecond, func() {
+	r.debounceTimer = time.AfterFunc(hotloadDebounce, func() {
 		pendingMuHotload.Lock()
 		for _, change := range pendingHotload {
 			r.mu.Lock()
+			if change.batch && !r.batchHasChanges(change) {
+				r.mu.Unlock()
+				continue
+			}
 			resolvedPath := r.applyArgsPathStyle(change.path)
 
-			if r.Options.CheckContentDiff.Bool() {
+			if !change.batch && r.Options.CheckContentDiff.Bool() {
 				if !r.hasChanged(change.path) {
 					log.Printf("🔁 Skipped: %s has no content change", change.path)
 					r.mu.Unlock()
@@ -225,6 +254,7 @@ func (r *HotloadRunner) enqueue(event fsnotify.Event) {
 			r.mu.Unlock()
 		}
 		pendingHotload = make(map[string]pendingChangeHotload)
+		pendingBatchDirs = nil
 		pendingMuHotload.Unlock()
 	})
 }
@@ -233,6 +263,14 @@ func (r *HotloadRunner) enqueue(event fsnotify.Event) {
 // the watcher: they may have been written before its watch existed, and their
 // events are then lost (the debounce merges any that did arrive).
 func (r *HotloadRunner) enqueueFilesIn(dir string) {
+	r.walkFiles(dir, func(path string) {
+		r.enqueue(fsnotify.Event{Name: path, Op: fsnotify.Create})
+	})
+}
+
+// walkFiles calls fn for each regular file below dir, skipping directories
+// that are not watched.
+func (r *HotloadRunner) walkFiles(dir string, fn func(path string)) {
 	_ = filepath.WalkDir(dir, func(path string, d os.DirEntry, err error) error {
 		if err != nil {
 			return nil
@@ -244,10 +282,104 @@ func (r *HotloadRunner) enqueueFilesIn(dir string) {
 			return nil
 		}
 		if d.Type().IsRegular() {
-			r.enqueue(fsnotify.Event{Name: path, Op: fsnotify.Create})
+			fn(path)
 		}
 		return nil
 	})
+}
+
+// batchNewDirs reports whether a new directory is queued as one change (a
+// batch, PRA-02) rather than one change per file. It is so when no build
+// command has a placeholder: like the build at start, such a build does not
+// depend on which file changed, so building once for all the files already in
+// the directory gives the same result as building once per file. With a
+// placeholder each file keeps its own build.
+func (r *HotloadRunner) batchNewDirs() bool {
+	o := r.Options
+	return !o.HasPlaceholderPreBuild && !o.HasPlaceholderBuild && !o.HasPlaceholderPostBuild
+}
+
+// enqueueNewDir queues a directory that was just added to the watcher, with the
+// files already in it that pass the watch rules, as one batch. A directory
+// below a pending batch (a nested one, picked up meanwhile) joins that batch;
+// pending changes below dir join the new one. Directories side by side stay
+// separate changes. It is called from the watcher goroutine only.
+func (r *HotloadRunner) enqueueNewDir(dir string) {
+	dir = filepath.Clean(dir)
+	var files []string
+	r.walkFiles(dir, func(path string) {
+		if r.ShouldTrigger(fsnotify.Event{Name: path, Op: fsnotify.Create}) {
+			files = append(files, filepath.Clean(path))
+		}
+	})
+	pendingMuHotload.Lock()
+	if b, ok := pendingBatchOf(dir); ok {
+		b.files = append(b.files, files...)
+		pendingHotload[b.path] = b
+	} else {
+		c := pendingChangeHotload{path: dir, time: time.Now(), batch: true, files: files}
+		for key, o := range pendingHotload {
+			if key != dir && !pathWithin(key, dir) {
+				continue
+			}
+			c.files = append(c.files, o.files...)
+			if !o.batch {
+				// also a change of dir itself (e.g. the directory it replaces
+				// was moved away): it is built even if the new one is empty
+				c.files = append(c.files, o.path)
+			}
+			delete(pendingHotload, key)
+			pendingBatchDirs = slices.DeleteFunc(pendingBatchDirs, func(d string) bool { return d == key })
+		}
+		pendingHotload[dir] = c
+		pendingBatchDirs = append(pendingBatchDirs, dir)
+	}
+	pendingMuHotload.Unlock()
+	r.restartDebounce()
+}
+
+// pendingBatchOf returns the pending batch whose directory holds path. The
+// caller holds pendingMuHotload.
+func pendingBatchOf(path string) (pendingChangeHotload, bool) {
+	for _, d := range pendingBatchDirs {
+		if pathWithin(path, d) {
+			return pendingHotload[d], true
+		}
+	}
+	return pendingChangeHotload{}, false
+}
+
+// pathWithin reports whether path is dir or below it.
+func pathWithin(path, dir string) bool {
+	rel, err := filepath.Rel(dir, path)
+	return err == nil && rel != ".." && !strings.HasPrefix(rel, ".."+string(filepath.Separator))
+}
+
+// batchHasChanges reports whether a new directory's batch is built: it has
+// files and, with --check-content-diff, one of them changed. Every file's hash
+// is recorded, so a later change of any of them is seen as one.
+func (r *HotloadRunner) batchHasChanges(c pendingChangeHotload) bool {
+	files := slices.Clone(c.files)
+	slices.Sort(files)
+	files = slices.Compact(files)
+	if len(files) == 0 {
+		log.Printf("🔁 Skipped: new dir %s has no files to build", c.path)
+		return false
+	}
+	if r.Options.CheckContentDiff.Bool() {
+		changed := false
+		for _, f := range files {
+			if r.hasChanged(f) { // every file, to record its hash
+				changed = true
+			}
+		}
+		if !changed {
+			log.Printf("🔁 Skipped: new dir %s has no content change", c.path)
+			return false
+		}
+	}
+	log.Printf("🔔 Change confirmed in: %s (new dir, %d files, one build)", c.path, len(files))
+	return true
 }
 
 // startErr returns err from Start, except when a signal has already begun the

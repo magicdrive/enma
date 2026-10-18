@@ -7,6 +7,14 @@ All notable changes to enma are listed here. Releases up to v1.2.10 are describe
 
 ### Changed (behaviour differs from v1.2.10)
 
+- Placeholders are no longer pasted into the command text: the changed file's path is passed
+  to `sh -c` as the argument `$1` and each `{}` becomes a quoted reference to it (see README
+  "Placeholder and the shell"). A file name can no longer inject shell code. Inside a command,
+  `$0` is `enma`, `$1` is the path and `$#` is 1.
+- Builds, commands and the daemon run in their own process group, and stopping one stops the
+  whole group (SIGTERM, then SIGKILL after the grace period).
+- A plain `enma` (running the config file found in the current directory) exits with a non-zero
+  status when it fails, instead of 0.
 - Processes a build or command leaves behind are stopped when it returns (SIGTERM, then
   SIGKILL after 5s), in every mode. Use `--daemon` (hotload) for a process that should keep
   running. To keep a helper running in watch mode, start it outside enma, or detach it into its
@@ -28,13 +36,26 @@ All notable changes to enma are listed here. Releases up to v1.2.10 are describe
 
 ### Added
 
+- Scheduler mode: `enma scheduler --cron "<6-field cron>" --command ...` for one job, and any
+  number of jobs from a config file (`[subcommand.scheduler]`, `[[subcommand.scheduler.jobs]]`).
+  Time zones and daylight saving, per-job timeouts, retries and working directories, no
+  overlapping runs of a job, and a global concurrency limit (README "Scheduler Mode").
+- `start-at-once` (`--start-at-once`, TOML `start_at_once`) for hotload and watch: a command run
+  once at startup, before the first build or the monitoring.
 - `enma config validate [--config FILE] [--next N]` checks a config file without running it.
 - `--next N` (`enma scheduler ... --next N`, `enma config validate --next N`) lists upcoming
   fire times, with daylight-saving changes handled like a real run.
 - A command or build stopped by `--timeout` is reported as `timed out after <d> (--timeout)`
   instead of only `signal: killed`.
 - `-C` as the short form of `--check-content-diff` (it was documented but rejected).
+- An unknown key in a `[subcommand.hotload]` / `[subcommand.watch]` section is reported as a
+  warning on stderr (it is still ignored); the scheduler section rejects it.
 - SECURITY.md, CONTRIBUTING.md, this changelog, issue and pull request templates.
+
+### Security
+
+- File paths reach commands as an argument, never as code (see "Changed"); a file name with
+  quotes, `;`, `$(...)` or backquotes is passed as exactly one argument.
 
 ### Fixed
 
@@ -45,6 +66,16 @@ All notable changes to enma are listed here. Releases up to v1.2.10 are describe
 - Watching: new directories, symlinks, unreadable directories and ignore rules (`!dir/`
   re-includes the directory's contents).
 - A config file that cannot be loaded no longer reports `<nil>`.
+- `hotload` without a placeholder in its build commands builds and restarts the daemon once for a
+  directory that appears with files in it, instead of once per file; an empty directory, or one
+  holding only ignored files, no longer causes a build (unless it replaces a directory that was
+  moved away or removed, and that change passes the watch rules). For that one build `$1` is the
+  directory. With a placeholder each file still has its own build.
+- Stopping commands and the daemon works when enma runs as pid 1 (a container started without
+  an init) or as a subreaper: the zombies of processes a command left behind are collected, so
+  the stop no longer times out and the daemon is restarted.
+- `args_path_style` accepts spaces around its commas (`"dir, base, ext"`).
+- The allowed signal names in error messages are listed in a fixed order.
 - Help texts and completions list the real flags: `enma init --file-name` (`-f`), `-g` is
   `--ignore-file-regex` and `-G` `--ignore-dir-regex`; the combined completion script can be
   sourced by bash.

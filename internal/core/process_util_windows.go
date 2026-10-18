@@ -21,3 +21,6 @@ func signalGroup(cmd *exec.Cmd, pid int, sig syscall.Signal) error {
 
 // groupAlive cannot see descendants on Windows; the leader is tracked by Wait.
 func groupAlive(pid int) bool { return false }
+
+// groupAliveAfterLeader: no process groups (and no zombies to collect) here.
+func groupAliveAfterLeader(pid int) bool { return groupAlive(pid) }

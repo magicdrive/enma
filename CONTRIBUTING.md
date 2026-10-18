@@ -22,7 +22,10 @@ of enma alone would not invalidate their cached result.
 CI runs these on Linux and macOS for every pull request with the Go version in `go.mod`, and
 `go test -race` with the newest Go release, plus `gofmt`, `staticcheck`, a Windows `go vet`,
 `govulncheck` and a GoReleaser snapshot build checked by `scripts/verify-dist.sh`.
-A weekly job runs shuffled tests, short fuzzing and a Windows smoke test.
+The extended checks (`ci-extended.yml`: shuffled tests with several seeds, the process-stopping
+tests repeated, short fuzzing, Linux arm64, and the tests and a smoke run on Windows) run weekly,
+by hand, and on a pull request labeled `ci-extended`. Tag a release only on a commit whose CI is
+green.
 
 Dependencies and GitHub Actions are updated by Renovate. The tool versions pinned in the
 workflows and the Makefile (`STATICCHECK`, `govulncheck@…`, GoReleaser `version:`) are updated

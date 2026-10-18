@@ -40,8 +40,9 @@ case "$host_arch" in x86_64) host_arch=amd64 ;; aarch64) host_arch=arm64 ;; esac
 host=${host_os}_$host_arch
 ran=no
 
-# The first five are tested (README "Platforms"); the 386 and windows/arm64
-# builds are published as well (GoReleaser's default architectures) but not tested.
+# The first five are the supported platforms (README "Platforms" says which of
+# them CI tests); the 386 and windows/arm64 builds are published as well
+# (GoReleaser's default architectures) but not tested.
 for target in linux_amd64 linux_arm64 darwin_amd64 darwin_arm64 windows_amd64 \
 	linux_386 windows_386 windows_arm64; do
 	os=${target%_*}

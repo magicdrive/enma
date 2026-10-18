@@ -102,7 +102,9 @@ same way: a local time that occurs twice runs once, and one that does not exist 
 
 ### Platforms
 
-Linux and macOS (amd64, arm64) are fully supported and tested. Windows (amd64) builds work with
+Linux and macOS (amd64, arm64) are fully supported. CI runs the tests on Linux (amd64, and arm64
+in the extended checks) and macOS (arm64); macOS amd64 is tested by the maintainers. Windows
+(amd64) builds work with
 limits: commands run with `sh -c`, so a POSIX shell (e.g. from Git for Windows or MSYS2) must be on `PATH`; they
 run without process groups, so enma cannot stop processes a command leaves behind, and enma
 itself stops on Ctrl-C or SIGTERM only. File watching uses inotify on Linux and kqueue on
@@ -442,7 +444,15 @@ This layered approach ensures clarity in behavior while keeping Enma fast and cu
   **per file**, each with its own path for the placeholder.
 - A directory that appears while enma runs (created, moved in, unpacked) is watched, and the
   files already in it count as changed — one run per file, as above — unless the watch rules
-  reject the directory.
+  reject the directory. Exception, `hotload` without a placeholder in `--pre-build`, `--build`
+  and `--post-build`: the new directory is one change. Its files that pass the watch rules,
+  including those created in it before the debounce window ends, give one build and one daemon
+  restart. For that build `$1` is the directory, not a file: also with `--include-ext`, and
+  `--args-path-style` applies to it (`dirname` gives its parent). A directory with no such file
+  (empty, or only ignored files) gives none, unless it replaces a directory that was moved away
+  or removed and that change passes the watch rules (a directory name does not pass
+  `--include-ext` or `--pattern`).
+  With `--check-content-diff`, it is built when one of its files changed.
 - macOS (kqueue) uses one file descriptor per watched file: for large trees raise the limit
   (`ulimit -n`) or narrow `--watch-dir`; files that cannot be watched are reported.
 - Known limitation on macOS and BSD (kqueue), accepted and monitored, not fixed: when files are
@@ -465,6 +475,10 @@ their own process group. When the command returns, whatever it left running in t
 (e.g. `something &`) is stopped: SIGTERM, then SIGKILL after the grace period (5s). Use
 `--daemon` (hotload) for a process that should keep running. Only a group that cannot be
 stopped at all fails the step. On Windows enma cannot see a command's descendants.
+
+In a container, run enma with an init process (`docker run --init`, or tini). As pid 1 enma
+collects the processes of a command's group, but a process that moved to another session or
+group (e.g. `setsid`, double fork) would stay a zombie.
 
 ### Changes since v1.2.10
 

@@ -47,7 +47,7 @@ func startManaged(cmd *exec.Cmd) (*managedProcess, error) {
 	p := &managedProcess{cmd: cmd, pid: cmd.Process.Pid, done: make(chan struct{})}
 	go func() {
 		p.err = cmd.Wait()
-		if !groupAlive(p.pid) {
+		if !groupAliveAfterLeader(p.pid) {
 			p.groupGone.Store(true)
 		}
 		close(p.done)
@@ -55,7 +55,7 @@ func startManaged(cmd *exec.Cmd) (*managedProcess, error) {
 		// and latch it then, so a pid reused later is never taken for our group.
 		for !p.groupGone.Load() {
 			time.Sleep(groupWatchInterval)
-			if !groupAlive(p.pid) {
+			if !groupAliveAfterLeader(p.pid) {
 				p.groupGone.Store(true)
 			}
 		}
@@ -81,7 +81,7 @@ func (p *managedProcess) gone() bool {
 	if p.groupGone.Load() {
 		return true
 	}
-	if !groupAlive(p.pid) {
+	if !groupAliveAfterLeader(p.pid) { // the leader was reaped (exited)
 		p.groupGone.Store(true)
 		return true
 	}

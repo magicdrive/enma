@@ -41,6 +41,12 @@ jobs:
       - name: Run tests
         run: go test -count=1 -race ./...  # no cached results (see ci.yml)
 
+      # the release toolchain is checked for known vulnerabilities too (ci.yml
+      # does it on every pull request; a tag may point at any commit)
+      - name: Govulncheck
+        if: matrix.go == 'stable'
+        run: go run golang.org/x/vuln/cmd/govulncheck@v1.8.0 ./...
+
   # RELEASE
   release:
     if: startsWith(github.ref, 'refs/tags/v')

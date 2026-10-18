@@ -7,7 +7,7 @@ release:
     owner: magicdrive
     name: enma
   draft: false
-  prerelease: "false"
+  prerelease: auto  # a tag like v1.3.0-rc.1 is published as a pre-release
 
 builds:
   - id: enma
@@ -62,6 +62,7 @@ brews:
     description: "Yet another event-driven command runner."
     license: "MIT"
     ids: [tar.gz]
+    skip_upload: auto  # a pre-release does not update the Homebrew tap
     install: |
       bin.install "enma"
     extra_install: |
