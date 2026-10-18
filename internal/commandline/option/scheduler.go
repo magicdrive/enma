@@ -8,8 +8,9 @@ import (
 	"path/filepath"
 	"strings"
 	"time"
-	_ "time/tzdata" // --timezone works without system zone data (Windows, minimal images)
 	"unicode"
+
+	_ "time/tzdata" // --timezone works without system zone data (Windows, minimal images)
 
 	"github.com/magicdrive/enma/internal/common"
 	"github.com/magicdrive/enma/internal/cronspec"

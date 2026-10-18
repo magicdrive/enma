@@ -13,6 +13,7 @@ import (
 	"sync"
 	"testing"
 	"time"
+
 	_ "time/tzdata"
 
 	"github.com/magicdrive/enma/internal/commandline/option"

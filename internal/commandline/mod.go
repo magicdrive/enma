@@ -1,9 +1,10 @@
 package commandline
 
 import (
-	_ "embed"
 	"fmt"
 	"strings"
+
+	_ "embed"
 
 	"github.com/magicdrive/enma/internal/commandline/subcmd"
 )
