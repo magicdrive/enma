@@ -120,6 +120,13 @@ jobs:
       - name: Test
         run: go test -count=1 ./...
 
+      # MSYS=noglob changes how the MSYS2 sh splits its command line: the
+      # command-passing tests must hold with it too
+      - name: Command passing with MSYS=noglob
+        env:
+          MSYS: noglob
+        run: go test -count=1 -run 'TestCommandSafety|TestShell|FuzzShellCommandArgs|TestEnvArgs' ./internal/core ./internal/shellcmd
+
       - name: Build and run
         run: |
           set -eu

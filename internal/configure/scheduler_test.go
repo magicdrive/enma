@@ -29,7 +29,7 @@ func loadScheduler(t *testing.T, doc string) (*option.SchedulerOption, error) {
 func TestSchedulerTOML_Full(t *testing.T) {
 	dir := t.TempDir()
 	doc := schedulerHead + "timezone = \"Asia/Tokyo\"\nmax_concurrent = 2\n" +
-		job(okJob+"\nworking_dir = \""+dir+"\"\ntimeout = \"30s\"\nretries = 3\nretry_delay = \"10s\"") +
+		job(okJob+"\nworking_dir = "+tomlString(t, dir)+"\ntimeout = \"30s\"\nretries = 3\nretry_delay = \"10s\"") +
 		job("name = \"backup\"\ncron = \"0 0 2 * * *\"\ncommand = \"./backup.sh\"\ntimeout = \"30m\"\nretries = 2\nretry_delay = \"1m\"") +
 		job("name = \"cleanup\"\ncron = \"0 0 3 * * *\"\ncommand = \"./cleanup.sh\"\nretries = 0")
 	opt, err := loadScheduler(t, doc)
@@ -196,7 +196,7 @@ func TestSchedulerTemplate_CommentedKeysAndSecondJob(t *testing.T) {
 	}
 	uncommented := regexp.MustCompile(`(?m)^## `).ReplaceAllString(tmpl, "")
 	dir := t.TempDir()
-	uncommented = strings.ReplaceAll(uncommented, `working_dir = "./"`, `working_dir = "`+dir+`"`)
+	uncommented = strings.ReplaceAll(uncommented, `working_dir = "./"`, `working_dir = `+tomlString(t, dir))
 	opt, err := configure.NewSchedulerOptionFromTOML([]byte(uncommented))
 	if err != nil {
 		t.Fatalf("template with its examples enabled: %v\n%s", err, uncommented)
@@ -250,4 +250,26 @@ func FuzzSchedulerTOML(f *testing.F) {
 			seen[j.Name] = true
 		}
 	})
+}
+
+// tomlString returns s as a TOML string value, encoded by go-toml itself: a
+// path pasted between double quotes breaks on Windows, where `\U` in
+// C:\Users starts a TOML escape (W3).
+func tomlString(t *testing.T, s string) string {
+	t.Helper()
+	b, err := toml.Marshal(map[string]string{"v": s})
+	if err != nil {
+		t.Fatal(err)
+	}
+	return strings.TrimSuffix(strings.TrimPrefix(string(b), "v = "), "\n")
+}
+
+// W3: tomlString keeps any path intact, Windows ones included, on every OS.
+func TestTomlString_RoundTrips(t *testing.T) {
+	for _, s := range []string{`C:\Users\RUNNER~1\AppData\Local\Temp\x`, `\\srv\share\a b`, `/tmp/a"b'c`, "tab\there", "ctl\x01", `back\`} {
+		var v struct{ V string }
+		if err := toml.Unmarshal([]byte("V = "+tomlString(t, s)), &v); err != nil || v.V != s {
+			t.Errorf("%q: got %q, %v", s, v.V, err)
+		}
+	}
 }

@@ -354,6 +354,10 @@ variable that fits its quoting:
 it as code. Notes:
 
 - `$0` is `enma`, `$1` is the path and `$#` is 1 inside the command.
+- On Windows the command line of a program is one string that the POSIX shell (Git for Windows,
+  MSYS2) splits again with its own rules for quotes, braces and patterns. So there enma passes
+  the script and the path to `sh` in the environment (`__ENMA_SCRIPT`, `__ENMA_ARG1`; removed
+  before the command runs), and the command gets them unchanged.
 - An empty placeholder (`--placeholder ""`) disables substitution: no command has a placeholder.
 - The placeholder is left as it is where the shell would not expand a variable: after a
   backslash (`\{}`), in `#` comments and in quoted here-documents (`<<'EOF'`). Such a

@@ -37,9 +37,7 @@ func TestPidFile_HoldsExactlyThePid(t *testing.T) {
 	if len(entries) != 1 {
 		t.Fatalf("temporary files left beside the pid file: %v", entries)
 	}
-	if st, _ := os.Stat(path); st.Mode().Perm()&0o022 != 0 {
-		t.Fatalf("pid file is group/world writable: %v", st.Mode())
-	}
+	checkPidFileMode(t, path)
 }
 
 func TestPidFile_DeleteOnlyOwnPid(t *testing.T) {

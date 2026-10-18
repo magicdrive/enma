@@ -1,0 +1,4 @@
+# Text files are checked out with LF on every OS (Windows included): the
+# help text and config templates are embedded into the binary, the shell
+# completion scripts must stay valid for bash/zsh, and tests parse these files.
+* text=auto eol=lf

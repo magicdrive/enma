@@ -40,6 +40,7 @@ type managedProcess struct {
 
 // startManaged starts cmd in its own process group and reaps it in the background.
 func startManaged(cmd *exec.Cmd) (*managedProcess, error) {
+	adaptShell(cmd)
 	setProcessGroup(cmd)
 	if err := cmd.Start(); err != nil {
 		return nil, err
@@ -143,6 +144,7 @@ func (p *managedProcess) kill(killWait time.Duration) error {
 // group is killed at once. On shutdown the group gets SIGTERM and grace to exit
 // first, like the daemon; it is killed when grace runs out or on a force kill.
 func killGroupOnCancel(cmd *exec.Cmd, s *commandScope, grace, killWait time.Duration) {
+	adaptShell(cmd) // every command enma runs passes here or through startManaged
 	setProcessGroup(cmd)
 	if cmd.Cancel == nil { // not created by exec.CommandContext
 		return

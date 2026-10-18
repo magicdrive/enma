@@ -27,7 +27,8 @@ with `sh -c`, as the user that started it, so:
 - enma does not log the commands it runs or their environment. A new `--logs` file is
   created with mode `0600` (an existing file keeps its mode, and a symlink at that path is
   followed); the `--pid` file holds only a process id. Do not point `--logs` or `--pid` into a
-  directory other users can write to.
+  directory other users can write to. On Windows, file modes do not apply: the `--logs` and
+  `--pid` files get the access rules (ACL) of their directory.
 - On Windows, enma cannot stop processes a command leaves behind (no process groups).
 
 Reports about these documented limits are still welcome if you find a way around them.

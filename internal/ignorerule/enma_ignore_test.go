@@ -228,9 +228,10 @@ func TestGitIgnore_AuditRound2(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	// names holding a backslash exist only outside Windows, where "\\" is a
+	// path separator: enma_ignore_unix_test.go and enma_ignore_internal_test.go
 	for path, want := range map[string]bool{
 		"a": false, "a/x": true, "a/keep": false, "a/keep/f.go": false,
-		`bs\ `: true, `two\`: true, `two\ `: false,
 	} {
 		if got := gi.Matches(path); got != want {
 			t.Errorf("Matches(%q) = %v, want %v", path, got, want)

@@ -66,6 +66,9 @@ All notable changes to enma are listed here. Releases up to v1.2.10 are describe
 - Watching: new directories, symlinks, unreadable directories and ignore rules (`!dir/`
   re-includes the directory's contents).
 - A config file that cannot be loaded no longer reports `<nil>`.
+- Windows: a path holding `{`, `}` or `'` (and a command holding `\\`) reached the command
+  changed, because the Git for Windows / MSYS2 `sh` re-parses its command line; the script and
+  the path are now passed to `sh` in the environment there.
 - `hotload` without a placeholder in its build commands builds and restarts the daemon once for a
   directory that appears with files in it, instead of once per file; an empty directory, or one
   holding only ignored files, no longer causes a build (unless it replaces a directory that was

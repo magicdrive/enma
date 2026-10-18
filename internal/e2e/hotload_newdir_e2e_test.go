@@ -24,8 +24,10 @@ import (
 // <path>" (--check-content-diff on, the default) when it handles a change; once
 // a line for the new directory is there, a marker file written into src is a
 // later change, and when the marker's daemon restart has happened everything
-// before it was handled. The daemon appends its pid to daemon.pids when it
-// starts; the build command appends a line to build.log.
+// before it was handled. The daemon appends its pid to daemon.pids when its
+// shell runs; the build command appends a line to build.log. A daemon can be
+// stopped by the next restart before its shell wrote its pid, so starts are
+// counted from enma's log ("Start daemon"), not from daemon.pids.
 
 type hotloadNewDir struct {
 	t                 *testing.T
@@ -36,6 +38,13 @@ type hotloadNewDir struct {
 }
 
 func startHotloadNewDir(t *testing.T, build, enmaignore string, extra ...string) *hotloadNewDir {
+	t.Helper()
+	return startHotloadNewDirDaemon(t, "", build, enmaignore, extra...)
+}
+
+// startHotloadNewDirDaemon starts enma with daemonPrefix run by the daemon's
+// shell before it records its pid (e.g. a delay).
+func startHotloadNewDirDaemon(t *testing.T, daemonPrefix, build, enmaignore string, extra ...string) *hotloadNewDir {
 	t.Helper()
 	dir := isolated(t, "")
 	h := &hotloadNewDir{t: t, dir: dir, src: filepath.Join(dir, "src"), stage: filepath.Join(dir, "stage"),
@@ -52,7 +61,7 @@ func startHotloadNewDir(t *testing.T, build, enmaignore string, extra ...string)
 	}
 	args := append([]string{"hotload", "--watch-dir", "src",
 		"--build", strings.ReplaceAll(build, "LOG", "'"+h.buildLog+"'"),
-		"--daemon", "echo $$ >> '" + h.daemons + "'; exec sleep 600",
+		"--daemon", daemonPrefix + "echo $$ >> '" + h.daemons + "'; exec sleep 600",
 		"--delay", "0sec", "--timeout", "60sec", "--check-content-diff", "on"}, extra...)
 	h.p = startEnma(t, dir, nil, args...)
 	if !waitFor(15*time.Second, func() bool { return len(lines(h.daemons)) == 1 }) {
@@ -131,15 +140,28 @@ func (h *hotloadNewDir) settle(paths ...string) (builds, starts int) {
 		h.t.Fatal(err)
 	}
 	h.waitHandled(marker)
+	// The marker's daemon is the newest: enma starts a daemon only after the
+	// previous one's group is gone, so the last recorded pid being alive means
+	// the marker's daemon runs (and wrote its pid).
 	if !waitFor(180*time.Second, func() bool {
 		out := h.p.out.String()
 		i := strings.LastIndex(out, "Change confirmed in: ")
-		n := len(lines(h.daemons))
-		return i >= 0 && strings.Contains(out[i:], "Start daemon") && strings.Count(out, "Start daemon") == n
+		if i < 0 || !strings.Contains(out[i:], "Start daemon") {
+			return false
+		}
+		pids := lines(h.daemons)
+		if len(pids) == 0 {
+			return false
+		}
+		var pid int
+		fmt.Sscan(pids[len(pids)-1], &pid)
+		return alive(pid)
 	}) {
-		h.t.Fatalf("no restart after the marker:\n%s", h.p.out.String())
+		out := h.p.out.String()
+		h.t.Fatalf("no restart after the marker: %d \"Start daemon\" lines, daemon.pids %q, builds %q\n%s",
+			strings.Count(out, "Start daemon"), lines(h.daemons), lines(h.buildLog), out)
 	}
-	return len(lines(h.buildLog)) - 1, len(lines(h.daemons)) - 1
+	return len(lines(h.buildLog)) - 1, strings.Count(h.p.out.String(), "Start daemon") - 1
 }
 
 func (h *hotloadNewDir) stop() {
@@ -188,6 +210,23 @@ func TestE2E_HotloadNewDir_PlaceholderKeepsPerFileBuilds(t *testing.T) {
 		if n := countOf(got, p) + countOf(got, rel); n != 1 {
 			t.Fatalf("placeholder: %s built %d times, want 1; builds: %v", p, n, got)
 		}
+	}
+	h.stop()
+}
+
+// macOS shuffle failure (run 39125047156): restarts that follow each other
+// stop a daemon before its shell recorded its pid. The delay makes that happen
+// every time; the test must still settle and count every start.
+func TestE2E_HotloadNewDir_DaemonStoppedBeforeItsPidIsWritten(t *testing.T) {
+	h := startHotloadNewDirDaemon(t, "sleep 0.3; ", "echo {} >> LOG", "")
+	h.stageDir("pkg", "a.go", "b.go", "sub/c.go")
+	dst := h.moveIn("pkg")
+	_, starts := h.settle(filepath.Join(dst, "a.go"), filepath.Join(dst, "b.go"), filepath.Join(dst, "sub", "c.go"))
+	if starts != 5 { // the first, then a.go, b.go, c.go and the directory itself
+		t.Fatalf("%d daemon starts before the marker, want 5", starts)
+	}
+	if n := len(lines(h.daemons)); n >= starts+1 {
+		t.Logf("every daemon recorded its pid (%d): the delay did not take effect", n)
 	}
 	h.stop()
 }
