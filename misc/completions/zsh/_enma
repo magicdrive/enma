@@ -1,155 +1,156 @@
 #compdef enma
+# zsh completion for enma. Install it as `_enma` in a directory of $fpath
+# (Homebrew does), or source it after compinit.
+#
+# The flags and values here are the ones the parsers in
+# internal/commandline/option define; internal/commandline/completion_test.go
+# runs this file in zsh and fails when they differ. Keep it readable by
+# `bash -n`: misc/completions/enma-completion.sh carries a copy for bash users.
 
 _enma() {
-    local context state state_descr line
-    typeset -A opt_args
+  local curcontext="$curcontext" state state_descr line ret=1
+  typeset -A opt_args
 
-    local -a subcommands
-    subcommands=(
-        'init:Initialize configuration'
-        'hotload:Watch & reload daemon'
-        'watch:Watch & run commands'
-        'scheduler:Run commands on cron schedules'
-        'config:Check a config file without running it (validate)'
-        '--help:Show help'
-        '--version:Show version'
-        '--config:Define enma.toml'
-    )
+  # -A: the flags after the subcommand are the subcommand's (watch -c is not --config)
+  _arguments -C -S -A '-*' \
+    '(- 1 *)'{-h,--help}'[Show help message and exit]' \
+    '(- 1 *)'{-v,--version}'[Show version]' \
+    '(1 * -c --config)'{-c=,--config=}'[Run the given config file]:config file:_files' \
+    '1:subcommand:_enma_subcommands' \
+    '*:: :->args' && ret=0
 
-    _arguments -C \
-      '1:command:->subcmd' \
-      '*::options:->args'
-
-    case $state in
-      subcmd)
-        _describe 'subcommand' subcommands
-        ;;
-      args)
-        case $words[1] in
-          init)
-            _values 'init options' \
-              '--help[Show help]' \
-              '--mode[Specify mode <hotload|watch|scheduler|enmaignore>]:mode:(hotload watch scheduler enmaignore)' \
-              '--file-name[Specify output config file]:file:_files'
-            ;;
-          hotload)
-            if [[ "$OSTYPE" == (linux*|darwin*|freebsd*|openbsd*|netbsd*) ]]; then
-                _values 'hotload options' \
-                  '--help[Show help]' \
-                  '--daemon[Daemon command]:cmd:_command_names' \
-                  '--build[Build command]:cmd:_command_names' \
-                  '--start-at-once[    (optional) Command run once at startup]:cmd:_command_names' \
-                  '--signal[    (optional) signal to stop daemon command]:sig:( SIGTERM SIGKILL SIGHUP SIGUSR1 SIGUSR2 SIGINT )' \
-                  '--watch-dir[    (optional) Directories to watch]:dir:_files -/' \
-                  '--pre-build[    (optional) Pre-build command]:cmd:_command_names' \
-                  '--post-build[    (optional) Post-build command]:cmd:_command_names' \
-                  '--working-dir[    (optional) Working directory]:dir:_files -/' \
-                  '--placeholder[    (optional) Placeholder token]:token:' \
-                  '--args-path-style[    (optional) Filepath style]:style:(dir base ext)' \
-                  '--build-at-start[    (optional) Build at startup]:bool:(on off)' \
-                  '--check-content-diff[    (optional) Only on content change]:bool:(on off)' \
-                  '--absolute-path[    (optional) Use absolute path]:bool:(on off)' \
-                  '--timeout[    (optional) Timeout duration]:string:' \
-                  '--delay[    (optional) Delay after build]:string:' \
-                  '--retry[    (optional) Retry count]:int:' \
-                  '--pattern-regex[    (optional) Regex to match files]:regex:' \
-                  '--include-ext[    (optional) File extensions to include]' \
-                  '--exclude-ext[    (optional) File extensions to exclude]' \
-                  '--exclude-dir[    (optional) Dirs to exclude]:dir:_files -/' \
-                  '--ignore-dir-regex[    (optional) Dir ignore regex]' \
-                  '--ignore-file-regex[    (optional) File ignore regex]' \
-                  '--default-ignores[    (optional) Specify default ignore volume <max|min|none>]:mode:(maximum minimal none)' \
-                  '--enmaignore[    (optional) Ignore file list]:file:_files' \
-                  '--logs[    (optional) Log file]:file:_files' \
-                  '--pid[    (optional) PID file]:file:_files'
-            else
-                _values 'hotload options' \
-                  '--help[Show help]' \
-                  '--daemon[Daemon command]:cmd:_command_names' \
-                  '--build[Build command]:cmd:_command_names' \
-                  '--start-at-once[    (optional) Command run once at startup]:cmd:_command_names' \
-                  '--signal[    (optional) signal to stop daemon command]:sig:( SIGTERM SIGKILL SIGHUP SIGINT )' \
-                  '--watch-dir[    (optional) Directories to watch]:dir:_files -/' \
-                  '--pre-build[    (optional) Pre-build command]:cmd:_command_names' \
-                  '--post-build[    (optional) Post-build command]:cmd:_command_names' \
-                  '--working-dir[    (optional) Working directory]:dir:_files -/' \
-                  '--placeholder[    (optional) Placeholder token]:token:' \
-                  '--args-path-style[    (optional) Filepath style]:style:(dir base ext)' \
-                  '--build-at-start[    (optional) Build at startup]:bool:(on off)' \
-                  '--check-content-diff[    (optional) Only on content change]:bool:(on off)' \
-                  '--absolute-path[    (optional) Use absolute path]:bool:(on off)' \
-                  '--timeout[    (optional) Timeout duration]:string:' \
-                  '--delay[    (optional) Delay after build]:string:' \
-                  '--retry[    (optional) Retry count]:int:' \
-                  '--pattern-regex[    (optional) Regex to match files]:regex:' \
-                  '--include-ext[    (optional) File extensions to include]' \
-                  '--exclude-ext[    (optional) File extensions to exclude]' \
-                  '--exclude-dir[    (optional) Dirs to exclude]:dir:_files -/' \
-                  '--ignore-dir-regex[    (optional) Dir ignore regex]' \
-                  '--ignore-file-regex[    (optional) File ignore regex]' \
-                  '--default-ignores[    (optional) Specify default ignore volume <max|min|none>]:mode:(maximum minimal none)' \
-                  '--enmaignore[    (optional) Ignore file list]:file:_files' \
-                  '--logs[    (optional) Log file]:file:_files' \
-                  '--pid[    (optional) PID file]:file:_files'
-            fi
-            ;;
-          watch)
-            _values 'watch options' \
-              '--help[Show help]' \
-              '--command[Command to run]:cmd:_command_names' \
-              '--start-at-once[    (optional) Command run once at startup]:cmd:_command_names' \
-              '--watch-dir[    (optional) Directories to watch]:dir:_files -/' \
-              '--pre-cmd[    (optional) Pre-command]:cmd:_command_names' \
-              '--post-cmd[    (optional) Post-command]:cmd:_command_names' \
-              '--working-dir[    (optional) Working directory]:dir:_files -/' \
-              '--placeholder[    (optional) Placeholder token]:token:' \
-              '--args-path-style[    (optional) Filepath style]:style:(dir base ext)' \
-              '--check-content-diff[    (optional) Only on content change]:bool:(on off)' \
-              '--absolute-path[    (optional) Use absolute path]:bool:(on off)' \
-              '--timeout[    (optional) Timeout duration]:string:' \
-              '--delay[    (optional) Delay duration]:string:' \
-              '--retry[    (optional) Retry count]:int:' \
-              '--pattern-regex[    (optional) Regex to match files]:regex:' \
-              '--include-ext[    (optional) File extensions to include]' \
-              '--exclude-ext[    (optional) File extensions to exclude]' \
-              '--exclude-dir[    (optional) Dirs to exclude]:dir:_files -/' \
-              '--ignore-dir-regex[    (optional) Dir ignore regex]' \
-              '--ignore-file-regex[    (optional) File ignore regex]' \
-              '--default-ignores[    (optional) Specify default ignore volume <max|min|none>]:mode:(maximum minimal none)' \
-              '--enmaignore[    (optional) Ignore file list]:file:_files' \
-              '--logs[    (optional) Log file]:file:_files' \
-              '--pid[    (optional) PID file]:file:_files'
-            ;;
-          scheduler)
-            _values 'scheduler options' \
-              '--help[Show help]' \
-              '--cron[6-field cron expression]:cron:' \
-              '--command[Command to run]:cmd:_command_names' \
-              '--name[    (optional) Job name]:name:' \
-              '--working-dir[    (optional) Working directory]:dir:_files -/' \
-              '--timezone[    (optional) Time zone]:zone:' \
-              '--timeout[    (optional) Time limit of one attempt]:string:' \
-              '--retries[    (optional) Retries after a failure]:int:' \
-              '--retry-delay[    (optional) Wait before a retry]:string:' \
-              '--max-concurrent[    (optional) Maximum attempts at once]:int:' \
-              '--next[    (optional) List the next N fire times and exit]:int:' \
-              '--logs[    (optional) Log file]:file:_files' \
-              '--pid[    (optional) PID file]:file:_files'
-            ;;
-          config)
-            _values 'config options' \
-              'validate[Check a config file without running it]' \
-              '--help[Show help]' \
-              '--config[Config file to check]:file:_files' \
-              '--next[    (optional) Scheduler configs: list the next N fire times]:int:'
-            ;;
-          *)
-            _message 'No subcommand matched.'
-            ;;
-        esac
-        ;;
+  if [[ $state == args ]]; then
+    curcontext="${curcontext%:*:*}:enma-$words[1]:"
+    case $words[1] in
+      init) _enma_init && ret=0 ;;
+      hotload) _enma_hotload && ret=0 ;;
+      watch) _enma_watch && ret=0 ;;
+      scheduler) _enma_scheduler && ret=0 ;;
+      config) _enma_config && ret=0 ;;
     esac
+  fi
+  return ret
 }
 
-compdef _enma enma
-return 0
+_enma_subcommands() {
+  local -a subcommands
+  subcommands=(
+    'init:Create plain Enma.toml and .enmaignore files'
+    'hotload:Detect file changes, build and reload a daemon'
+    'watch:Detect file changes and run a command'
+    'scheduler:Run a command on a cron schedule'
+    'config:Check a config file without running it'
+  )
+  _describe -t subcommands 'enma subcommand' subcommands
+}
+
+_enma_init() {
+  _arguments -S -A '-*' \
+    '(- *)'{-h,--help}'[Show help message and exit]' \
+    '(-m --mode)'{-m=,--mode=}'[Mode of the file to create]:mode:(hotload watch scheduler enmaignore)' \
+    '(-f --file-name)'{-f=,--file-name=}'[Name of the file to create]:file name:_files'
+}
+
+# _enma_dirs / _enma_files: complete the part after the last comma of a
+# comma-separated value (a directory keeps its "/", so the path can go on;
+# type the comma yourself). _arguments passes compadd options first.
+_enma_dirs() {
+  compset -P '*,'
+  _path_files "$@" -/
+}
+
+_enma_files() {
+  compset -P '*,'
+  _files "$@"
+}
+
+# The flags hotload and watch share (watch has no signal and build-at-start).
+_enma_watch_specs() {
+  reply=(
+    '(- *)'{-h,--help}'[Show help message and exit]'
+    '--start-at-once=[Command run once at startup]:command:_command_names -e'
+    '(-W --working-dir)'{-W=,--working-dir=}'[Working directory]:directory:_path_files -/'
+    '(-I --placeholder)'{-I=,--placeholder=}'[Placeholder replaced with the changed file]:placeholder: '
+    '(-s --args-path-style)'{-s=,--args-path-style=}'[File path style passed to the command]:style:_values -s , style dir base ext'
+    '(-C --check-content-diff)'{-C=,--check-content-diff=}'[Fire only when the contents change]:switch:(on off)'
+    '(-A --abs --absolute-path)'{-A=,--abs=,--absolute-path=}'[Pass absolute file paths]:switch:(on off)'
+    '(-t --timeout)'{-t=,--timeout=}'[Command timeout]:time: '
+    '(-l --delay)'{-l=,--delay=}'[Delay after the command]:time: '
+    '(-r --retry)'{-r=,--retry=}'[Retry count]:number: '
+    '(-w --watch-dir)'{-w=,--watch-dir=}'[Directories to watch (comma-separated)]:directory:_enma_dirs'
+    '(-x --pattern-regex)'{-x=,--pattern-regex=}'[Regex of file paths to watch]:regex: '
+    '(-i --include-ext)'{-i=,--include-ext=}'[File extensions to include (comma-separated)]:extension: '
+    '(-g --ignore-file-regex)'{-g=,--ignore-file-regex=}'[Regex of files to ignore]:regex: '
+    '(-G --ignore-dir-regex)'{-G=,--ignore-dir-regex=}'[Regex of directories to ignore]:regex: '
+    '(-e --exclude-ext)'{-e=,--exclude-ext=}'[File extensions to exclude (comma-separated)]:extension: '
+    '(-E --exclude-dir)'{-E=,--exclude-dir=}'[Directories to exclude (comma-separated)]:directory:_enma_dirs'
+    '(-D --default-ignores)'{-D=,--default-ignores=}'[Default ignore volume]:volume:(max min none)'
+    '(-n --enmaignore)'{-n=,--enmaignore=}'[Ignore files to use (comma-separated)]:ignore file:_enma_files'
+    '--logs=[Path to the enma log file]:log file:_files'
+    '--pid=[Path to the enma PID file]:PID file:_files'
+  )
+}
+
+_enma_hotload() {
+  local -a reply signals
+  signals=(SIGTERM SIGKILL SIGHUP SIGINT)
+  case $OSTYPE in
+    cygwin*|msys*|win*) ;; # a Windows enma knows these four only
+    *) signals+=(SIGUSR1 SIGUSR2) ;;
+  esac
+  _enma_watch_specs
+  _arguments -S -A '-*' "$reply[@]" \
+    '(-d --daemon)'{-d=,--daemon=}'[Daemon command]:command:_command_names -e' \
+    '(-b --build)'{-b=,--build=}'[Command to build the daemon]:command:_command_names -e' \
+    '(-S --signal)'{-S=,--signal=}'[Signal to stop the daemon]:signal:('"$signals"')' \
+    '(-p --pre-build)'{-p=,--pre-build=}'[Command run before the build]:command:_command_names -e' \
+    '(-P --post-build)'{-P=,--post-build=}'[Command run after the build]:command:_command_names -e' \
+    '(-B --build-at-start)'{-B=,--build-at-start=}'[Build before the first start]:switch:(on off)'
+}
+
+_enma_watch() {
+  local -a reply
+  _enma_watch_specs
+  _arguments -S -A '-*' "$reply[@]" \
+    '(-c --cmd --command)'{-c=,--cmd=,--command=}'[Command run on a change]:command:_command_names -e' \
+    '(-p --pre-cmd --pre-command)'{-p=,--pre-cmd=,--pre-command=}'[Command run before the command]:command:_command_names -e' \
+    '(-P --post-cmd --post-command)'{-P=,--post-cmd=,--post-command=}'[Command run after the command]:command:_command_names -e'
+}
+
+_enma_scheduler() {
+  _arguments -S -A '-*' \
+    '(- *)'{-h,--help}'[Show help message and exit]' \
+    '--cron=[6-field cron expression]:cron expression: ' \
+    '--command=[Command to run]:command:_command_names -e' \
+    '--name=[Job name]:name: ' \
+    '--working-dir=[Working directory of the command]:directory:_path_files -/' \
+    '--timezone=[Time zone of the cron expression]:time zone: ' \
+    '--timeout=[Time limit of one attempt]:time: ' \
+    '--retries=[Retries after a failed attempt]:number: ' \
+    '--retry-delay=[Wait before a retry]:time: ' \
+    '--max-concurrent=[Maximum attempts running at once]:number: ' \
+    '--next=[List the next N fire times and exit]:number: ' \
+    '--logs=[Path to the enma log file]:log file:_files' \
+    '--pid=[Path to the enma PID file]:PID file:_files'
+}
+
+_enma_config() {
+  local curcontext="$curcontext" state state_descr line ret=1
+  _arguments -C -A '-*' \
+    '(- 1 *)'{-h,--help}'[Show help message and exit]' \
+    '1:action:((validate\:"Check a config file without running it"))' \
+    '*:: :->args' && ret=0
+  if [[ $state == args && $words[1] == validate ]]; then
+    _arguments -S -A '-*' \
+      '(- *)'{-h,--help}'[Show help message and exit]' \
+      '(-c -f --config)'{-c=,-f=,--config=}'[Config file to check]:config file:_files' \
+      '--next=[Scheduler configs: list the next N fire times]:number: ' && ret=0
+  fi
+  return ret
+}
+
+if [[ "${funcstack[1]-}" == _enma ]]; then
+  _enma "$@" # autoloaded by compinit: complete now
+else
+  compdef _enma enma # sourced
+fi

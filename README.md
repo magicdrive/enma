@@ -47,6 +47,27 @@ brew install magicdrive/tap/enma               # or Homebrew
 Pre-built binaries are on the [Releases page](https://github.com/magicdrive/enma/releases).
 Upgrading from v1.2.10 or earlier? Some behaviour changed: see [CHANGELOG.md](CHANGELOG.md).
 
+### Shell completion
+
+Completions for bash, zsh and fish are in [`misc/completions`](misc/completions) and in the
+`completions/` directory of each release archive. Homebrew installs them; open a new shell
+afterwards. bash reads them through bash-completion (`brew install bash-completion@2`); a zsh not
+installed by Homebrew needs `$(brew --prefix)/share/zsh/site-functions` in `$fpath` before
+`compinit`. Otherwise:
+
+| Shell | Install |
+|---|---|
+| bash | `source /path/to/completions/bash/enma-completion.bash` in `~/.bashrc` (bash-completion is not needed) |
+| zsh | copy `completions/zsh/_enma` into a directory of `$fpath`, before `compinit` runs |
+| fish | copy `completions/fish/enma.fish` into `~/.config/fish/completions/` |
+
+`completions/enma-completion.sh` works in bash and zsh alike: source it (in zsh after
+`compinit`). They complete the subcommands, each flag of the command line (short and long
+spellings), the values of flags with a fixed set of values (`--signal`, `--mode`,
+`--default-ignores`, `on`/`off`, `--args-path-style`), and files and directories where a flag
+takes one. With bash 3.2 (macOS `/bin/bash`), paths are completed by bash itself: files are
+offered for directory and free-text values too, and not after a comma in a list.
+
 ### Run it
 
 Run the tests whenever a Go file below the current directory changes:

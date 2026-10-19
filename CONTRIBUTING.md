@@ -38,7 +38,10 @@ staticcheck as CI.
 - Add a test that fails without your change (a regression test for a bug fix).
 - Run `gofmt` and the commands above before pushing.
 - When you change a flag or a message, update the help texts in `internal/textbank/`,
-  the completions in `misc/completions/` and the README; tests check that they agree.
+  the completions in `misc/completions/` (bash, zsh, fish) and the README; tests check that they
+  agree. The completion tests (`internal/commandline/completion_test.go`) run each script in its
+  shell: install zsh and fish to run them all (CI does). After changing the bash or zsh script,
+  rebuild the combined one: `go test ./internal/commandline -run TestCombinedCompletionScript -update`.
 - Add a line to the `Unreleased` section of `CHANGELOG.md` for a user-visible change.
 
 ## Reporting bugs

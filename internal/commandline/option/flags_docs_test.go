@@ -15,8 +15,9 @@ import (
 	"github.com/magicdrive/enma/internal/commandline/option"
 )
 
-// The help texts and the shell completions name the flags the parsers define:
-// no flag is missing from them, and none they offer is rejected by enma.
+// The help texts and the README name the flags the parsers define: no flag is
+// missing from them, and none they name is rejected by enma. (The shell
+// completions are checked by internal/commandline/completion_test.go.)
 
 // definedFlags returns the flag names a parser file defines (fs.String("name", ...),
 // fs.StringVar(p, "name", ...), ...).
@@ -135,15 +136,11 @@ func long(defined map[string]bool) map[string]bool {
 	return out
 }
 
-// sameFlag maps the long spellings of one flag to each other: a completion
-// offers one of them (the help names all).
+// sameFlag maps the long spellings of one flag to each other: the README lists
+// one of them (the help names all).
 var sameFlag = map[string]string{
 	"abs": "absolute-path", "absolute-path": "abs", "cmd": "command", "command": "cmd",
 	"pre-cmd": "pre-command", "pre-command": "pre-cmd", "post-cmd": "post-command", "post-command": "post-cmd",
-}
-
-var subcommandFiles = map[string]string{
-	"init": "init.go", "hotload": "hotload.go", "watch": "watch.go", "scheduler": "scheduler.go", "config": "config.go",
 }
 
 var longFlagRE = regexp.MustCompile(`(?:^|[\s'"(=,\[])--([a-z][a-z0-9-]*)`)
@@ -174,78 +171,6 @@ func readFile(t *testing.T, path string) string {
 		t.Fatal(err)
 	}
 	return string(b)
-}
-
-// caseBranches returns the text of each case branch `name)` up to its `;;` line.
-func caseBranches(t *testing.T, text, name string) []string {
-	t.Helper()
-	re := regexp.MustCompile(`(?s)\n\s*` + regexp.QuoteMeta(name) + `\)\n(.*?)\n\s*;;`) // a branch ends at a ";;" line
-	var out []string
-	for _, m := range re.FindAllStringSubmatch(text, -1) {
-		out = append(out, m[1])
-	}
-	if len(out) == 0 {
-		t.Fatalf("no %q branch", name)
-	}
-	return out
-}
-
-// offerSets returns the flags a completion branch offers, one set per zsh
-// `_values` call (the hotload branch has one per OS family, each complete on
-// its own: audit H5B-03), or for bash the words of all opts= lines of the
-// branch (they offer different words by context).
-func offerSets(branch string) []map[string]bool {
-	calls := regexp.MustCompile(`(?s)_values '[^']*'(?:[^\n]*\\\n)*[^\n]*`).FindAllString(branch, -1)
-	if len(calls) == 0 { // bash: the words of the opts= lines (not the conditions around them: H5R2-03)
-		words := map[string]bool{}
-		for _, m := range regexp.MustCompile(`opts="([^"]*)"`).FindAllStringSubmatch(branch, -1) {
-			for k := range mentioned(" " + m[1]) {
-				words[k] = true
-			}
-		}
-		return []map[string]bool{words}
-	}
-	var out []map[string]bool
-	for _, c := range calls {
-		out = append(out, mentioned(c))
-	}
-	return out
-}
-
-func TestCompletionsOfferTheDefinedFlags(t *testing.T) {
-	root := filepath.Join("..", "..", "..", "misc", "completions")
-	files := []string{
-		filepath.Join(root, "bash", "enma-completion.bash"),
-		filepath.Join(root, "zsh", "_enma"),
-		filepath.Join(root, "enma-completion.sh"), // both shells
-	}
-	for _, file := range files {
-		text := readFile(t, file)
-		for sub, src := range subcommandFiles {
-			def := long(definedFlags(t, src))
-			for _, branch := range caseBranches(t, text, sub) {
-				for _, offered := range offerSets(branch) {
-					if bad := sortedDiff(offered, def); len(bad) > 0 {
-						t.Errorf("%s %s: offers flags enma rejects: %v", file, sub, bad)
-					}
-					var missing []string
-					for _, n := range sortedDiff(def, offered) {
-						if !offered[sameFlag[n]] {
-							missing = append(missing, n)
-						}
-					}
-					if len(missing) > 0 {
-						t.Errorf("%s %s: does not offer %v", file, sub, missing)
-					}
-				}
-			}
-		}
-		for _, sub := range []string{"init", "hotload", "watch", "scheduler", "config"} {
-			if !strings.Contains(text, sub) {
-				t.Errorf("%s: subcommand %s not offered", file, sub)
-			}
-		}
-	}
 }
 
 func TestSubcommandHelpNamesTheDefinedFlags(t *testing.T) {
@@ -377,47 +302,6 @@ func TestGlobalHelpSectionsMatchFlags(t *testing.T) {
 			if !regexp.MustCompile(`(^|[\s,])` + regexp.QuoteMeta(form) + `([\s,]|$)`).MatchString(body) {
 				t.Errorf("help.txt %s does not name %s", heading, form)
 			}
-		}
-	}
-}
-
-// The value lists zsh offers (--signal, --args-path-style, --default-ignores,
-// on/off switches) are accepted by enma (audit H5B-06: `full` was offered).
-func TestCompletionValuesAreAccepted(t *testing.T) {
-	root := filepath.Join("..", "..", "..", "misc", "completions")
-	value := regexp.MustCompile(`'--([a-z-]+)\[[^\]]*\]:[^:']*:\(([^)]*)\)'`)
-	parsers := map[string]func(flag, v string) error{
-		"hotload": func(flag, v string) error {
-			_, err := option.ParseHotload([]string{"--daemon", "x", "--build", "y", "--" + flag, v})
-			return err
-		},
-		"watch": func(flag, v string) error {
-			_, err := option.ParseWatch([]string{"--command", "x", "--" + flag, v})
-			return err
-		},
-	}
-	for _, file := range []string{filepath.Join(root, "zsh", "_enma"), filepath.Join(root, "enma-completion.sh")} {
-		text := readFile(t, file)
-		checked := 0
-		for sub, parse := range parsers {
-			for _, branch := range caseBranches(t, text, sub) {
-				for _, m := range value.FindAllStringSubmatch(branch, -1) {
-					for _, v := range strings.Fields(m[2]) {
-						if v == "SIGUSR1" || v == "SIGUSR2" || v == "SIGHUP" { // offered on Unix only
-							if _, err := os.Stat("/bin/sh"); err != nil {
-								continue
-							}
-						}
-						checked++
-						if err := parse(m[1], v); err != nil {
-							t.Errorf("%s %s: --%s %s is offered but rejected: %v", file, sub, m[1], v, err)
-						}
-					}
-				}
-			}
-		}
-		if checked < 10 {
-			t.Fatalf("%s: only %d offered values found", file, checked)
 		}
 	}
 }

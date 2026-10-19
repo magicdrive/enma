@@ -67,7 +67,8 @@ for target in linux_amd64 linux_arm64 darwin_amd64 darwin_arm64 windows_amd64 \
 		tar -xzf "$archive" -C "$out"
 	fi
 	for f in "$bin" LICENSE README.md completions/enma-completion.sh \
-		completions/zsh/_enma completions/bash/enma-completion.bash; do
+		completions/zsh/_enma completions/bash/enma-completion.bash \
+		completions/fish/enma.fish; do
 		[ -f "$out/$f" ] || fail "$archive: missing $f"
 	done
 	if [ "$ext" = tar.gz ] && [ ! -x "$out/$bin" ]; then

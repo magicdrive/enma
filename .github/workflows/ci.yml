@@ -19,6 +19,11 @@ jobs:
       matrix:
         os: [ubuntu-latest, macos-latest]
     runs-on: ${{ matrix.os }}
+    env:
+      # The completion tests (internal/commandline) run each script in its
+      # shell; a shell named here that is missing fails them instead of
+      # skipping it.
+      ENMA_COMPLETION_SHELLS: bash zsh fish
     steps:
       - name: Checkout code
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
@@ -27,6 +32,16 @@ jobs:
         uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7
         with:
           go-version-file: 'go.mod'
+
+      - name: Install zsh and fish for the completion tests
+        run: |
+          if [ "$RUNNER_OS" = Linux ]; then
+            sudo apt-get update -q
+            sudo apt-get install -y -q zsh fish
+          else
+            brew install fish
+          fi
+          bash --version | head -1; zsh --version; fish --version
 
       # observations of the known limitation G4-04 (macOS / BSD, see README
       # "What is watched") go to this file and are printed after the tests

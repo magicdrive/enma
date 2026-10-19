@@ -51,6 +51,8 @@ All notable changes to enma are listed here. Releases up to v1.2.10 are describe
 - An unknown key in a `[subcommand.hotload]` / `[subcommand.watch]` section is reported as a
   warning on stderr (it is still ignored); the scheduler section rejects it.
 - SECURITY.md, CONTRIBUTING.md, this changelog, issue and pull request templates.
+- Fish shell completion (`completions/fish/enma.fish`; Homebrew installs it), and a README
+  section on installing the completions.
 
 ### Security
 
@@ -83,6 +85,12 @@ All notable changes to enma are listed here. Releases up to v1.2.10 are describe
   `--ignore-file-regex` and `-G` `--ignore-dir-regex`; the combined completion script can be
   sourced by bash.
 - `make release-build` embeds the version, builds arm64 and names Windows binaries `.exe`.
+- Shell completions follow the command line: every short flag and alias (`-d`, `-S`, `--cmd`,
+  `--abs`, ...), values after a space as well as after `=`, files and directories where a flag
+  takes one, and nothing after `--` or an argument. zsh completes on the first TAB of a new shell
+  (it did nothing until the second), and `watch -c` completes a command, not a config file. The
+  bash completion no longer needs bash-completion (it failed with `_init_completion: command
+  not found` without it).
 
 ### Known issues
 
