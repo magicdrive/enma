@@ -73,20 +73,20 @@ jobs:
 
       # Build and check the archives before anything is published.
       - name: GoReleaser snapshot
-        uses: goreleaser/goreleaser-action@f06c13b6b1a9625abc9e6e439d9c05a8f2190e94 # v7
+        uses: goreleaser/goreleaser-action@a4f02ab5355a589de60d917a659ce617ed19b3de # v7
         with:
           distribution: goreleaser
-          version: v2.18.2
+          version: v2.18.3
           args: release --snapshot --clean --skip=publish
 
       - name: Verify archives
         run: sh scripts/verify-dist.sh dist snapshot
 
       - name: Run GoReleaser
-        uses: goreleaser/goreleaser-action@f06c13b6b1a9625abc9e6e439d9c05a8f2190e94 # v7
+        uses: goreleaser/goreleaser-action@a4f02ab5355a589de60d917a659ce617ed19b3de # v7
         with:
           distribution: goreleaser
-          version: v2.18.2  # pinned; the config is checked with this version
+          version: v2.18.3  # pinned; the config is checked with this version
           args: release --clean
         env:
           GITHUB_TOKEN: ${{ secrets.PERSONAL_GITHUB_TOKEN }}
