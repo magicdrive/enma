@@ -99,7 +99,21 @@ func TestLifecycle(t *testing.T) {
 					t.Parallel()
 					gh := newFakeGitHub(t)
 					gh.publish(t, p)
-					lifecycle(t, newEnv(t, gh, p, sh, toolset{downloader: dl}))
+					e := newEnv(t, gh, p, sh, toolset{downloader: dl})
+					if dl == "wget" && !strings.HasPrefix(e.shellOutput("wget --version"), "GNU Wget 1.") {
+						// The shell runs its own wget (BusyBox's), not GNU Wget
+						// from PATH: install.sh must refuse it, before connecting.
+						r := e.run()
+						checkFails(t, r, 1, "is not GNU Wget 1.x")
+						if _, c := gh.snapshot(); len(c) != 0 {
+							t.Fatalf("it connected with the wget of %s: %v", sh.name, c)
+						}
+						if _, err := os.Stat(e.defaultDir()); err == nil {
+							t.Fatalf("it created %s", e.defaultDir())
+						}
+						return
+					}
+					lifecycle(t, e)
 				})
 			}
 		}
@@ -118,7 +132,8 @@ func TestBusyBoxUserland(t *testing.T) {
 			t.Parallel()
 			gh := newFakeGitHub(t)
 			gh.publish(t, p)
-			sh := shellSpec{name: "busybox", argv: []string{bb, "sh"}}
+			argv := []string{bb, "sh"}
+			sh := shellSpec{name: "busybox", argv: argv, appletsFirst: probeAppletsFirst(t, argv)}
 			lifecycle(t, newEnv(t, gh, p, sh, toolset{busybox: bb, shaTool: "sha256sum"}))
 		})
 	}
@@ -127,7 +142,7 @@ func TestBusyBoxUserland(t *testing.T) {
 // TestShaTools: each SHA-256 tool install.sh knows works, and without any the
 // run stops before downloading.
 func TestShaTools(t *testing.T) {
-	sh := testShells(t)[0]
+	sh := pathShell(t)
 	for _, tool := range []string{"sha256sum", "shasum", "openssl"} {
 		t.Run(tool, func(t *testing.T) {
 			if _, ok := lookTool(tool); !ok {
@@ -160,7 +175,7 @@ func testEnv(t *testing.T, ts toolset) (*env, *fakeGitHub) {
 	t.Helper()
 	gh := newFakeGitHub(t)
 	gh.publish(t, enmaProject)
-	return newEnv(t, gh, enmaProject, testShells(t)[0], ts), gh
+	return newEnv(t, gh, enmaProject, pathShell(t), ts), gh
 }
 
 // userland is a set of POSIX tools: this machine's, or BusyBox's.
@@ -174,9 +189,10 @@ type userland struct {
 // archive and checksum tests run with each, since tar and awk differ.
 func userlands(t *testing.T) []userland {
 	t.Helper()
-	out := []userland{{name: "host", shell: testShells(t)[0]}}
+	out := []userland{{name: "host", shell: pathShell(t)}}
 	if bb, ok := busyboxPath(t); ok {
-		out = append(out, userland{name: "busybox", shell: shellSpec{name: "busybox", argv: []string{bb, "sh"}},
+		argv := []string{bb, "sh"}
+		out = append(out, userland{name: "busybox", shell: shellSpec{name: "busybox", argv: argv, appletsFirst: probeAppletsFirst(t, argv)},
 			tools: toolset{busybox: bb, shaTool: "sha256sum"}})
 	}
 	return out
@@ -257,7 +273,7 @@ func TestPrereleaseVersion(t *testing.T) {
 	p := enmaProject
 	p.tags = append(append([]string{}, p.tags...), "v2.1.0-rc.1")
 	gh.publish(t, p)
-	e := newEnv(t, gh, p, testShells(t)[0], toolset{})
+	e := newEnv(t, gh, p, pathShell(t), toolset{})
 	r := e.run("--version", "v2.1.0-rc.1")
 	checkOK(t, r, "Installed enma v2.1.0-rc.1")
 	e.checkInstalled(r, filepath.Join(e.defaultDir(), "enma"), "v2.1.0-rc.1")
@@ -618,47 +634,49 @@ func TestLegacyChecksumName(t *testing.T) {
 // TestChecksums: the checksum file is read strictly.
 func TestChecksums(t *testing.T) {
 	p := enmaProject
-	name := p.archiveName("v2.0.1", "linux", "amd64")
 	zero := strings.Repeat("0", 64)
-	cases := []struct {
+	// name is the archive install.sh fetches in the environment of the run
+	type checksumCase struct {
 		name  string
-		edit  func(sum, all string) string
-		want  string
+		edit  func(sum, all, name string) string
+		want  func(name string) string
 		wants bool // install succeeds
-	}{
-		{"mismatch", func(sum, all string) string {
+	}
+	is := func(s string) func(string) string { return func(string) string { return s } }
+	cases := []checksumCase{
+		{"mismatch", func(sum, all, name string) string {
 			return strings.Replace(all, sum, zero, 1)
-		}, "SHA-256 mismatch", false},
-		{"entry missing", func(sum, all string) string {
+		}, is("SHA-256 mismatch"), false},
+		{"entry missing", func(sum, all, name string) string {
 			return strings.Replace(all, sum+"  "+name+"\n", "", 1)
-		}, "has no " + name, false},
-		{"duplicate entry", func(sum, all string) string {
+		}, func(name string) string { return "has no " + name }, false},
+		{"duplicate entry", func(sum, all, name string) string {
 			return all + sum + "  " + name + "\n"
-		}, "lists " + name + " more than once", false},
-		{"duplicate with another sum", func(sum, all string) string {
+		}, func(name string) string { return "lists " + name + " more than once" }, false},
+		{"duplicate with another sum", func(sum, all, name string) string {
 			return all + zero + "  " + name + "\n"
-		}, "more than once", false},
-		{"only partial matches", func(sum, all string) string {
+		}, is("more than once"), false},
+		{"only partial matches", func(sum, all, name string) string {
 			all = strings.Replace(all, sum+"  "+name+"\n", "", 1)
 			return all + sum + "  " + strings.TrimSuffix(name, ".tar.gz") + "\n" + sum + "  x" + name + "\n" +
 				sum + "  " + name + ".sig\n" + sum + "  ./" + name + "\n"
-		}, "has no " + name, false},
-		{"partial matches around the right one", func(sum, all string) string {
+		}, func(name string) string { return "has no " + name }, false},
+		{"partial matches around the right one", func(sum, all, name string) string {
 			return zero + "  " + strings.TrimSuffix(name, ".tar.gz") + "\n" + zero + "  x" + name + "\n" + all +
 				zero + "  " + name + ".sig\n"
-		}, "Verified the SHA-256", true},
-		{"one space", func(sum, all string) string { return strings.Replace(all, sum+"  ", sum+" ", 1) }, "malformed", false},
-		{"binary marker", func(sum, all string) string { return strings.Replace(all, sum+"  ", sum+" *", 1) }, "malformed", false},
-		{"upper case", func(sum, all string) string { return strings.Replace(all, sum, strings.ToUpper(sum), 1) }, "malformed", false},
-		{"short sum", func(sum, all string) string { return strings.Replace(all, sum, sum[:63], 1) }, "malformed", false},
-		{"long sum", func(sum, all string) string { return strings.Replace(all, sum, sum+"0", 1) }, "malformed", false},
-		{"not hex", func(sum, all string) string { return strings.Replace(all, sum, "g"+sum[1:], 1) }, "malformed", false},
-		{"CRLF", func(sum, all string) string { return strings.ReplaceAll(all, "\n", "\r\n") }, "malformed", false},
-		{"blank line", func(sum, all string) string { return "\n" + all }, "malformed", false},
-		{"trailing space", func(sum, all string) string { return strings.Replace(all, name+"\n", name+" \n", 1) }, "malformed", false},
-		{"garbage line", func(sum, all string) string { return all + "<html>not found</html>\n" }, "malformed", false},
-		{"empty file", func(sum, all string) string { return "" }, "has no " + name, false},
-		{"no final newline", func(sum, all string) string { return strings.TrimSuffix(all, "\n") }, "Verified the SHA-256", true},
+		}, is("Verified the SHA-256"), true},
+		{"one space", func(sum, all, name string) string { return strings.Replace(all, sum+"  ", sum+" ", 1) }, is("malformed"), false},
+		{"binary marker", func(sum, all, name string) string { return strings.Replace(all, sum+"  ", sum+" *", 1) }, is("malformed"), false},
+		{"upper case", func(sum, all, name string) string { return strings.Replace(all, sum, strings.ToUpper(sum), 1) }, is("malformed"), false},
+		{"short sum", func(sum, all, name string) string { return strings.Replace(all, sum, sum[:63], 1) }, is("malformed"), false},
+		{"long sum", func(sum, all, name string) string { return strings.Replace(all, sum, sum+"0", 1) }, is("malformed"), false},
+		{"not hex", func(sum, all, name string) string { return strings.Replace(all, sum, "g"+sum[1:], 1) }, is("malformed"), false},
+		{"CRLF", func(sum, all, name string) string { return strings.ReplaceAll(all, "\n", "\r\n") }, is("malformed"), false},
+		{"blank line", func(sum, all, name string) string { return "\n" + all }, is("malformed"), false},
+		{"trailing space", func(sum, all, name string) string { return strings.Replace(all, name+"\n", name+" \n", 1) }, is("malformed"), false},
+		{"garbage line", func(sum, all, name string) string { return all + "<html>not found</html>\n" }, is("malformed"), false},
+		{"empty file", func(sum, all, name string) string { return "" }, func(name string) string { return "has no " + name }, false},
+		{"no final newline", func(sum, all, name string) string { return strings.TrimSuffix(all, "\n") }, is("Verified the SHA-256"), true},
 	}
 	for _, u := range userlands(t) {
 		for _, c := range cases {
@@ -666,16 +684,17 @@ func TestChecksums(t *testing.T) {
 				t.Parallel()
 				e, gh := userlandEnv(t, u)
 				target, before := withInstalled(t, e)
+				name := p.archiveName("v2.0.1", e.goos(), e.goarch())
 				all := string(gh.asset(p, "v2.0.1", "enma_checksums.txt"))
 				sum := sha(gh.asset(p, "v2.0.1", name))
-				gh.setAsset(p, "v2.0.1", "enma_checksums.txt", []byte(c.edit(sum, all)))
+				gh.setAsset(p, "v2.0.1", "enma_checksums.txt", []byte(c.edit(sum, all, name)))
 				r := e.run("--upgrade")
 				if c.wants {
-					checkOK(t, r, c.want)
+					checkOK(t, r, c.want(name))
 					e.checkInstalled(r, target, "v2.0.1")
 					return
 				}
-				checkFails(t, r, 1, c.want)
+				checkFails(t, r, 1, c.want(name))
 				e.checkUnchanged(r, target, before)
 				e.checkClean(r, e.defaultDir())
 			})
@@ -687,89 +706,99 @@ func TestChecksums(t *testing.T) {
 // checksum.
 func TestArchives(t *testing.T) {
 	p := enmaProject
-	bin := p.fakeBinary("v2.0.1", "linux", "amd64")
-	std := p.standardEntries("v2.0.1", "linux", "amd64")
-	with := func(es ...entry) []entry { return append(append([]entry{}, std...), es...) }
+	// f holds the release of the platform install.sh runs on (see fixtureFor)
 	cases := []struct {
 		name    string
-		data    func(t *testing.T) []byte
+		data    func(t *testing.T, f archiveFixture) []byte
 		want    string
 		success bool
 	}{
-		{"standard", func(t *testing.T) []byte { return makeTarGz(t, std) }, "Upgraded", true},
-		{"directory entries", func(t *testing.T) []byte {
-			return makeTarGz(t, append([]entry{{name: "completions/", typ: tar.TypeDir, mode: 0o755}}, std...))
+		{"standard", func(t *testing.T, f archiveFixture) []byte { return makeTarGz(t, f.std) }, "Upgraded", true},
+		{"directory entries", func(t *testing.T, f archiveFixture) []byte {
+			return makeTarGz(t, append([]entry{{name: "completions/", typ: tar.TypeDir, mode: 0o755}}, f.std...))
 		}, "Upgraded", true},
-		{"not gzip", func(t *testing.T) []byte { return []byte("this is not a gzip file at all") }, "not a valid gzip file", false},
-		{"truncated gzip", func(t *testing.T) []byte { d := makeTarGz(t, std); return d[:len(d)/2] }, "not a valid gzip file", false},
-		{"gzip of garbage", func(t *testing.T) []byte { return gz(t, bytes.Repeat([]byte("garbage "), 200)) }, "not a valid tar archive", false},
-		{"absolute path", func(t *testing.T) []byte { return makeTarGz(t, with(entry{name: "/tmp/evil", body: []byte("x")})) }, "an absolute path OR tar reported", false},
-		{"dot-dot", func(t *testing.T) []byte { return makeTarGz(t, with(entry{name: "../evil", body: []byte("x")})) }, `a path with ".." OR tar reported`, false},
-		{"dot-dot inside", func(t *testing.T) []byte {
-			return makeTarGz(t, with(entry{name: "completions/../../evil", body: []byte("x")}))
+		{"not gzip", func(t *testing.T, f archiveFixture) []byte { return []byte("this is not a gzip file at all") }, "not a valid gzip file", false},
+		{"truncated gzip", func(t *testing.T, f archiveFixture) []byte { d := makeTarGz(t, f.std); return d[:len(d)/2] }, "not a valid gzip file", false},
+		{"gzip of garbage", func(t *testing.T, f archiveFixture) []byte { return gz(t, bytes.Repeat([]byte("garbage "), 200)) }, "not a valid tar archive", false},
+		{"absolute path", func(t *testing.T, f archiveFixture) []byte {
+			return makeTarGz(t, f.with(entry{name: "/tmp/evil", body: []byte("x")}))
+		}, "an absolute path OR tar reported", false},
+		{"dot-dot", func(t *testing.T, f archiveFixture) []byte {
+			return makeTarGz(t, f.with(entry{name: "../evil", body: []byte("x")}))
 		}, `a path with ".." OR tar reported`, false},
-		{"symlink", func(t *testing.T) []byte {
-			return makeTarGz(t, with(entry{name: "link", typ: tar.TypeSymlink, linkname: "/etc/passwd"}))
+		{"dot-dot inside", func(t *testing.T, f archiveFixture) []byte {
+			return makeTarGz(t, f.with(entry{name: "completions/../../evil", body: []byte("x")}))
+		}, `a path with ".." OR tar reported`, false},
+		{"symlink", func(t *testing.T, f archiveFixture) []byte {
+			return makeTarGz(t, f.with(entry{name: "link", typ: tar.TypeSymlink, linkname: "/etc/passwd"}))
 		}, "not a file or directory", false},
-		{"binary is a symlink", func(t *testing.T) []byte {
+		{"binary is a symlink", func(t *testing.T, f archiveFixture) []byte {
 			return makeTarGz(t, []entry{{name: "enma", typ: tar.TypeSymlink, linkname: "/bin/sh"}})
 		}, "", false},
-		{"hardlink", func(t *testing.T) []byte {
-			return makeTarGz(t, with(entry{name: "hard", typ: tar.TypeLink, linkname: "enma"}))
+		{"hardlink", func(t *testing.T, f archiveFixture) []byte {
+			return makeTarGz(t, f.with(entry{name: "hard", typ: tar.TypeLink, linkname: "enma"}))
 		}, "", false},
-		{"binary is a hardlink", func(t *testing.T) []byte {
-			return makeTarGz(t, []entry{{name: "README.md", body: bin, mode: 0o755}, {name: "enma", typ: tar.TypeLink, linkname: "README.md"}})
+		{"binary is a hardlink", func(t *testing.T, f archiveFixture) []byte {
+			return makeTarGz(t, []entry{{name: "README.md", body: f.bin, mode: 0o755}, {name: "enma", typ: tar.TypeLink, linkname: "README.md"}})
 		}, "", false},
-		{"fifo", func(t *testing.T) []byte { return makeTarGz(t, with(entry{name: "fifo", typ: tar.TypeFifo})) }, "not a file or directory", false},
-		{"char device", func(t *testing.T) []byte { return makeTarGz(t, with(entry{name: "dev", typ: tar.TypeChar})) }, "not a file or directory", false},
-		{"duplicate binary", func(t *testing.T) []byte {
-			return makeTarGz(t, with(entry{name: "enma", body: []byte("#!/bin/sh\necho evil\n"), mode: 0o755}))
+		{"fifo", func(t *testing.T, f archiveFixture) []byte {
+			return makeTarGz(t, f.with(entry{name: "fifo", typ: tar.TypeFifo}))
+		}, "not a file or directory", false},
+		{"char device", func(t *testing.T, f archiveFixture) []byte {
+			return makeTarGz(t, f.with(entry{name: "dev", typ: tar.TypeChar}))
+		}, "not a file or directory", false},
+		{"duplicate binary", func(t *testing.T, f archiveFixture) []byte {
+			return makeTarGz(t, f.with(entry{name: "enma", body: []byte("#!/bin/sh\necho evil\n"), mode: 0o755}))
 		}, "a duplicate entry", false},
-		{"duplicate other file", func(t *testing.T) []byte { return makeTarGz(t, with(entry{name: "LICENSE", body: []byte("x")})) }, "a duplicate entry", false},
-		{"binary missing", func(t *testing.T) []byte { return makeTarGz(t, std[:len(std)-1]) }, "no enma at the top", false},
-		{"binary in a directory", func(t *testing.T) []byte {
-			return makeTarGz(t, append(std[:len(std)-1:len(std)-1], entry{name: "dist/enma", body: bin, mode: 0o755}))
+		{"duplicate other file", func(t *testing.T, f archiveFixture) []byte {
+			return makeTarGz(t, f.with(entry{name: "LICENSE", body: []byte("x")}))
+		}, "a duplicate entry", false},
+		{"binary missing", func(t *testing.T, f archiveFixture) []byte { return makeTarGz(t, f.std[:len(f.std)-1]) }, "no enma at the top", false},
+		{"binary in a directory", func(t *testing.T, f archiveFixture) []byte {
+			return makeTarGz(t, append(f.std[:len(f.std)-1:len(f.std)-1], entry{name: "dist/enma", body: f.bin, mode: 0o755}))
 		}, "no enma at the top", false},
-		{"binary as ./enma", func(t *testing.T) []byte {
-			return makeTarGz(t, append(std[:len(std)-1:len(std)-1], entry{name: "./enma", body: bin, mode: 0o755}))
+		{"binary as ./enma", func(t *testing.T, f archiveFixture) []byte {
+			return makeTarGz(t, append(f.std[:len(f.std)-1:len(f.std)-1], entry{name: "./enma", body: f.bin, mode: 0o755}))
 		}, `an empty or "." part`, false},
 		// another spelling of the same name: tars disagree on which one they extract
-		{"enma and ./enma", func(t *testing.T) []byte {
-			return makeTarGz(t, with(entry{name: "./enma", body: []byte("#!/bin/sh\necho 'enma version v2.0.1'\n# evil\n"), mode: 0o755}))
+		{"enma and ./enma", func(t *testing.T, f archiveFixture) []byte {
+			return makeTarGz(t, f.with(entry{name: "./enma", body: []byte("#!/bin/sh\necho 'enma version v2.0.1'\n# evil\n"), mode: 0o755}))
 		}, `an empty or "." part`, false},
-		{"./enma and enma", func(t *testing.T) []byte {
-			return makeTarGz(t, append([]entry{{name: "./enma", body: []byte("#!/bin/sh\necho 'enma version v2.0.1'\n# evil\n"), mode: 0o755}}, std...))
+		{"./enma and enma", func(t *testing.T, f archiveFixture) []byte {
+			return makeTarGz(t, append([]entry{{name: "./enma", body: []byte("#!/bin/sh\necho 'enma version v2.0.1'\n# evil\n"), mode: 0o755}}, f.std...))
 		}, `an empty or "." part`, false},
-		{"enma and .//enma", func(t *testing.T) []byte {
-			return makeTarGz(t, with(entry{name: ".//enma", body: []byte("x"), mode: 0o755}))
+		{"enma and .//enma", func(t *testing.T, f archiveFixture) []byte {
+			return makeTarGz(t, f.with(entry{name: ".//enma", body: []byte("x"), mode: 0o755}))
 		}, `an empty or "." part`, false},
-		{"a//b", func(t *testing.T) []byte { return makeTarGz(t, with(entry{name: "completions//x", body: []byte("x")})) }, `an empty or "." part`, false},
-		{"a/./b", func(t *testing.T) []byte {
-			return makeTarGz(t, with(entry{name: "completions/./x", body: []byte("x")}))
+		{"a//b", func(t *testing.T, f archiveFixture) []byte {
+			return makeTarGz(t, f.with(entry{name: "completions//x", body: []byte("x")}))
 		}, `an empty or "." part`, false},
-		{"entries below enma/", func(t *testing.T) []byte {
-			return makeTarGz(t, with(entry{name: "enma/evil", body: []byte("x")}))
+		{"a/./b", func(t *testing.T, f archiveFixture) []byte {
+			return makeTarGz(t, f.with(entry{name: "completions/./x", body: []byte("x")}))
+		}, `an empty or "." part`, false},
+		{"entries below enma/", func(t *testing.T, f archiveFixture) []byte {
+			return makeTarGz(t, f.with(entry{name: "enma/evil", body: []byte("x")}))
 		}, "an entry below enma/", false},
-		{"binary is a directory", func(t *testing.T) []byte {
-			return makeTarGz(t, append(std[:len(std)-1:len(std)-1], entry{name: "enma/", typ: tar.TypeDir, mode: 0o755}))
+		{"binary is a directory", func(t *testing.T, f archiveFixture) []byte {
+			return makeTarGz(t, append(f.std[:len(f.std)-1:len(f.std)-1], entry{name: "enma/", typ: tar.TypeDir, mode: 0o755}))
 		}, "", false},
-		{"newline in a name", func(t *testing.T) []byte {
-			return makeTarGz(t, with(entry{name: "x\nenma", body: []byte("x")}))
+		{"newline in a name", func(t *testing.T, f archiveFixture) []byte {
+			return makeTarGz(t, f.with(entry{name: "x\nenma", body: []byte("x")}))
 		}, "", false},
-		{"backslash in a name", func(t *testing.T) []byte {
-			return makeTarGz(t, with(entry{name: `a\b`, body: []byte("x")}))
+		{"backslash in a name", func(t *testing.T, f archiveFixture) []byte {
+			return makeTarGz(t, f.with(entry{name: `a\b`, body: []byte("x")}))
 		}, "a name with a backslash", false},
-		{"empty binary", func(t *testing.T) []byte {
-			return makeTarGz(t, append(std[:len(std)-1:len(std)-1], entry{name: "enma", body: nil, mode: 0o755}))
+		{"empty binary", func(t *testing.T, f archiveFixture) []byte {
+			return makeTarGz(t, append(f.std[:len(f.std)-1:len(f.std)-1], entry{name: "enma", body: nil, mode: 0o755}))
 		}, "", false},
-		{"binary of another version", func(t *testing.T) []byte {
-			return makeTarGz(t, append(std[:len(std)-1:len(std)-1], entry{name: "enma", body: p.fakeBinary("v9.0.0", "linux", "amd64"), mode: 0o755}))
+		{"binary of another version", func(t *testing.T, f archiveFixture) []byte {
+			return makeTarGz(t, append(f.std[:len(f.std)-1:len(f.std)-1], entry{name: "enma", body: p.fakeBinary("v9.0.0", f.goos, f.goarch), mode: 0o755}))
 		}, "does not report v2.0.1", false},
-		{"binary that does not run", func(t *testing.T) []byte {
-			return makeTarGz(t, append(std[:len(std)-1:len(std)-1], entry{name: "enma", body: []byte("\x7fELF garbage"), mode: 0o755}))
+		{"binary that does not run", func(t *testing.T, f archiveFixture) []byte {
+			return makeTarGz(t, append(f.std[:len(f.std)-1:len(f.std)-1], entry{name: "enma", body: []byte("\x7fELF garbage"), mode: 0o755}))
 		}, "does not run", false},
-		{"setuid binary", func(t *testing.T) []byte {
-			return makeTarGz(t, append(std[:len(std)-1:len(std)-1], entry{name: "enma", body: bin, mode: 0o4755}))
+		{"setuid binary", func(t *testing.T, f archiveFixture) []byte {
+			return makeTarGz(t, append(f.std[:len(f.std)-1:len(f.std)-1], entry{name: "enma", body: f.bin, mode: 0o4755}))
 		}, "Upgraded", true},
 	}
 	for _, u := range userlands(t) {
@@ -778,7 +807,8 @@ func TestArchives(t *testing.T) {
 				t.Parallel()
 				e, gh := userlandEnv(t, u)
 				target, before := withInstalled(t, e)
-				gh.replaceArchive(t, p, "v2.0.1", "linux", "amd64", c.data(t))
+				f := fixtureFor(p, "v2.0.1", e.goos(), e.goarch())
+				gh.replaceArchive(t, p, "v2.0.1", f.goos, f.goarch, c.data(t, f))
 				r := e.run("--upgrade")
 				if c.success {
 					checkOK(t, r, c.want)
@@ -815,6 +845,23 @@ func TestArchives(t *testing.T) {
 			})
 		}
 	}
+}
+
+// archiveFixture is the standard release archive of one platform, for
+// TestArchives to change.
+type archiveFixture struct {
+	goos, goarch string
+	bin          []byte  // the binary
+	std          []entry // the archive GoReleaser makes
+}
+
+func fixtureFor(p project, tag, goos, goarch string) archiveFixture {
+	return archiveFixture{goos: goos, goarch: goarch, bin: p.fakeBinary(tag, goos, goarch), std: p.standardEntries(tag, goos, goarch)}
+}
+
+// with is the standard archive with more entries after it.
+func (f archiveFixture) with(es ...entry) []entry {
+	return append(append([]entry{}, f.std...), es...)
 }
 
 func gz(t *testing.T, b []byte) []byte {
@@ -1260,7 +1307,7 @@ func TestExistingInstallations(t *testing.T) {
 		p := project{app: "say", owner: "magicdrive", repo: "say", latest: "v1.0.0", tags: []string{"v1.0.0"}}
 		gh := newFakeGitHub(t)
 		gh.publish(t, p)
-		e := newEnv(t, gh, p, testShells(t)[0], toolset{})
+		e := newEnv(t, gh, p, pathShell(t), toolset{})
 		e.path = append(e.path, e.defaultDir())
 		r := e.run()
 		checkOK(t, r, "Installed say v1.0.0")
@@ -1366,7 +1413,7 @@ func TestRealReleases(t *testing.T) {
 	if os.Getenv("ENMA_INSTALLER_NETWORK") != "1" {
 		t.Skip("set ENMA_INSTALLER_NETWORK=1 to install the real releases from github.com")
 	}
-	sh := testShells(t)[0]
+	sh := pathShell(t)
 	for _, dl := range downloaders(t) {
 		for _, c := range []struct {
 			p   project
@@ -1431,4 +1478,24 @@ func TestReadmeCommands(t *testing.T) {
 		}
 	}
 	e.checkClean(result{}, e.defaultDir())
+}
+
+// TestProbeAppletsFirst: the probe tells a shell that runs the commands of
+// PATH from one that does not (here a "shell" that resets PATH, standing in
+// for a BusyBox that runs its own applets first).
+func TestProbeAppletsFirst(t *testing.T) {
+	if probeAppletsFirst(t, []string{"/bin/sh"}) {
+		t.Fatal("/bin/sh reported as running its own commands before PATH")
+	}
+	own := filepath.Join(t.TempDir(), "own-sh")
+	writeExecutable(t, own, []byte("#!/bin/sh\nPATH=/usr/bin:/bin\nexport PATH\nexec /bin/sh \"$@\"\n"))
+	if !probeAppletsFirst(t, []string{own}) {
+		t.Fatal("a shell that ignores PATH reported as running the commands of PATH")
+	}
+	for _, sh := range testShells(t) {
+		t.Logf("%s (%v): runs its own commands first: %v", sh.name, sh.argv, sh.appletsFirst)
+	}
+	if bb, ok := busyboxPath(t); ok {
+		t.Logf("busybox sh (%s): runs its own commands first: %v", bb, probeAppletsFirst(t, []string{bb, "sh"}))
+	}
 }

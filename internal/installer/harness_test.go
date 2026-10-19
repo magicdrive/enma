@@ -486,6 +486,69 @@ func lookTool(name string) (string, bool) {
 type shellSpec struct {
 	name string
 	argv []string
+	// appletsFirst: the shell runs its own built-in commands (applets) before
+	// those in PATH, as a BusyBox built with its "standalone shell" does (the
+	// busybox of the GitHub Ubuntu runners). In it, the fake uname and the
+	// PATH's wget of a test are not what install.sh runs. Measured with
+	// probeAppletsFirst, not guessed from the name.
+	appletsFirst bool
+}
+
+// probeAppletsFirst runs uname with argv while PATH starts with a fake uname:
+// a shell that does not run the fake one runs its own commands first.
+func probeAppletsFirst(t *testing.T, argv []string) bool {
+	t.Helper()
+	key := strings.Join(argv, "\x00")
+	probeMu.Lock()
+	defer probeMu.Unlock()
+	if v, ok := probed[key]; ok {
+		return v
+	}
+	dir := t.TempDir()
+	writeExecutable(t, filepath.Join(dir, "uname"), []byte("#!/bin/sh\necho fake-uname\n"))
+	cmd := exec.Command(argv[0], append(slices.Clone(argv[1:]), "-c", "uname")...)
+	cmd.Env = []string{"PATH=" + dir + ":/usr/bin:/bin"}
+	out, err := cmd.Output()
+	if err != nil {
+		t.Fatalf("%v -c uname: %v", argv, err)
+	}
+	probed[key] = strings.TrimSpace(string(out)) != "fake-uname"
+	return probed[key]
+}
+
+// The shells do not change while the tests run: each is probed once.
+var (
+	probeMu sync.Mutex
+	probed  = map[string]bool{}
+	shellMu sync.Mutex
+	shells  []shellSpec // the result of testShells, once it succeeded
+)
+
+// pathShell is the first test shell that runs the commands of PATH: the tests
+// that put a fake tool (uname, mv, ...) in PATH need one.
+func pathShell(t *testing.T) shellSpec {
+	t.Helper()
+	for _, sh := range testShells(t) {
+		if !sh.appletsFirst {
+			return sh
+		}
+	}
+	t.Fatal("no shell of ENMA_INSTALLER_SHELLS runs the commands of PATH")
+	return shellSpec{}
+}
+
+// hostUname is what uname -s and -m print here.
+func hostUname(t *testing.T) [2]string {
+	t.Helper()
+	var u [2]string
+	for i, f := range []string{"-s", "-m"} {
+		out, err := exec.Command("uname", f).Output()
+		if err != nil {
+			t.Fatal(err)
+		}
+		u[i] = strings.TrimSpace(string(out))
+	}
+	return u
 }
 
 // toolset is how the PATH of a run is built.
@@ -522,6 +585,13 @@ func newEnv(t *testing.T, gh *fakeGitHub, p project, sh shellSpec, ts toolset) *
 	root, err := filepath.EvalSymlinks(t.TempDir())
 	if err != nil {
 		t.Fatal(err)
+	}
+	if sh.appletsFirst && !ts.real {
+		// install.sh runs the shell's own uname: expect this machine's platform
+		if ts.uname != ([2]string{}) || ts.sysctl != "" || len(ts.fakes) > 0 || ts.brewPrefix != "" {
+			t.Fatalf("shell %s runs its own commands, not the fake tools of this test: use pathShell", sh.name)
+		}
+		ts.uname = hostUname(t)
 	}
 	e := &env{t: t, gh: gh, p: p, script: scriptFor(t, p), shell: sh, tools: ts,
 		home: filepath.Join(root, "home"), tmp: filepath.Join(root, "tmp"), bin: filepath.Join(root, "tools")}
@@ -717,6 +787,15 @@ func (e *env) command(ctx context.Context, args ...string) *exec.Cmd {
 	return cmd
 }
 
+// shellOutput runs a command line with the shell of e, in its environment.
+func (e *env) shellOutput(line string) string {
+	e.t.Helper()
+	cmd := exec.Command(e.shell.argv[0], append(slices.Clone(e.shell.argv[1:]), "-c", line)...)
+	cmd.Env = e.environ()
+	out, _ := cmd.CombinedOutput()
+	return string(out)
+}
+
 // defaultDir is where install.sh installs without --dir.
 func (e *env) defaultDir() string { return filepath.Join(e.home, ".local", "bin") }
 
@@ -870,6 +949,11 @@ func checkOK(t *testing.T, r result, want string) {
 // here are used.
 func testShells(t *testing.T) []shellSpec {
 	t.Helper()
+	shellMu.Lock()
+	defer shellMu.Unlock()
+	if shells != nil {
+		return shells
+	}
 	want := strings.Fields(os.Getenv("ENMA_INSTALLER_SHELLS"))
 	required := len(want) > 0
 	if !required {
@@ -896,8 +980,9 @@ func testShells(t *testing.T) []shellSpec {
 		if err != nil || strings.TrimSpace(string(out2)) != "ab.c" {
 			t.Fatalf("shell %s (%s) does not run POSIX sh: %v %q", n, p, err, out2)
 		}
-		out = append(out, shellSpec{name: n, argv: argv})
+		out = append(out, shellSpec{name: n, argv: argv, appletsFirst: probeAppletsFirst(t, argv)})
 	}
+	shells = out
 	return out
 }
 

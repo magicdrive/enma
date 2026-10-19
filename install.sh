@@ -205,8 +205,9 @@ check_config() {
 	REPO_URL=https://github.com/$GH_OWNER/$GH_REPO
 
 	TIMEOUT=${INSTALLER_TIMEOUT:-60}
-	valid_number "$TIMEOUT" && [ "$TIMEOUT" -ge 1 ] && [ "$TIMEOUT" -le 3600 ] ||
+	if ! { valid_number "$TIMEOUT" && [ "$TIMEOUT" -ge 1 ] && [ "$TIMEOUT" -le 3600 ]; }; then
 		die "INSTALLER_TIMEOUT '$TIMEOUT' must be a number of seconds from 1 to 3600"
+	fi
 }
 
 # --- 2. arguments ------------------------------------------------------------
@@ -605,9 +606,10 @@ extract_binary() {
 	(cd "$TMP_DIR/x" && tar -xf "$TMP_DIR/archive.tar" "$APP_NAME") 2>"$TMP_DIR/tar.err" ||
 		die "cannot extract $APP_NAME from $ASSET: $(errtext "$TMP_DIR/tar.err")"
 	NEW_BIN=$TMP_DIR/x/$APP_NAME
-	[ "$(ls -A "$TMP_DIR/x")" = "$APP_NAME" ] &&
-		[ -f "$NEW_BIN" ] && [ ! -L "$NEW_BIN" ] && [ -s "$NEW_BIN" ] ||
+	if ! { [ "$(ls -A "$TMP_DIR/x")" = "$APP_NAME" ] &&
+		[ -f "$NEW_BIN" ] && [ ! -L "$NEW_BIN" ] && [ -s "$NEW_BIN" ]; }; then
 		die "$ASSET is rejected: $APP_NAME in it is not a regular file"
+	fi
 }
 
 # reports_tag FILE: FILE runs and its --version names $TAG
@@ -728,7 +730,9 @@ main() {
 	check_target
 	mv -f -- "$STAGED" "$TARGET" || die "cannot move the new binary to '$TARGET'; nothing was replaced"
 	STAGED=
-	[ -f "$TARGET" ] && [ ! -L "$TARGET" ] || die "'$TARGET' changed while installing"
+	if [ ! -f "$TARGET" ] || [ -L "$TARGET" ]; then
+		die "'$TARGET' changed while installing"
+	fi
 
 	say "$_action."
 	report_path
