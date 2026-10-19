@@ -43,6 +43,34 @@ jobs:
           fi
           bash --version | head -1; zsh --version; fish --version
 
+      # The install.sh tests (internal/installer) run the script with each shell
+      # and downloader named here, and with the BusyBox tools on Linux; one that
+      # is missing fails them instead of skipping it.
+      - name: Install busybox and wget for the installer tests
+        run: |
+          if [ "$RUNNER_OS" = Linux ]; then
+            sudo apt-get update -q
+            sudo apt-get install -y -q busybox wget
+            {
+              # /bin/sh is dash on Ubuntu
+              echo "ENMA_INSTALLER_SHELLS=sh bash bash-nonposix busybox"
+              echo "ENMA_INSTALLER_BUSYBOX=required"
+            } >> "$GITHUB_ENV"
+          else
+            command -v wget >/dev/null || brew install wget
+            echo "ENMA_INSTALLER_SHELLS=sh dash bash bash-nonposix ksh" >> "$GITHUB_ENV"
+          fi
+          echo "ENMA_INSTALLER_DOWNLOADERS=curl wget" >> "$GITHUB_ENV"
+          curl --version | head -1; wget --version | head -1
+
+      - name: Check install.sh
+        run: |
+          sh -n install.sh
+          if [ "$RUNNER_OS" = Linux ]; then
+            shellcheck --version | head -2
+            shellcheck -s sh install.sh
+          fi
+
       # observations of the known limitation G4-04 (macOS / BSD, see README
       # "What is watched") go to this file and are printed after the tests
       - name: G4-04 observation log
@@ -61,7 +89,12 @@ jobs:
       - name: Test
         run: go test -count=1 ./...
 
+      # The install.sh tests ran with every shell and downloader above; -race
+      # checks only their Go side, so one shell and curl are enough here.
       - name: Test (race)
+        env:
+          ENMA_INSTALLER_SHELLS: sh
+          ENMA_INSTALLER_DOWNLOADERS: curl
         run: go test -count=1 -race ./...
 
       # Not a failure: the known limitation G4-04 is accepted and monitored. The

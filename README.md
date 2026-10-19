@@ -40,12 +40,61 @@ It has three modes:
 ### Install
 
 ```bash
+brew install magicdrive/tap/enma               # Homebrew (macOS, Linux)
 go install github.com/magicdrive/enma@latest   # Go 1.25 or later (the newest Go is recommended)
-brew install magicdrive/tap/enma               # or Homebrew
+```
+
+or, without Homebrew or Go, with the install script (macOS and Linux, amd64 and arm64):
+
+```bash
+curl -fsSLO https://raw.githubusercontent.com/magicdrive/enma/main/install.sh
+sh install.sh                                  # the latest release, into ~/.local/bin
 ```
 
 Pre-built binaries are on the [Releases page](https://github.com/magicdrive/enma/releases).
-Upgrading from v1.2.10 or earlier? Some behaviour changed: see [CHANGELOG.md](CHANGELOG.md).
+What changed in each version is in the release notes on [GitHub Releases](https://github.com/magicdrive/enma/releases). Upgrading from
+v1.2.10 or earlier? Some behaviour changed: see [Changes since v1.2.10](#changes-since-v1210).
+
+#### The install script
+
+```bash
+sh install.sh                                  # install the latest release
+sh install.sh --version v2.0.1                 # install a given release (older ones too)
+sh install.sh --upgrade                        # switch to the latest stable release
+sh install.sh --upgrade --version v2.0.1       # switch to a given release (also a downgrade)
+sh install.sh --dir "$HOME/.local/bin"         # choose the directory (this is the default)
+sh install.sh --help
+```
+
+- **Where**: `$HOME/.local/bin/enma` by default; `--dir DIR` installs `DIR/enma` and creates `DIR`
+  if needed. It does not use `sudo` and does not change `PATH`: if the script says the directory
+  is not in `PATH`, add it, e.g. `export PATH="$HOME/.local/bin:$PATH"` in `~/.profile`.
+- **Versions**: without `--version` it installs the latest stable release (pre-releases are not
+  picked). `--version` takes any release, `v2.0.1` or `2.0.1`, newer or older than the installed
+  one. `--upgrade` is the same run, named for what you mean: it installs the latest stable
+  release, so it goes back if a newer pre-release is installed. Running it again with the
+  version that is installed changes nothing.
+- **Checks**: the archive must match the SHA-256 in the release's `enma_checksums.txt`; only the
+  `enma` binary is taken out of it, and only after the archive's entries have been checked
+  (no absolute paths, `..`, links or devices). The new binary must run and report the version
+  asked for before it replaces the old one in a single rename: a failed or interrupted run leaves
+  the installed `enma` as it was.
+- **Security**: the checksum comes from the same GitHub release as the archive, so it catches a
+  broken or altered download, but not a release that was itself replaced on GitHub. Download the
+  script from this repository only, and read it before you run it if you want to be sure.
+- **Homebrew**: the script refuses directories of Homebrew (its prefix, e.g. `/opt/homebrew`, or
+  `/usr/local` on an Intel Mac) and does not replace a symbolic link (such as one made by Homebrew). Keep one way of installing: with Homebrew, upgrade
+  with `brew upgrade enma`; the script warns if another `enma` comes first in `PATH`.
+- **Uninstall**: delete the file: `rm "$HOME/.local/bin/enma"` (or `DIR/enma`).
+- **Needs**: `curl` (or GNU Wget 1.17+; BusyBox wget is refused because it does not check
+  certificates, and wget2 is not supported),
+  `tar`, `gzip`, and `sha256sum`, `shasum` or `openssl`. A proxy set in `https_proxy` is used.
+  `INSTALLER_TIMEOUT` (seconds, default 60) is how long it waits for a connection or more data.
+- **Troubleshooting**: *not writable* — choose a directory of your own with `--dir`;
+  *not in PATH* — see above; *does not run in DIR (noexec)* — choose a directory on another file
+  system; *SHA-256 mismatch* or *rejected* — nothing was installed; try again later and report it
+  if it persists; *release not found* — check the version on the
+  [Releases page](https://github.com/magicdrive/enma/releases).
 
 ### Shell completion
 
@@ -140,6 +189,7 @@ not tested.
 - [File filtering](#-file-filtering-order) and [`.enmaignore`](#-example-enmaignore)
 - [Output, logs and exit codes](#-output-logs-and-exit-codes)
 - [Full command reference](#-full-command-reference) (`enma --help`, `enma <mode> --help`)
+- What changed in each version: the release notes on [GitHub Releases](https://github.com/magicdrive/enma/releases)
 
 ---
 
@@ -508,8 +558,8 @@ group (e.g. `setsid`, double fork) would stay a zombie.
 ### Changes since v1.2.10
 
 Some behaviour differs from v1.2.10 and earlier (processes left behind are stopped,
-`.enmaignore` lookup, the default watch directory, error output, ...): see
-[CHANGELOG.md](CHANGELOG.md).
+`.enmaignore` lookup, the default watch directory, error output, ...): see the
+[v2.0.0 release notes](https://github.com/magicdrive/enma/releases/tag/v2.0.0).
 
 ### PID file (`--pid`)
 
@@ -711,7 +761,7 @@ Report vulnerabilities privately as described in [SECURITY.md](SECURITY.md).
 ## Contributing
 
 Bug reports and pull requests are welcome. See [CONTRIBUTING.md](CONTRIBUTING.md) for how to
-build and test, and [CHANGELOG.md](CHANGELOG.md) for what changed.
+build and test, and [GitHub Releases](https://github.com/magicdrive/enma/releases) for what changed in each version.
 
 ---
 

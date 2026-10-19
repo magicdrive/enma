@@ -19,6 +19,10 @@ go test -count=1 -race ./...
 `-count=1` skips cached results: the end-to-end tests build enma with `go build`, so a change
 of enma alone would not invalidate their cached result.
 
+`install.sh` is tested by `internal/installer` against a local fake of github.com (no network);
+see [docs/installer.md](docs/installer.md) for what it covers and the variables CI sets. Check
+the script itself with `sh -n install.sh` and `shellcheck -s sh install.sh`.
+
 CI runs these on Linux and macOS for every pull request with the Go version in `go.mod`, and
 `go test -race` with the newest Go release, plus `gofmt`, `staticcheck`, a Windows `go vet`,
 `govulncheck` and a GoReleaser snapshot build checked by `scripts/verify-dist.sh`.
@@ -42,7 +46,8 @@ staticcheck as CI.
   agree. The completion tests (`internal/commandline/completion_test.go`) run each script in its
   shell: install zsh and fish to run them all (CI does). After changing the bash or zsh script,
   rebuild the combined one: `go test ./internal/commandline -run TestCombinedCompletionScript -update`.
-- Add a line to the `Unreleased` section of `CHANGELOG.md` for a user-visible change.
+- Describe a user-visible change in the pull request: the release notes on
+  [GitHub Releases](https://github.com/magicdrive/enma/releases) are the record of what changed, and are written from it.
 
 ## Reporting bugs
 
