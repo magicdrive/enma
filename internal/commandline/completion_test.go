@@ -20,6 +20,7 @@ import (
 	"go/ast"
 	"go/parser"
 	"go/token"
+	"maps"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -664,6 +665,48 @@ func runFish(t *testing.T, sh *shell, script string, reqs []request) [][]string 
 	return splitCases(t, out, len(reqs), func(s string) string { c, _, _ := strings.Cut(s, "\t"); return c })
 }
 
+// bashShells returns the bashes to test for the bash found in PATH (bin).
+// The name says what a bash can do, not where it is: "bash" has compopt
+// (bash 4 and later), "bash-3.2" has not; the expectations differ by it. The
+// bash in PATH may be either (macOS runners have /bin/bash 3.2 only); a
+// /bin/bash 3.2 other than it is tested too.
+func bashShells(t *testing.T, bin string) []*shell {
+	t.Helper()
+	if !bashHasCompopt(t, bin) {
+		return []*shell{{name: "bash-3.2", bin: bin, compopt: false, run: runBash}}
+	}
+	out := []*shell{{name: "bash", bin: bin, compopt: true, run: runBash}}
+	if bin32 := "/bin/bash"; bin32 != bin {
+		if _, err := os.Stat(bin32); err == nil && !bashHasCompopt(t, bin32) {
+			out = append(out, &shell{name: "bash-3.2", bin: bin32, compopt: false, run: runBash})
+		}
+	}
+	return out
+}
+
+// A bash 3.2 found in PATH is tested as bash-3.2, whatever else is installed
+// (it was tested with the expectations of bash 4: the macOS CI failure of
+// 2026-10-19). Checked with /bin/bash where that is bash 3.2.
+func TestBashShellsNameByCapability(t *testing.T) {
+	const bash32 = "/bin/bash"
+	if _, err := os.Stat(bash32); err != nil || bashHasCompopt(t, bash32) {
+		t.Skip("NOT_VERIFIED: no bash 3.2 at /bin/bash (not macOS)")
+	}
+	got := bashShells(t, bash32)
+	if len(got) != 1 || got[0].name != "bash-3.2" || got[0].compopt || got[0].bin != bash32 {
+		var desc []string
+		for _, sh := range got {
+			desc = append(desc, fmt.Sprintf("%s(%s, compopt %v)", sh.name, sh.bin, sh.compopt))
+		}
+		t.Fatalf("bash 3.2 in PATH is tested as %v, want bash-3.2 only", desc)
+	}
+	for _, sh := range shells(t) {
+		if strings.HasPrefix(sh.name, "bash") && (sh.name == "bash") != sh.compopt {
+			t.Errorf("%s at %s: compopt %v does not match its name", sh.name, sh.bin, sh.compopt)
+		}
+	}
+}
+
 // shells returns the shells to test, with the script each one loads.
 func shells(t *testing.T) []*shell {
 	t.Helper()
@@ -689,12 +732,7 @@ func shells(t *testing.T) []*shell {
 		}
 		switch name {
 		case "bash":
-			add("bash", bin, bashHasCompopt(t, bin), runBash)
-			if bin32 := "/bin/bash"; bin32 != bin { // macOS: bash 3.2
-				if _, err := os.Stat(bin32); err == nil && !bashHasCompopt(t, bin32) {
-					add("bash-3.2", bin32, false, runBash)
-				}
-			}
+			out = append(out, bashShells(t, bin)...)
 		case "zsh":
 			add("zsh", bin, false, runZsh)
 		case "fish":
@@ -824,7 +862,9 @@ func expectations(t *testing.T, sh *shell) []expectation {
 	add(exactly(cflags...), false, "config", "-")
 
 	sets := flagSets(t)
-	for cmd, fs := range sets {
+	// a fixed order: TestCombinedAndReloadedCompletions takes a sample by position
+	for _, cmd := range slices.Sorted(maps.Keys(sets)) {
+		fs := sets[cmd]
 		words := commandWords[cmd]
 		var all []string
 		fs.VisitAll(func(f *flag.Flag) { all = append(all, spelling(f.Name)) })
@@ -852,7 +892,8 @@ func expectations(t *testing.T, sh *shell) []expectation {
 		// no flags after "--" or after an argument: enma does not parse them
 		add(exactly(), false, append(slices.Clone(words), "--", "-")...)
 		add(exactly(), false, append(slices.Clone(words), "arg", "-")...)
-		for name, k := range flagKinds[cmd] {
+		for _, name := range slices.Sorted(maps.Keys(flagKinds[cmd])) {
+			k := flagKinds[cmd][name]
 			switch k {
 			case kBool:
 				// a bool flag takes no value: the next word is a flag again
@@ -1172,27 +1213,49 @@ func TestCompletionsAreDistributed(t *testing.T) {
 // it), pressing TAB at each @T, then Enter; `enma` is a shell function there
 // that prints the words it gets. This is what the user gets after readline
 // has inserted (and quoted) the completion.
+//
+// No step waits a fixed time: the driver waits for what bash prints. The
+// prompt shows that readline reads the terminal (input typed before that may
+// be lost); Ctrl-X Q, bound with bind -x, prints <<SYNC>> once readline has
+// handled everything typed before it (the keys, a completion after TAB).
 const bashDriver = `zmodload zsh/zpty || exit 2
 bin=$1 script=$2 reqs=$3
-zpty b "$bin" --noprofile --norc -i
-sleep 1
-zpty -w b "PS1='\$ '; bind 'set bell-style none'; source ${(q)script}; set -u; enma() { printf '<<ARG %s>>\n' \"\$@\"; echo '<<DO''NE>>'; }; echo '<<RE''ADY>>'"
-zpty -r b o '*<<READY>>*' || exit 3
-float slow=${ENMA_PTY_SLOW:-1} # a slow machine: ENMA_PTY_SLOW=3
-sleep $(( 0.5 * slow ))
+P='<<PROMPT>>'
+buf=
+waitfor() { # waitfor TEXT: read the terminal until TEXT shows; REPLY is what came
+  local n=0 # up to it, what came after it stays in buf for the next wait
+  while [[ $buf != *"$1"* ]] && (( n++ < 3000 )); do zpty -r -t b chunk && buf+=$chunk || sleep 0.01; done
+  [[ $buf == *"$1"* ]] || return 1
+  REPLY=${buf%%"$1"*}$1
+  buf=${buf#*"$1"}
+}
+sync() { zpty -n -w b $'\C-xQ' && waitfor '<<SYNC>>'; }
+zpty b "env PS1=${(q)P} ${(q)bin} --noprofile --norc -i" # zpty runs this as shell code
+waitfor $P || { print -r -- "NO PROMPT"; exit 3 }
+zpty -w b "source ${(q)script}; set -u; bind -x '\"\\C-xQ\": printf \"<<SY\"\"NC>>\\n\"'; enma() { printf '<<ARG %s>>\n' \"\$@\"; echo '<<DO''NE>>'; }"
+waitfor $P || { print -r -- "NO PROMPT"; exit 3 }
 integer i=0 k
 while IFS= read -r keys; do
   local -a parts; parts=("${(@ps:@T:)keys}")
+  ok=1
   for (( k = 1; k <= $#parts; k++ )); do
-    zpty -n -w b "$parts[k]"; sleep $(( 0.3 * slow ))
-    (( k < $#parts )) && { zpty -n -w b $'\t'; sleep $(( 0.7 * slow )) }
+    [[ -n $ok ]] || break # a step that did not finish: do not wait for the others
+    [[ -z $parts[k] ]] || { zpty -n -w b "$parts[k]" && sync || ok= }
+    [[ -n $ok ]] || break
+    (( k < $#parts )) && { zpty -n -w b $'\t' && sync || ok= }
   done
   zpty -n -w b $'\n'
-  out=; integer n=0
-  while [[ $out != *'<<DONE>>'* ]] && (( n++ < 1000 )); do zpty -r -t b chunk && out+=$chunk || sleep 0.01; done
   print -r -- "<<CASE $i>>"
-  [[ $out == *'<<DONE>>'* ]] || { print -r -- "NO RESULT"; zpty -n -w b $'\C-c'; sleep 0.5 }
-  print -r -- "${out//$'\r'/}" | grep -o '<<ARG [^>]*>>' | sed 's/^<<ARG //; s/>>$//'
+  if [[ -n $ok ]] && waitfor '<<DONE>>'; then
+    print -r -- "${REPLY//$'\r'/}" | grep -o '<<ARG [^>]*>>' | sed 's/^<<ARG //; s/>>$//'
+    waitfor $P || { print -r -- "NO PROMPT"; exit 3 }
+  else
+    print -r -- "NO RESULT" # e.g. a quote left open: start over with a fresh line
+    print -r -- "TERMINAL ${(qqqq)${buf[-300,-1]}}" | tr -d '<>' # for the failure message
+    zpty -n -w b $'\C-c'
+    waitfor $P || { print -r -- "NO PROMPT"; exit 3 }
+    buf= # a marker arriving late must not end a wait of the next request
+  fi
   (( i++ ))
 done < "$reqs"
 zpty -d b
