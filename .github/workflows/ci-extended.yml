@@ -2,8 +2,8 @@ name: CI (extended)
 
 # Slower checks, run by hand, once a week, or on a pull request labeled
 # `ci-extended`: tests in random order with several seeds, a short fuzz run of
-# every fuzz target, tests on linux/arm64, and a smoke run of the real binary on
-# Windows.
+# every fuzz target, tests on linux/arm64, a smoke run of the real binary on
+# Windows, and install.sh with the real releases.
 
 on:
   workflow_dispatch:
@@ -61,6 +61,40 @@ jobs:
       - name: G4-04 observations
         if: always()
         run: sh scripts/g404-report.sh
+
+  # install.sh against the real releases on github.com: enma, ark and goreg
+  # (only the two configuration lines differ), on each CPU it supports, with
+  # curl and GNU Wget.
+  installer-releases:
+    if: github.event_name != 'pull_request' || contains(github.event.pull_request.labels.*.name, 'ci-extended')
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, ubuntu-24.04-arm, macos-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+
+      - name: Set up Go
+        uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7
+        with:
+          go-version-file: 'go.mod'
+
+      - name: Install wget
+        run: |
+          if [ "$RUNNER_OS" = Linux ]; then
+            command -v wget >/dev/null || { sudo apt-get update -q && sudo apt-get install -y -q wget; }
+          else
+            command -v wget >/dev/null || brew install wget
+          fi
+          wget --version | head -1
+
+      - name: Install the real releases
+        env:
+          ENMA_INSTALLER_NETWORK: '1'
+          ENMA_INSTALLER_DOWNLOADERS: curl wget
+        run: go test -count=1 -v -run TestRealReleases ./internal/installer/
 
   fuzz:
     if: github.event_name != 'pull_request' || contains(github.event.pull_request.labels.*.name, 'ci-extended')

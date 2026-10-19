@@ -7,4 +7,4 @@
 - [ ] Tests added or updated (a regression test for a bug fix)
 - [ ] `gofmt`, `go vet ./...` and `go test -race ./...` pass
 - [ ] Help texts, completions and README updated for a flag or message change
-- [ ] `CHANGELOG.md` updated for a user-visible change
+- [ ] A user-visible change is described above (for the release notes on GitHub Releases)
