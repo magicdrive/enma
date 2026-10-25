@@ -43,7 +43,7 @@ jobs:
           check-latest: true
 
       - name: Build, archive and checksum
-        uses: magicdrive/hephaestus@4414722a804d958179fd547c26d7b2fe762e308e # v1.1.1-0.20261025105032-4414722a804d
+        uses: magicdrive/hephaestus@550d48f64917749742574b5c2ff1b292940ff71a # v1.1.0
         with:
           command: run
           stages: build,archive,checksum
@@ -108,7 +108,7 @@ jobs:
       # a published release cannot be taken back. A prerelease skips the tap
       # (skip_upload: auto).
       - name: Rehearse the formula and tap pull request (dry run)
-        uses: magicdrive/hephaestus@4414722a804d958179fd547c26d7b2fe762e308e # v1.1.1-0.20261025105032-4414722a804d
+        uses: magicdrive/hephaestus@550d48f64917749742574b5c2ff1b292940ff71a # v1.1.0
         with:
           command: run
           stages: formula,tap
@@ -125,12 +125,12 @@ jobs:
             dist/enma_checksums.txt
 
       - name: Publish the GitHub Release
-        uses: magicdrive/hephaestus@4414722a804d958179fd547c26d7b2fe762e308e # v1.1.1-0.20261025105032-4414722a804d
+        uses: magicdrive/hephaestus@550d48f64917749742574b5c2ff1b292940ff71a # v1.1.0
         with:
           command: release
 
       - name: Formula and tap pull request
-        uses: magicdrive/hephaestus@4414722a804d958179fd547c26d7b2fe762e308e # v1.1.1-0.20261025105032-4414722a804d
+        uses: magicdrive/hephaestus@550d48f64917749742574b5c2ff1b292940ff71a # v1.1.0
         with:
           command: run
           stages: formula,tap
