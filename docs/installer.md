@@ -28,8 +28,9 @@ user name.
 
 ## The distribution contract
 
-The script works with releases that GoReleaser makes with its defaults, as enma, ark and goreg
-do. With `APP` = `APP_NAME`, `TAG` the release tag and `VERSION` = `TAG` without the leading `v`:
+The script works with releases that GoReleaser makes with its defaults, as ark and goreg do,
+and with the releases enma makes with [Hephaestus](https://github.com/magicdrive/hephaestus)
+(`hephaestus.yaml` keeps this layout; `TestDistArchives` checks it on every pull request). With `APP` = `APP_NAME`, `TAG` the release tag and `VERSION` = `TAG` without the leading `v`:
 
 | What | Required form |
 |---|---|
@@ -150,5 +151,9 @@ Variables: `ENMA_INSTALLER_SHELLS` (e.g. `sh dash bash ksh busybox`) and
 `ENMA_INSTALLER_DOWNLOADERS` (`curl wget`) name the shells and downloaders that must be tested
 (`bash` runs with `--posix`, `bash-nonposix` without);
 `ENMA_INSTALLER_BUSYBOX` is a busybox to run the BusyBox userland tests with, or `required`;
-`ENMA_INSTALLER_NETWORK=1` runs `TestRealReleases`. CI sets them (`ci.yml`; the real releases in
+`ENMA_INSTALLER_NETWORK=1` runs `TestRealReleases`; `ENMA_INSTALLER_DIST=<dir>` runs
+`TestDistArchives`, which serves the archives and the checksum file of a release build (the
+`dist` directory of `make snapshot`) as one release and installs this machine's archive from
+them. CI sets them (`ci.yml`, where the `dist` job and the release workflow's build job run
+`TestDistArchives` on the archives Hephaestus just built; the real releases in
 `ci-extended.yml`).

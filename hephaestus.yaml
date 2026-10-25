@@ -1,0 +1,128 @@
+# Release configuration of enma (https://github.com/magicdrive/hephaestus).
+#
+# The release workflow (.github/workflows/release.yml) runs build, archive and
+# checksum in a job without secrets, then publishes the GitHub Release and
+# opens a pull request on magicdrive/homebrew-tap. `make snapshot` builds the
+# same archives locally; `make publish-check vX.Y.Z` checks a release before
+# its tag is pushed and `make publish vX.Y.Z` pushes it
+# (docs/development/releasing.md).
+#
+# The archives keep the layout of the releases GoReleaser made up to v2.1.0:
+# install.sh (docs/installer.md, "The distribution contract") and the Homebrew
+# formula depend on it.
+version: 1
+
+project:
+  name: enma
+  description: Yet another event-driven command runner
+  homepage: https://github.com/magicdrive/enma
+  license: MIT
+
+builds:
+  - id: enma
+    # GoReleaser's default architectures, as released so far: darwin
+    # amd64/arm64, linux and windows 386/amd64/arm64.
+    matrix:
+      os: [darwin, linux, windows]
+      arch: ["386", amd64, arm64]
+      exclude:
+        - os: darwin
+          arch: "386"
+    command:
+      - go
+      - build
+      - -trimpath
+      - -ldflags
+      # `enma --version` prints "enma version vX.Y.Z" (install.sh checks it)
+      - "-s -w -X main.version=v{{ .Version }}"
+      - -o
+      - "dist/bin/{{ .OS }}_{{ .Arch }}/enma{{ .Ext }}"
+      - .
+    env:
+      GOOS: "{{ .OS }}"
+      GOARCH: "{{ .Arch }}"
+      CGO_ENABLED: "0"
+      # The release toolchain, pinned. The Hephaestus action (v1.2.0 and
+      # later) does not set up Go; the jobs set up the newest Go themselves,
+      # and this makes the go command run exactly this release (downloaded
+      # and checksum-verified by the go command when needed), whichever Go is
+      # first in PATH and wherever the build runs. go.mod keeps
+      # only the oldest supported Go, which CI tests with. Releases up to
+      # v2.1.0 were built with go1.27.2; scripts/release-toolchain.sh checks
+      # the binaries against this value. Renovate updates it.
+      # renovate: datasource=golang-version depName=go
+      GOTOOLCHAIN: go1.27.3
+    output: "dist/bin/{{ .OS }}_{{ .Arch }}/enma{{ .Ext }}"
+
+archives:
+  - id: enma
+    # enma_2.1.0_linux_amd64.tar.gz; Windows: enma_2.1.0_windows_amd64.zip
+    name: "{{ .Project }}_{{ .Version }}_{{ .OS }}_{{ .Arch }}"
+    format: tar.gz
+    format_overrides:
+      - os: windows
+        format: zip
+    # The binary at the top of the archive, no directory around it.
+    files:
+      - src: "dist/bin/{{ .OS }}_{{ .Arch }}/enma{{ .Ext }}"
+        dst: "enma{{ .Ext }}"
+        mode: "0755"
+      - LICENSE
+      - README.md
+      - src: misc/completions/enma-completion.sh
+        dst: completions/enma-completion.sh
+      - src: misc/completions/zsh/_enma
+        dst: completions/zsh/_enma
+      - src: misc/completions/bash/enma-completion.bash
+        dst: completions/bash/enma-completion.bash
+      - src: misc/completions/fish/enma.fish
+        dst: completions/fish/enma.fish
+
+checksum:
+  # install.sh downloads enma_checksums.txt
+  name: "{{ .Project }}_checksums.txt"
+
+release:
+  github:
+    owner: magicdrive
+    name: enma
+    # v1.3.0-rc.1 is published as a pre-release (and does not update the tap)
+    prerelease: auto
+    # GitHub writes the notes from the merged pull requests when the release
+    # is created; edit them on the release page afterwards if needed.
+    generate_notes: true
+
+brews:
+  - name: enma
+    ids: [enma]
+    # magicdrive/homebrew-tap keeps its formulae at the repository root;
+    # creating Formula/ there would hide them from Homebrew.
+    commit_msg_template: "Brew formula update for {{ .ProjectName }} version {{ .Tag }}"
+    commit_author:
+      name: magicdrive bot
+      email: hiroshi.ikegami+githubbot@magicdrive.jp
+    # Prereleases (v1.2.3-rc.1) never update the tap.
+    skip_upload: auto
+    install: |
+      bin.install "enma"
+    # The scripts shipped in every archive, installed as enma, _enma and
+    # enma.fish (as the GoReleaser formula did).
+    completions:
+      files:
+        bash: completions/bash/enma-completion.bash
+        zsh: completions/zsh/_enma
+        fish: completions/fish/enma.fish
+    test: |
+      assert_match "enma version v#{version}", shell_output("#{bin}/enma --version")
+    repository:
+      owner: magicdrive
+      name: homebrew-tap
+      pull_request:
+        enabled: true
+
+# Release safety checks before a tag is pushed: make preflight tag=vX.Y.Z
+# (docs/preflight.md in the Hephaestus repository); `make publish` runs them
+# with --strict.
+preflight:
+  workflow: release.yml
+  environment: release

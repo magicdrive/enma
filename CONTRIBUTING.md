@@ -25,15 +25,21 @@ the script itself with `sh -n install.sh` and `shellcheck -s sh install.sh`.
 
 CI runs these on Linux and macOS for every pull request with the Go version in `go.mod`, and
 `go test -race` with the newest Go release, plus `gofmt`, `staticcheck`, a Windows `go vet`,
-`govulncheck` and a GoReleaser snapshot build checked by `scripts/verify-dist.sh`.
+`go mod tidy`, `govulncheck`, `actionlint`, the Renovate config validator, a
+[Hephaestus](https://github.com/magicdrive/hephaestus) snapshot build of every release archive
+checked by `scripts/verify-dist.sh` and installed with `install.sh` (`TestDistArchives`), and
+the Homebrew formula installed with the real Homebrew on Linux and macOS
+(`scripts/homebrew-e2e.sh`). `make check` runs the local quality gates, `make snapshot` the
+release build (nothing is published); releases: [docs/development/releasing.md](docs/development/releasing.md).
 The extended checks (`ci-extended.yml`: shuffled tests with several seeds, the process-stopping
 tests repeated, short fuzzing, Linux arm64, and the tests and a smoke run on Windows) run weekly,
 by hand, and on a pull request labeled `ci-extended`. Tag a release only on a commit whose CI is
 green.
 
-Dependencies and GitHub Actions are updated by Renovate. The tool versions pinned in the
-workflows and the Makefile (`STATICCHECK`, `govulncheck@…`, GoReleaser `version:`) are updated
-by hand. Run `make staticcheck` (Go 1.26 or later; CI uses the newest Go) to use the same
+Dependencies and GitHub Actions (the Hephaestus action included) are updated by Renovate, and
+so are the tool versions in the Makefile marked with a `# renovate:` comment
+(`HEPHAESTUS_VERSION`, `GOVULNCHECK_VERSION`, `ACTIONLINT_VERSION`, `RENOVATE_VERSION`).
+`STATICCHECK` is updated by hand. Run `make staticcheck` (Go 1.26 or later; CI uses the newest Go) to use the same
 staticcheck as CI.
 
 ## Pull requests

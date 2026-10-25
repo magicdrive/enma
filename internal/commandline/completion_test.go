@@ -1162,9 +1162,11 @@ func TestCompletionScriptsParse(t *testing.T) {
 	}
 }
 
-// Every script in misc/completions is in the release archives, checked by
-// scripts/verify-dist.sh and installed by the Homebrew formula in the
-// directory of its shell.
+// Every script in misc/completions is in the release archives
+// (hephaestus.yaml), checked by scripts/verify-dist.sh, and installed by the
+// Homebrew formula in the directory of its shell (brews[].completions.files:
+// Hephaestus installs them as enma, _enma and enma.fish, which
+// scripts/homebrew-e2e.sh checks with the real Homebrew).
 func TestCompletionsAreDistributed(t *testing.T) {
 	root := filepath.Join("..", "..")
 	read := func(p string) string {
@@ -1174,7 +1176,7 @@ func TestCompletionsAreDistributed(t *testing.T) {
 		}
 		return string(b)
 	}
-	goreleaser, verify := read(".goreleaser.yml"), read(filepath.Join("scripts", "verify-dist.sh"))
+	release, verify := read("hephaestus.yaml"), read(filepath.Join("scripts", "verify-dist.sh"))
 	var scripts []string
 	err := filepath.WalkDir(compDir, func(p string, d os.DirEntry, err error) error {
 		if err == nil && !d.IsDir() {
@@ -1191,21 +1193,19 @@ func TestCompletionsAreDistributed(t *testing.T) {
 	}
 	for _, s := range scripts {
 		entry := "- src: misc/completions/" + s + "\n        dst: completions/" + s + "\n"
-		if !strings.Contains(goreleaser, entry) {
-			t.Errorf(".goreleaser.yml: archives do not hold %s (want %q)", s, entry)
+		if !strings.Contains(release, entry) {
+			t.Errorf("hephaestus.yaml: archives do not hold %s (want %q)", s, entry)
 		}
 		if !strings.Contains(verify, "completions/"+s) {
 			t.Errorf("scripts/verify-dist.sh does not check completions/%s", s)
 		}
 	}
-	for _, line := range []string{
-		`bash_completion.install "completions/bash/enma-completion.bash" => "enma"`,
-		`zsh_completion.install "completions/zsh/_enma" => "_enma"`,
-		`fish_completion.install "completions/fish/enma.fish"`,
-	} {
-		if !strings.Contains(goreleaser, line) {
-			t.Errorf(".goreleaser.yml: the formula does not run %s", line)
-		}
+	formula := "    completions:\n      files:\n" +
+		"        bash: completions/bash/enma-completion.bash\n" +
+		"        zsh: completions/zsh/_enma\n" +
+		"        fish: completions/fish/enma.fish\n"
+	if !strings.Contains(release, formula) {
+		t.Errorf("hephaestus.yaml: the formula does not install the completions (want %q)", formula)
 	}
 }
 
