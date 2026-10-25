@@ -3,8 +3,9 @@
 # The release workflow (.github/workflows/release.yml) runs build, archive and
 # checksum in a job without secrets, then publishes the GitHub Release and
 # opens a pull request on magicdrive/homebrew-tap. `make snapshot` builds the
-# same archives locally; `make preflight tag=vX.Y.Z` checks a release before
-# its tag is pushed (docs/development/releasing.md).
+# same archives locally; `make publish-check vX.Y.Z` checks a release before
+# its tag is pushed and `make publish vX.Y.Z` pushes it
+# (docs/development/releasing.md).
 #
 # The archives keep the layout of the releases GoReleaser made up to v2.1.0:
 # install.sh (docs/installer.md, "The distribution contract") and the Homebrew
@@ -41,10 +42,11 @@ builds:
       GOOS: "{{ .OS }}"
       GOARCH: "{{ .Arch }}"
       CGO_ENABLED: "0"
-      # The release toolchain, pinned. The Hephaestus action puts the Go of
-      # its own go.mod first in PATH (with GOTOOLCHAIN=local); this makes the
-      # go command run exactly this release (downloaded and checksum-verified
-      # by the go command when needed), wherever the build runs. go.mod keeps
+      # The release toolchain, pinned. The Hephaestus action (v1.2.0 and
+      # later) does not set up Go; the jobs set up the newest Go themselves,
+      # and this makes the go command run exactly this release (downloaded
+      # and checksum-verified by the go command when needed), whichever Go is
+      # first in PATH and wherever the build runs. go.mod keeps
       # only the oldest supported Go, which CI tests with. Releases up to
       # v2.1.0 were built with go1.27.2; scripts/release-toolchain.sh checks
       # the binaries against this value. Renovate updates it.
@@ -119,7 +121,8 @@ brews:
         enabled: true
 
 # Release safety checks before a tag is pushed: make preflight tag=vX.Y.Z
-# (docs/preflight.md in the Hephaestus repository).
+# (docs/preflight.md in the Hephaestus repository); `make publish` runs them
+# with --strict.
 preflight:
   workflow: release.yml
   environment: release

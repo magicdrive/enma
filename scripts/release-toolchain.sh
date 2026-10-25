@@ -5,9 +5,12 @@
 # and that toolchain must not be older than the one of the last GoReleaser
 # release (go1.27.2, v2.1.0). Anything else fails.
 #
-# Why: the Hephaestus action sets up the Go of its own go.mod first in PATH
-# (go1.26.0 for v1.1.0, with GOTOOLCHAIN=local), which would otherwise build
-# enma with an older Go than before.
+# Why: the release must not depend on which Go happens to be first in PATH.
+# Hephaestus v1.1.0's action put the Go of its own go.mod there (go1.26.0,
+# with GOTOOLCHAIN=local) and would have built enma with an older Go than
+# before; from v1.2.0 the action sets up no Go, and the job's own setup-go
+# (the newest Go) would build with whatever was released last. The pin and
+# this check keep the release toolchain explicit either way.
 #
 # The newest Go release (https://go.dev/dl/) is reported as well, as a
 # warning when the pin is behind it (Renovate proposes the update); that part

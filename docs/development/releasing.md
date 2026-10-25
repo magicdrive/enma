@@ -1,9 +1,11 @@
 # Releasing enma
 
-enma is released with [Hephaestus](https://github.com/magicdrive/hephaestus) v1.1.0
-(`hephaestus.yaml`). A release is published only by the release workflow
+enma is released with [Hephaestus](https://github.com/magicdrive/hephaestus) v1.2.0
+(`hephaestus.yaml`; the action and `HEPHAESTUS_VERSION` in the `Makefile` are pinned to the
+same release). A release is published only by the release workflow
 (`.github/workflows/release.yml`) when a `v*` tag is pushed; nothing is published from a
-workstation.
+workstation. `make publish vX.Y.Z` ([`hephaestus publish`](https://github.com/magicdrive/hephaestus/blob/main/docs/publish.md))
+checks the release, pushes the tag, follows the release run and verifies what it published.
 
 ## What a release produces
 
@@ -31,44 +33,68 @@ and the checksum file (`gh attestation verify <file> -R magicdrive/enma`).
   `contents: write` and `pull-requests: write` on `magicdrive/homebrew-tap` only.
 - The release itself is published with the workflow's `GITHUB_TOKEN`; no personal token is
   used (`PERSONAL_GITHUB_TOKEN` is no longer needed by the release).
-- Recommended (reported as `WARN` by the preflight): a tag ruleset on `v*` that forbids
-  deleting and moving tags, and the CI checks required on `main`.
+- An active branch ruleset on `main` with the required status check `ci-gate` (the job of
+  `ci.yml` that needs every other job), and an active tag ruleset on `v*` with the rules
+  deletion and update. `make publish` checks both and refuses to tag without them.
+- The environment `release` is deployable from tags only (a `v*` tag policy, no branch
+  policy).
+- These are the [conventions](https://github.com/magicdrive/hephaestus/blob/main/docs/publish.md#conventions)
+  of `hephaestus publish`: `make publish-check vX.Y.Z` lists every one that is not met.
 
 ## Steps
 
 1. Make sure the change log of the release is clear from the merged pull requests: GitHub
    generates the release notes from them when the release is created
    (`release.github.generate_notes`); edit them on the release page afterwards if needed.
-2. On an up-to-date `main` whose CI is green, check the release (a GitHub token is needed,
-   e.g. `GH_TOKEN=$(gh auth token)`):
+2. On an up-to-date `main` whose CI (`ci-gate`) is green for the push of the commit to tag,
+   check the release (needs `git`, an authenticated `gh` and GNU Make; run from the
+   repository root):
 
    ```sh
-   make preflight tag=vX.Y.Z      # hephaestus preflight --strict: git, CI, settings, tap
+   make publish-check vX.Y.Z      # the publish preflight: git, CI, settings, tap; writes nothing
    make snapshot                  # optional: build every archive locally, nothing is published
    ```
 
-3. Push the tag: `make publish tag=vX.Y.Z` runs the tests and the preflight (without
-   `--strict`: a `FAIL` or `UNKNOWN` stops it, a `WARN` does not), then creates and pushes the
-   tag.
+3. Release: `make publish vX.Y.Z` (also `VERSION=vX.Y.Z`, or `tag=vX.Y.Z` as before). It runs
+   the preflight again (including `hephaestus preflight --strict`), asks for confirmation
+   (default No; `YES=1` skips it), creates and pushes one annotated tag, follows the release
+   workflow run, and verifies the release: assets, checksums, attestations, and the tap pull
+   request (or, for a prerelease, that the tap was not touched). The tag push is the only
+   write and cannot be taken back.
+   `make publish-status vX.Y.Z` shows what exists for a version (read-only),
+   `make publish-watch vX.Y.Z` follows an already pushed tag again, and `make publish-help`
+   explains the rules.
 4. The release workflow runs:
    - `ci`: the whole CI (`ci.yml`) at the tagged commit;
    - `build`: builds, archives and checksums with Hephaestus with a read-only token and no
-     secret, verifies the archives (`scripts/verify-dist.sh`), installs them with `install.sh`
+     secret, verifies the archives (`scripts/verify-dist.sh`) and the Go toolchain of the
+     binaries (`scripts/release-toolchain.sh`), installs them with `install.sh`
      (`TestDistArchives`) and uploads `dist/`;
-   - `release` (environment `release`): rehearses the tap pull request (dry run), attests the
-     archives, publishes the GitHub Release, and opens the formula pull request on
-     `magicdrive/homebrew-tap` (branch `enma-X.Y.Z`).
+   - `release` (environment `release`): plans the release (`command: plan`: prerelease,
+     tap publish/skip), rehearses the tap pull request (read-only), attests every archive
+     and the checksum file, publishes the GitHub Release, and opens the formula pull request
+     on `magicdrive/homebrew-tap` (branch `enma-X.Y.Z`). The two tap steps run, and receive
+     the tap token, only when the plan says `tap=publish`.
 5. Review and merge the pull request on `magicdrive/homebrew-tap`. Until it is merged,
    `brew upgrade enma` still installs the previous version.
 
 A pre-release tag (`vX.Y.Z-rc.1`) is published as a pre-release and does not update the tap
-(`brews[].skip_upload: auto`).
+(`brews[].skip_upload: auto`): the plan says `tap=skip`, so the tap steps are skipped and the
+tap token is not even passed to them.
+
+Before Hephaestus v1.2.0, `make publish tag=vX.Y.Z` ran the tests and `hephaestus preflight`,
+then created a lightweight tag and pushed it, and stopped there. It now runs
+`hephaestus publish`: no local test run (the preflight requires the green CI of the commit
+instead), a confirmation, an annotated tag, and the run followed and verified to the end.
 
 ## Recovery
 
-- **The workflow failed before the `release` job**: nothing was published. Fix the cause on
-  `main`; delete the tag only if it was never published (`git push origin :refs/tags/vX.Y.Z`
-  and `git tag -d vX.Y.Z`), then tag again. Otherwise release the next patch version.
+- **`make publish` was interrupted** (Ctrl-C, network, timeout): only the monitoring stopped
+  (exit code 3, outcome unknown). Run `make publish-status vX.Y.Z`, then
+  `make publish-watch vX.Y.Z` if the tag is on `origin`.
+- **The workflow failed before the `release` job**: nothing was published. A transient
+  failure: re-run the failed jobs. Otherwise fix the cause on `main` and release a new
+  version (for example the next `-rc.N`); the tag ruleset forbids moving or deleting a tag.
 - **The release job failed after the release was published** (for example at the tap step):
   re-run the failed jobs. Hephaestus continues from the release: identical assets are left
   alone, and an existing tap pull request for the same version is reused.

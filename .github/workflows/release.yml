@@ -4,9 +4,10 @@ name: Release
 #   ci       the full CI (ci.yml) at the tagged commit
 #   build    builds, packages and verifies the archives with Hephaestus, with a
 #            read-only token and no secret; only the verified dist/ moves on
-#   release  publishes dist/ as the GitHub Release (GITHUB_TOKEN), then opens
-#            the formula pull request on magicdrive/homebrew-tap (the tap
-#            token of the `release` environment)
+#   release  plans the release (prerelease, tap), publishes dist/ as the
+#            GitHub Release (GITHUB_TOKEN), then, unless the plan skips the
+#            tap, opens the formula pull request on magicdrive/homebrew-tap
+#            (the tap token of the `release` environment)
 
 on:
   push:
@@ -43,7 +44,7 @@ jobs:
           check-latest: true
 
       - name: Build, archive and checksum
-        uses: magicdrive/hephaestus@550d48f64917749742574b5c2ff1b292940ff71a # v1.1.0
+        uses: magicdrive/hephaestus@bae0e2b3cbf41ad27299e0cfc3517a6affc7e15e # v1.2.0-rc.1
         with:
           command: run
           stages: build,archive,checksum
@@ -95,9 +96,22 @@ jobs:
           name: dist
           path: dist/
 
+      # What this tag releases, from hephaestus.yaml only (no token, no
+      # project code): prerelease true/false, tap publish/skip. A prerelease
+      # (vX.Y.Z-rc.1) skips the tap (brews[].skip_upload: auto), so the steps
+      # below that use the tap token are skipped and never receive it; a
+      # prerelease whose plan would update the tap fails here.
+      - name: Plan the release
+        id: plan
+        uses: magicdrive/hephaestus@bae0e2b3cbf41ad27299e0cfc3517a6affc7e15e # v1.2.0-rc.1
+        with:
+          command: plan
+          github-token: ""
+
       # Without the token a dry run cannot read the tap and would pass. Only
       # whether it is set reaches this step, not its value.
       - name: Check that the tap token is set
+        if: steps.plan.outputs.tap == 'publish'
         env:
           TAP_TOKEN_SET: ${{ secrets.HOMEBREW_TAP_GITHUB_TOKEN != '' }}
         run: |
@@ -105,10 +119,11 @@ jobs:
 
       # Checks the tap token, the tap's layout, a newer formula on the tap
       # and the pull request branch before the release becomes public, since
-      # a published release cannot be taken back. A prerelease skips the tap
-      # (skip_upload: auto).
-      - name: Rehearse the formula and tap pull request (dry run)
-        uses: magicdrive/hephaestus@550d48f64917749742574b5c2ff1b292940ff71a # v1.1.0
+      # a published release cannot be taken back. `make publish` verifies
+      # this step and the tap step below by their names.
+      - name: Rehearse the formula and tap pull request (read-only)
+        if: steps.plan.outputs.tap == 'publish'
+        uses: magicdrive/hephaestus@bae0e2b3cbf41ad27299e0cfc3517a6affc7e15e # v1.2.0-rc.1
         with:
           command: run
           stages: formula,tap
@@ -116,6 +131,8 @@ jobs:
           github-token: ""
           tap-token: ${{ secrets.HOMEBREW_TAP_GITHUB_TOKEN }}
 
+      # every release asset: each archive and the checksum file (the release
+      # uploads nothing else; hephaestus.yaml has no release.github.include)
       - name: Attest build provenance
         uses: actions/attest-build-provenance@4d101475d8b20a2381f78447822ac1eab6504dd8 # v4.2.2
         with:
@@ -125,12 +142,13 @@ jobs:
             dist/enma_checksums.txt
 
       - name: Publish the GitHub Release
-        uses: magicdrive/hephaestus@550d48f64917749742574b5c2ff1b292940ff71a # v1.1.0
+        uses: magicdrive/hephaestus@bae0e2b3cbf41ad27299e0cfc3517a6affc7e15e # v1.2.0-rc.1
         with:
           command: release
 
-      - name: Formula and tap pull request
-        uses: magicdrive/hephaestus@550d48f64917749742574b5c2ff1b292940ff71a # v1.1.0
+      - name: Generate the formula and open a tap pull request
+        if: steps.plan.outputs.tap == 'publish'
+        uses: magicdrive/hephaestus@bae0e2b3cbf41ad27299e0cfc3517a6affc7e15e # v1.2.0-rc.1
         with:
           command: run
           stages: formula,tap
