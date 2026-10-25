@@ -196,14 +196,14 @@ jobs:
           check-latest: true
 
       - name: Check hephaestus.yaml
-        uses: magicdrive/hephaestus@550d48f64917749742574b5c2ff1b292940ff71a # v1.1.0
+        uses: magicdrive/hephaestus@4414722a804d958179fd547c26d7b2fe762e308e # v1.1.1-0.20261025105032-4414722a804d
         with:
           command: check
           github-token: ""
 
       - name: Hephaestus snapshot (build, archive, checksum)
         id: snapshot
-        uses: magicdrive/hephaestus@550d48f64917749742574b5c2ff1b292940ff71a # v1.1.0
+        uses: magicdrive/hephaestus@4414722a804d958179fd547c26d7b2fe762e308e # v1.1.1-0.20261025105032-4414722a804d
         with:
           command: run
           stages: build,archive,checksum
@@ -257,7 +257,7 @@ jobs:
         run: echo "/home/linuxbrew/.linuxbrew/bin" >> "$GITHUB_PATH"
 
       - name: Build, archive, checksum and formula for v99.0.0 (nothing is published)
-        uses: magicdrive/hephaestus@550d48f64917749742574b5c2ff1b292940ff71a # v1.1.0
+        uses: magicdrive/hephaestus@4414722a804d958179fd547c26d7b2fe762e308e # v1.1.1-0.20261025105032-4414722a804d
         with:
           command: run
           stages: build,archive,checksum,formula
