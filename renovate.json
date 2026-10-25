@@ -69,6 +69,14 @@
       "matchStrings": [
         "# renovate: datasource=(?<datasource>[a-z-]+) depName=(?<depName>\\S+)\\s+[A-Z_]+\\s*(\\?=|:=|=)\\s*(?<currentValue>[^\\s]+)"
       ]
+    },
+    {
+      "customType": "regex",
+      "description": "The Go toolchain of the release builds (builds[].env.GOTOOLCHAIN in hephaestus.yaml)",
+      "managerFilePatterns": ["/(^|/)hephaestus\\.yaml$/"],
+      "matchStrings": [
+        "# renovate: datasource=(?<datasource>golang-version) depName=(?<depName>\\S+)\\s+GOTOOLCHAIN:\\s*\"?go(?<currentValue>[0-9][0-9.]*)\"?"
+      ]
     }
   ],
   "minimumReleaseAge": "3 days",

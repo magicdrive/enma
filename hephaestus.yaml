@@ -41,6 +41,15 @@ builds:
       GOOS: "{{ .OS }}"
       GOARCH: "{{ .Arch }}"
       CGO_ENABLED: "0"
+      # The release toolchain, pinned. The Hephaestus action puts the Go of
+      # its own go.mod first in PATH (with GOTOOLCHAIN=local); this makes the
+      # go command run exactly this release (downloaded and checksum-verified
+      # by the go command when needed), wherever the build runs. go.mod keeps
+      # only the oldest supported Go, which CI tests with. Releases up to
+      # v2.1.0 were built with go1.27.2; scripts/release-toolchain.sh checks
+      # the binaries against this value. Renovate updates it.
+      # renovate: datasource=golang-version depName=go
+      GOTOOLCHAIN: go1.27.3
     output: "dist/bin/{{ .OS }}_{{ .Arch }}/enma{{ .Ext }}"
 
 archives:

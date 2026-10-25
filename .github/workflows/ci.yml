@@ -215,7 +215,7 @@ jobs:
         run: sh scripts/verify-dist.sh dist 0.0.0-SNAPSHOT
 
       - name: Go toolchain of the release binaries
-        run: sh scripts/release-toolchain.sh dist/bin/linux_amd64/enma
+        run: sh scripts/release-toolchain.sh dist/bin
 
       - name: install.sh with the snapshot archives
         env:

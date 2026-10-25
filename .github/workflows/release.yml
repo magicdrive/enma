@@ -55,7 +55,7 @@ jobs:
         run: sh scripts/verify-dist.sh dist "$GITHUB_REF_NAME"
 
       - name: Go toolchain of the release binaries
-        run: sh scripts/release-toolchain.sh dist/bin/linux_amd64/enma
+        run: sh scripts/release-toolchain.sh dist/bin
 
       # install.sh installs this machine's archive from exactly these files
       - name: install.sh with the release archives

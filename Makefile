@@ -161,6 +161,7 @@ hephaestus-check:
 snapshot:
 	@$(HEPHAESTUS) run --snapshot --stages build,archive,checksum --fresh
 	@sh scripts/verify-dist.sh dist 0.0.0-SNAPSHOT
+	@sh scripts/release-toolchain.sh dist/bin
 	@ENMA_INSTALLER_DIST=$(CURDIR)/dist $(GO) test -count=1 -run '^TestDistArchives$$' ./internal/installer/
 
 # Build the archives and the Homebrew formula for E2E_TAG locally (nothing is

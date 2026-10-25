@@ -16,7 +16,10 @@ The same files as the releases made with GoReleaser up to v2.1.0, which `install
 | `enma_<version>_{windows_386,windows_amd64,windows_arm64}.zip` | `enma.exe` at the top, the same other files |
 | `enma_checksums.txt` | `<sha256>  <file>` for every archive |
 
-`enma --version` prints `enma version v<version>`. The formula `enma.rb` in
+`enma --version` prints `enma version v<version>`. The binaries are built with the Go toolchain
+pinned in `hephaestus.yaml` (`builds[].env.GOTOOLCHAIN`, updated by Renovate);
+`scripts/release-toolchain.sh` fails the build when a binary was built with another Go, or when
+the pin is older than go1.27.2 (v2.1.0). `go.mod` keeps only the oldest supported Go. The formula `enma.rb` in
 [magicdrive/homebrew-tap](https://github.com/magicdrive/homebrew-tap) installs the binary and
 the bash, zsh and fish completions. Build provenance attestations are created for the archives
 and the checksum file (`gh attestation verify <file> -R magicdrive/enma`).
