@@ -1,9 +1,11 @@
 #!/bin/sh
-# Checks the archives a GoReleaser run wrote (e.g. `goreleaser release
-# --snapshot --clean --skip=publish`), without publishing anything:
-#   - the checksum file lists every archive, and each one matches it;
+# Checks the archives a Hephaestus run wrote (`make snapshot`, or the build
+# job of the release workflow), without publishing anything:
+#   - the checksum file lists every archive, and each one matches it, and no
+#     other archive is there;
 #   - each platform the release builds has exactly one archive holding the
-#     binary, LICENSE, README.md and the completion scripts;
+#     binary, LICENSE, README.md and the completion scripts, and no other
+#     file (the layout install.sh and the Homebrew formula rely on);
 #   - each binary is built for the platform its archive names (when `file`
 #     exists), and the tar.gz binaries are executable;
 #   - the binary for this machine runs and prints the expected version.
@@ -29,12 +31,15 @@ for a in enma_*.tar.gz enma_*.zip; do
 	[ -f "$a" ] || continue
 	awk -v f="$a" '$2 == f { found = 1 } END { exit !found }' "$sums" || fail "$a is not in $sums"
 done
+n_archives=$(find . -maxdepth 1 -type f \( -name 'enma_*.tar.gz' -o -name 'enma_*.zip' \) | wc -l | tr -d ' ')
+[ "$n_archives" -eq 8 ] || fail "$n_archives archives, expected 8"
+[ "$(wc -l <"$sums" | tr -d ' ')" -eq 8 ] || fail "$sums does not list exactly the 8 archives"
 echo "ok   checksums ($(wc -l <"$sums" | tr -d ' ') files)"
 
 work=$(mktemp -d)
 trap 'rm -rf "$work"' EXIT
 
-host_os=$(go env GOOS 2>/dev/null || uname -s | tr 'A-Z' 'a-z')
+host_os=$(go env GOOS 2>/dev/null || uname -s | tr '[:upper:]' '[:lower:]')
 host_arch=$(go env GOARCH 2>/dev/null || uname -m)
 case "$host_arch" in x86_64) host_arch=amd64 ;; aarch64) host_arch=arm64 ;; esac
 host=${host_os}_$host_arch
@@ -42,11 +47,11 @@ ran=no
 
 # The first five are the supported platforms (README "Platforms" says which of
 # them CI tests); the 386 and windows/arm64 builds are published as well
-# (GoReleaser's default architectures) but not tested.
+# (GoReleaser's default architectures, kept since the move to Hephaestus) but
+# not tested.
 for target in linux_amd64 linux_arm64 darwin_amd64 darwin_arm64 windows_amd64 \
 	linux_386 windows_386 windows_arm64; do
 	os=${target%_*}
-	arch=${target#*_}
 	if [ "$os" = windows ]; then ext=zip bin=enma.exe; else ext=tar.gz bin=enma; fi
 	set -- enma_*_"${target}"*."$ext"
 	[ -f "$1" ] || fail "$target: no .$ext archive"
@@ -71,6 +76,11 @@ for target in linux_amd64 linux_arm64 darwin_amd64 darwin_arm64 windows_amd64 \
 		completions/fish/enma.fish; do
 		[ -f "$out/$f" ] || fail "$archive: missing $f"
 	done
+	# no other file: the binary sits at the top, nothing around it
+	got=$(cd "$out" && find . -type f | sed 's|^\./||' | LC_ALL=C sort | tr '\n' ' ')
+	want="$bin LICENSE README.md completions/bash/enma-completion.bash completions/enma-completion.sh completions/fish/enma.fish completions/zsh/_enma "
+	want=$(printf '%s' "$want" | tr ' ' '\n' | LC_ALL=C sort | tr '\n' ' ')
+	[ "$got" = "$want" ] || fail "$archive: unexpected files: $got"
 	if [ "$ext" = tar.gz ] && [ ! -x "$out/$bin" ]; then
 		fail "$archive: $bin is not executable"
 	fi

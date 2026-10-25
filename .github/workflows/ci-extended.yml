@@ -26,6 +26,7 @@ concurrency:
 jobs:
   shuffle:
     if: github.event_name != 'pull_request' || contains(github.event.pull_request.labels.*.name, 'ci-extended')
+    timeout-minutes: 60
     strategy:
       fail-fast: false
       matrix:
@@ -67,6 +68,7 @@ jobs:
   # curl and GNU Wget.
   installer-releases:
     if: github.event_name != 'pull_request' || contains(github.event.pull_request.labels.*.name, 'ci-extended')
+    timeout-minutes: 30
     strategy:
       fail-fast: false
       matrix:
@@ -98,6 +100,7 @@ jobs:
 
   fuzz:
     if: github.event_name != 'pull_request' || contains(github.event.pull_request.labels.*.name, 'ci-extended')
+    timeout-minutes: 60
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
@@ -136,6 +139,7 @@ jobs:
   # built and run natively here; the Unix-only tests are not run.
   windows-smoke:
     if: github.event_name != 'pull_request' || contains(github.event.pull_request.labels.*.name, 'ci-extended')
+    timeout-minutes: 30
     runs-on: windows-latest
     defaults:
       run:
