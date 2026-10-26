@@ -45,11 +45,16 @@ func rssKiB(pid int) int {
 
 // kqueueNewDirRace reports whether this platform has the known limitation
 // G4-04 (accepted and monitored, not fixed; owner 2026-10-18; README "What is
-// watched"): with the kqueue backend of fsnotify (macOS, BSD), enma's watch of
-// a new directory can race with fsnotify's own registration of it, so that
+// watched"): with the kqueue backend of fsnotify (macOS, BSD), a registration
+// of a new directory by fsnotify can race with enma's watch of it, so that
 // files created in it afterwards are not watched (reproduced with fsnotify
-// alone) and, presumably from the same race, one descriptor is kept after it
-// is deleted. Not observed on Linux (inotify): there the test stays strict.
+// alone). Not observed on Linux (inotify): there the test stays strict.
+//
+// The other symptom once counted as G4-04, descriptors of deleted new
+// directories kept open (and of the working directory, from the Create of "."
+// fsnotify then reports), came from the same race: enma now adds a new
+// directory only once fsnotify's own registration of it is over
+// (internal/core newDirWatches), and kept descriptors fail on every platform.
 func kqueueNewDirRace() bool {
 	switch runtime.GOOS {
 	case "darwin", "freebsd", "openbsd", "netbsd", "dragonfly":
@@ -59,10 +64,9 @@ func kqueueNewDirRace() bool {
 }
 
 // g404Run follows the known limitation G4-04 in one run of a test that
-// creates directories while enma runs. observe records one of the two known
-// symptoms (a file in such a directory not handled; descriptors of such deleted
-// directories kept open) on a kqueue platform, where the test goes on, and
-// fails anywhere else. When the test ends and $ENMA_G404_LOG is set (CI sets
+// creates directories while enma runs. observe records its symptom (a file in
+// such a directory not handled) on a kqueue platform, where the test goes on,
+// and fails anywhere else. When the test ends and $ENMA_G404_LOG is set (CI sets
 // it), one line is appended to that file, observed=0 or observed=1, so that
 // the rate can be followed across runs (CI prints the counts).
 type g404Run struct {
@@ -101,14 +105,11 @@ func (r *g404Run) observe(format string, args ...any) {
 	r.observed = append(r.observed, msg)
 }
 
-// Bounds of the G4-04 allowance in one run of TestE2E_Load_NewDirectoriesDuringBurst
-// (15 new directories): seen so far, at most 1 directory lost a file and 5
-// descriptors were kept. Beyond these a regression in enma is more likely
-// than the race, so the test fails on every platform.
-const (
-	g404MaxLostFiles = 3
-	g404MaxKeptFDs   = 7
-)
+// Bound of the G4-04 allowance in one run of TestE2E_Load_NewDirectoriesDuringBurst
+// (15 new directories): seen so far, at most 1 directory lost a file. Beyond
+// it a regression in enma is more likely than the race, so the test fails on
+// every platform.
+const g404MaxLostFiles = 3
 
 // A burst of changes in an existing directory (no directory is created): every
 // change is handled, and the descriptors come back down once the files are gone.
@@ -152,9 +153,9 @@ func TestE2E_Load_ManyChangesDoNotLeak(t *testing.T) {
 // Directories created during a burst are watched, and the files in them are
 // handled: the files written during the burst and, once the new directories'
 // watches are reported, a further change of each. Their descriptors are
-// released when they are deleted. On kqueue platforms the known limitation
-// G4-04 can lose some of these files or keep a descriptor: it is recorded, and
-// everything else is still checked.
+// released when they are deleted, and enma never watches more than the watch
+// directory. On kqueue platforms the known limitation G4-04 can lose some of
+// these files: it is recorded, and everything else is still checked.
 func TestE2E_Load_NewDirectoriesDuringBurst(t *testing.T) {
 	proj, log := projectIn(t)
 	p := startWatch(t, proj, "--watch-dir", "src", "--check-content-diff", "off")
@@ -213,21 +214,32 @@ func TestE2E_Load_NewDirectoriesDuringBurst(t *testing.T) {
 
 	fdEnd, _ := removeAndCountFDs(t, src, pid, fdStart)
 	if fdEnd > fdStart+3 {
-		// only descriptors of the deleted new directories count as G4-04; any
-		// other descriptor kept open is a leak and fails on every platform
-		// (none identified, more than G4-04 explains, or any other descriptor: a leak)
-		extra := keptDescriptors(t, pid, filesStart)
-		if other := notNewDirDescriptors(extra); len(extra) == 0 || len(extra) > g404MaxKeptFDs || len(other) > 0 || !kqueueNewDirRace() {
-			t.Fatalf("descriptors not released after the files were deleted: %d -> %d; kept: %v", fdStart, fdEnd, extra)
-		}
-		g404.observe("descriptors of deleted new directories kept open: %d -> %d: %v", fdStart, fdEnd, extra)
+		t.Fatalf("descriptors not released after the files were deleted: %d -> %d; kept: %v", fdStart, fdEnd, keptDescriptors(t, pid, filesStart))
+	}
+	if outside := watchedOutside(p.out.String(), src); len(outside) > 0 {
+		t.Fatalf("watching outside the watch directory %s: %v", src, outside)
 	}
 	stopUnderLoad(t, p)
 }
 
-// newDirName matches a directory created during the burst (src/dNN), the only
-// descriptors G4-04 can keep open.
-var newDirName = regexp.MustCompile(`DIR .*/src/d[0-9]{2}$`)
+// watchedLine is a line of enma's log about a directory it starts to watch.
+var watchedLine = regexp.MustCompile(`👀 Watching (?:new dir: |symlinked dir: )?(.*)$`)
+
+// watchedOutside returns the directories enma's output says it watches that are
+// not watchDir or below it.
+func watchedOutside(out, watchDir string) []string {
+	var outside []string
+	for _, line := range strings.Split(out, "\n") {
+		m := watchedLine.FindStringSubmatch(line)
+		if m == nil {
+			continue
+		}
+		if dir := m[1]; dir != watchDir && !strings.HasPrefix(dir, watchDir+string(filepath.Separator)) {
+			outside = append(outside, dir)
+		}
+	}
+	return outside
+}
 
 // openFiles lists enma's open descriptors as "fd TYPE name" (lsof; on Linux
 // /proc/<pid>/fd with the link target, type DIR for directories).
@@ -284,31 +296,6 @@ func lostOnlyLater(lostInBurst, lostLater []string) []string {
 		}
 	}
 	return only
-}
-
-// revokedName matches a descriptor lsof shows without type and path: on macOS
-// the descriptor of a deleted directory can be shown so.
-var revokedName = regexp.MustCompile(`^[0-9]+ +\(revoked\)$`)
-
-// notNewDirDescriptors returns the descriptors that are not of a directory
-// created during the burst: they are never G4-04. A "(revoked)" descriptor is
-// taken as such a directory only next to at least one identified one (src/dNN);
-// alone it cannot be attributed.
-func notNewDirDescriptors(extra []string) []string {
-	identified := false
-	for _, f := range extra {
-		if newDirName.MatchString(f) {
-			identified = true
-		}
-	}
-	var other []string
-	for _, f := range extra {
-		if newDirName.MatchString(f) || (identified && revokedName.MatchString(f)) {
-			continue
-		}
-		other = append(other, f)
-	}
-	return other
 }
 
 // keptDescriptors returns the descriptors of pid not in start that stay open
@@ -391,24 +378,10 @@ func stopUnderLoad(t *testing.T, p *enmaProc) {
 	}
 }
 
-// The G4-04 allowance covers only descriptors of directories created during the
-// burst; anything else kept open is a leak.
+// The G4-04 allowance covers only files lost already during the burst, and
+// the helpers that find kept descriptors and what enma watches see what they
+// should.
 func TestE2E_Load_G404AllowanceIsNarrow(t *testing.T) {
-	newDir := "12 DIR /tmp/x/proj/src/d03"
-	others := []string{
-		"13 DIR /tmp/x/proj/src",            // the watch directory itself
-		"14 DIR /tmp/x/proj/src/d03/sub",    // below a new directory
-		"15 REG /tmp/x/proj/src/d03/x03.go", // a file
-		"16 DIR /tmp/x/proj/src/dist",       // another directory
-		"17 KQUEUE ",                        // not a path
-		"18 DIR /tmp/x/proj/src/d3",         // not dNN
-	}
-	if got := notNewDirDescriptors([]string{newDir}); len(got) != 0 {
-		t.Fatalf("a new directory's descriptor is the known symptom: %v", got)
-	}
-	if got := notNewDirDescriptors(append([]string{newDir}, others...)); len(got) != len(others) {
-		t.Fatalf("only new directories may be allowed: got %v", got)
-	}
 	// a kqueue or pipe open before whose lsof name changed is not a new descriptor;
 	// a directory or file whose name changed is
 	before := map[string]string{"5": "KQUEUE count=0, state=0xa", "6": "PIPE ->0x1", "8": "DIR /p/src"}
@@ -416,13 +389,20 @@ func TestE2E_Load_G404AllowanceIsNarrow(t *testing.T) {
 	if got := newDescriptors(before, after); !slices.Equal(got, []string{"8 DIR /p/src/d01", "9 DIR /p/src/d02"}) {
 		t.Fatalf("newDescriptors: %v", got)
 	}
-	// a "(revoked)" descriptor (a deleted directory on macOS) counts only next to
-	// an identified new directory
-	if got := notNewDirDescriptors([]string{newDir, "27  (revoked)"}); len(got) != 0 {
-		t.Fatalf("revoked next to a new directory: %v", got)
-	}
-	if got := notNewDirDescriptors([]string{"27  (revoked)"}); len(got) != 1 {
-		t.Fatalf("a revoked descriptor alone cannot be attributed: %v", got)
+	// what enma watches: the watch directory and below, nothing else (the
+	// project directory, where a Create of "." led, is outside)
+	out := strings.Join([]string{
+		"2026/10/26 00:28:34 👀 Watching /p/proj/src",
+		"2026/10/26 00:28:35 👀 Watching new dir: /p/proj/src/d00",
+		"2026/10/26 00:28:35 👀 Watching /p/proj/src/d00/sub",
+		"2026/10/26 00:28:35 👀 Watching symlinked dir: /p/proj/src/linked",
+		"2026/10/26 00:28:35 ✅  Command Action success",
+		"2026/10/26 00:28:37 👀 Watching /p/proj",
+		"2026/10/26 00:28:37 👀 Watching new dir: .",
+		"2026/10/26 00:28:37 👀 Watching /p/proj/srcx",
+	}, "\n")
+	if got := watchedOutside(out, "/p/proj/src"); !slices.Equal(got, []string{"/p/proj", ".", "/p/proj/srcx"}) {
+		t.Fatalf("watchedOutside: %v", got)
 	}
 	// later losses: only files already lost during the burst can be G4-04
 	if got := lostOnlyLater([]string{"x01.go"}, []string{"x01.go"}); len(got) != 0 {
@@ -456,7 +436,7 @@ func TestE2E_Load_OpenFilesSeesDirectories(t *testing.T) {
 			found = append(found, e)
 		}
 	}
-	if len(found) != 1 || len(notNewDirDescriptors(found)) != 0 {
+	if len(found) != 1 {
 		t.Fatalf("the open directory %s: extra %v", d, extra)
 	}
 }

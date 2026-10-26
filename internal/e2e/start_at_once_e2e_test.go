@@ -20,6 +20,17 @@ import (
 
 var enmaBin string
 
+// enmaTmpDir is the temporary directory of the enmas the tests start (TMPDIR,
+// see enmaEnv): what they leave there when the cleanup kills them, such as
+// the fence of a watch on macOS, goes with TestMain's temporary directory.
+var enmaTmpDir string
+
+// enmaEnv is the environment of an enma a test starts: the test's, with TMPDIR
+// set to enmaTmpDir, then extra.
+func enmaEnv(extra ...string) []string {
+	return append(append(os.Environ(), "TMPDIR="+enmaTmpDir), extra...)
+}
+
 // started records every enma this test binary started (its process group), so
 // that TestMain can stop them even when a test ends without its cleanup.
 var (
@@ -59,6 +70,11 @@ func TestMain(m *testing.M) {
 		_, file, _, _ := runtime.Caller(0)
 		root := filepath.Join(filepath.Dir(file), "..", "..")
 		enmaBin = filepath.Join(tmp, "enma")
+		enmaTmpDir = filepath.Join(tmp, "tmp")
+		if err := os.Mkdir(enmaTmpDir, 0o700); err != nil {
+			fmt.Fprintln(os.Stderr, err)
+			return 1
+		}
 		build := exec.Command("go", "build", "-o", enmaBin, ".")
 		build.Dir = root
 		if out, err := build.CombinedOutput(); err != nil {
@@ -102,7 +118,7 @@ func startEnma(t *testing.T, dir string, env []string, args ...string) *enmaProc
 	t.Helper()
 	cmd := exec.Command(enmaBin, args...)
 	cmd.Dir = dir
-	cmd.Env = append(os.Environ(), env...)
+	cmd.Env = enmaEnv(env...)
 	out := &syncBuffer{}
 	cmd.Stdout, cmd.Stderr = out, out
 	cmd.SysProcAttr = &syscall.SysProcAttr{Setpgid: true}

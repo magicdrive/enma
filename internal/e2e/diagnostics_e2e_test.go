@@ -198,6 +198,7 @@ func startEnmaWithOutput(t *testing.T, dir string, out *os.File, args ...string)
 	t.Helper()
 	cmd := exec.Command(enmaBin, args...)
 	cmd.Dir = dir
+	cmd.Env = enmaEnv()
 	cmd.Stdout, cmd.Stderr = out, out
 	cmd.SysProcAttr = &syscall.SysProcAttr{Setpgid: true}
 	if err := cmd.Start(); err != nil {

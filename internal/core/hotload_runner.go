@@ -172,10 +172,24 @@ func (r *HotloadRunner) Start() (err error) {
 		}
 	}
 
+	newDirs := newNewDirWatches(watcher, env)
+	addNewDir := func(dir string) {
+		_ = r.AddWatchRecursive(dir)
+		log.Printf("👀 Watching new dir: %s", dir)
+		if r.batchNewDirs() {
+			r.enqueueNewDir(dir) // its own Create is part of the batch
+			return
+		}
+		r.enqueueFilesIn(dir)
+	}
+
 	go func() {
 		for {
 			select {
 			case event := <-watcher.Events:
+				if newDirs.received(event, addNewDir) {
+					continue
+				}
 				if event.Op&fsnotify.Create == fsnotify.Create {
 					info, err := os.Lstat(event.Name)
 					if err == nil {
@@ -185,19 +199,17 @@ func (r *HotloadRunner) Start() (err error) {
 								log.Printf("👀 Watching symlinked dir: %s", resolved)
 							}
 						} else if info.IsDir() && r.ShouldWatchDir(event.Name) {
-							_ = r.AddWatchRecursive(event.Name)
-							log.Printf("👀 Watching new dir: %s", event.Name)
+							newDirs.created(event.Name, addNewDir)
 							if r.batchNewDirs() {
-								r.enqueueNewDir(event.Name) // its own Create is part of the batch
-								continue
+								continue // its Create is part of the new directory's batch
 							}
-							r.enqueueFilesIn(event.Name)
 						}
 					}
 				}
 
 				r.enqueue(event)
 			case err := <-watcher.Errors:
+				newDirs.flush(addNewDir)
 				log.Println("Watcher error:", err)
 			}
 		}

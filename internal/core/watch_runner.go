@@ -145,10 +145,20 @@ func (r *WatchRunner) Start() (err error) {
 
 	log.Println("🚀 Start file monitor daemon")
 
+	newDirs := newNewDirWatches(watcher, env)
+	addNewDir := func(dir string) {
+		_ = r.AddWatchRecursive(dir)
+		log.Printf("👀 Watching new dir: %s", dir)
+		r.enqueueFilesIn(dir)
+	}
+
 	go func() {
 		for {
 			select {
 			case event := <-watcher.Events:
+				if newDirs.received(event, addNewDir) {
+					continue
+				}
 				if event.Op&fsnotify.Create == fsnotify.Create {
 					info, err := os.Lstat(event.Name)
 					if err == nil {
@@ -158,15 +168,14 @@ func (r *WatchRunner) Start() (err error) {
 								log.Printf("👀 Watching symlinked dir: %s", resolved)
 							}
 						} else if info.IsDir() && r.ShouldWatchDir(event.Name) {
-							_ = r.AddWatchRecursive(event.Name)
-							log.Printf("👀 Watching new dir: %s", event.Name)
-							r.enqueueFilesIn(event.Name)
+							newDirs.created(event.Name, addNewDir)
 						}
 					}
 				}
 
 				r.enqueue(event)
 			case err := <-watcher.Errors:
+				newDirs.flush(addNewDir)
 				log.Println("Watcher error:", err)
 			}
 		}
