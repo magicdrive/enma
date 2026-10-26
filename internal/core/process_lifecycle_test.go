@@ -10,6 +10,7 @@ import (
 	"path/filepath"
 	"strconv"
 	"strings"
+	"sync"
 	"syscall"
 	"testing"
 	"time"
@@ -100,7 +101,9 @@ func TestLifecycle_ForceKillAloneStopsEverything(t *testing.T) {
 	if err := core.StartDaemonForTest(r); err != nil {
 		t.Fatal(err)
 	}
-	waitFor(t, 2*time.Second, func() bool { return len(readPids(t, pids)) == 1 })
+	if !waitFor(t, 2*time.Second, func() bool { return len(readPids(t, pids)) == 1 }) {
+		t.Fatal("daemon did not start") // the checks below would pass on no pid at all
+	}
 	core.ForceKillForTest(r) // second signal without a first one
 	if err := core.StartDaemonForTest(r); !errors.Is(err, core.ErrShuttingDownForTest) {
 		t.Fatalf("start after force kill: got %v, want refusal", err)
@@ -134,7 +137,9 @@ func TestLifecycle_StopEscalatesWhenTermIgnored(t *testing.T) {
 	if err := core.StartDaemonForTest(r); err != nil {
 		t.Fatal(err)
 	}
-	waitFor(t, 2*time.Second, func() bool { return len(readPids(t, pids)) == 1 })
+	if !waitFor(t, 2*time.Second, func() bool { return len(readPids(t, pids)) == 1 }) {
+		t.Fatal("daemon did not start") // the checks below would pass on no pid at all
+	}
 	start := time.Now()
 	err := stopWithin(t, stopBound, func() error { return core.StopDaemonForTest(r) })
 	if err != nil {
@@ -313,7 +318,9 @@ func TestLifecycle_ForceKillCutsTheGracePeriod(t *testing.T) {
 	if err := core.StartDaemonForTest(r); err != nil {
 		t.Fatal(err)
 	}
-	waitFor(t, 2*time.Second, func() bool { return len(readPids(t, pids)) == 1 })
+	if !waitFor(t, 2*time.Second, func() bool { return len(readPids(t, pids)) == 1 }) {
+		t.Fatal("daemon did not start") // the checks below would pass on no pid at all
+	}
 	start := time.Now()
 	done := make(chan error, 1)
 	go func() { done <- core.ShutdownForTest(r) }() // graceful: would wait 5s
@@ -339,17 +346,25 @@ func TestLifecycle_StopFailureIsReported(t *testing.T) {
 	pids := filepath.Join(dir, "pids")
 	killLeftovers(t, pids)
 	r := newDaemonRunner(t, `trap '' TERM; echo $$ >> '`+pids+`'; while :; do sleep 0.05; done`)
-	// No time to confirm the group is gone after SIGKILL: the stop must fail, not pretend.
-	core.SetStopTimeoutsForTest(r, time.Nanosecond, time.Nanosecond)
+	core.SetStopTimeoutsForTest(r, 50*time.Millisecond, 50*time.Millisecond)
 	if err := core.StartDaemonForTest(r); err != nil {
 		t.Fatal(err)
 	}
-	waitFor(t, 2*time.Second, func() bool { return len(readPids(t, pids)) == 1 })
+	if !waitFor(t, 2*time.Second, func() bool { return len(readPids(t, pids)) == 1 }) {
+		t.Fatal("daemon did not start")
+	}
+	// A member enma cannot reap keeps the group from being confirmed gone after
+	// SIGKILL: the stop must fail, not pretend.
+	release := holdGroupOpen(t, readPids(t, pids)[0])
 	err := core.StopDaemonForTest(r)
 	if !errors.Is(err, core.ErrStopTimeout) {
 		t.Fatalf("L5 violated: unconfirmed stop returned %v, want ErrStopTimeout", err)
 	}
 	// The daemon stays tracked, so a later stop can still confirm it is gone.
+	if err := core.StartDaemonForTest(r); !errors.Is(err, core.ErrDaemonRunningForTest) {
+		t.Fatalf("start after an unconfirmed stop: got %v, want refusal", err)
+	}
+	release()
 	core.SetStopTimeoutsForTest(r, testGrace, testKill)
 	if err := stopWithin(t, stopBound, func() error { return core.StopDaemonForTest(r) }); err != nil {
 		t.Fatalf("second stop: %v", err)
@@ -359,6 +374,75 @@ func TestLifecycle_StopFailureIsReported(t *testing.T) {
 			t.Fatalf("daemon %d still alive", pid)
 		}
 	}
+}
+
+// holdGroupOpen makes the stop of the process group pgid unconfirmable, with
+// real processes and whatever the stop timeouts: a helper process outside the
+// group starts a member of the group and never reaps it. Once killed, that
+// member stays a zombie of the helper, so the group never looks empty to enma
+// (it can only reap its own children). A stop that merely runs out of time
+// (tiny timeouts) is not a reliable failure: SIGKILL and the reaping of the
+// group can complete before the first check. release kills the helper; the
+// zombie is then re-parented and reaped, and the group can be confirmed gone.
+func holdGroupOpen(t *testing.T, pgid int) (release func()) {
+	t.Helper()
+	memberFile := filepath.Join(t.TempDir(), "member")
+	h := exec.Command(os.Args[0], "-test.run=^TestLifecycleHelper_ForeignGroupMember$")
+	h.Env = append(os.Environ(), "ENMA_FOREIGN_MEMBER_PGID="+strconv.Itoa(pgid), "ENMA_FOREIGN_MEMBER_FILE="+memberFile)
+	h.Stderr = os.Stderr
+	if err := h.Start(); err != nil {
+		t.Fatal(err)
+	}
+	member := func() int {
+		b, _ := os.ReadFile(memberFile)
+		n, _ := strconv.Atoi(strings.TrimSpace(string(b)))
+		return n
+	}
+	var once sync.Once
+	release = func() {
+		once.Do(func() {
+			// The member first: while the helper (its parent) lives, its pid
+			// cannot be reused, so this never signals another process.
+			if pid := member(); pid > 1 {
+				_ = syscall.Kill(pid, syscall.SIGKILL)
+			}
+			_ = h.Process.Kill()
+			_ = h.Wait()
+		})
+	}
+	t.Cleanup(release)
+	if !waitFor(t, 5*time.Second, func() bool { return member() > 0 }) {
+		t.Fatal("the foreign group member did not start")
+	}
+	if got, err := syscall.Getpgid(member()); err != nil || got != pgid {
+		t.Fatalf("foreign member %d is in group %d (%v), want %d", member(), got, err, pgid)
+	}
+	return release
+}
+
+// TestLifecycleHelper_ForeignGroupMember is the helper process of holdGroupOpen.
+func TestLifecycleHelper_ForeignGroupMember(t *testing.T) {
+	pgidEnv := os.Getenv("ENMA_FOREIGN_MEMBER_PGID")
+	if pgidEnv == "" {
+		return // only meaningful as the helper process (like TestHotloadRunnerHelperProcess)
+	}
+	pgid, err := strconv.Atoi(pgidEnv)
+	if err != nil || pgid <= 1 {
+		t.Fatalf("bad pgid %q", pgidEnv)
+	}
+	c := exec.Command("sleep", "1000")
+	c.SysProcAttr = &syscall.SysProcAttr{Setpgid: true, Pgid: pgid}
+	if err := c.Start(); err != nil {
+		t.Fatal(err)
+	}
+	tmp := os.Getenv("ENMA_FOREIGN_MEMBER_FILE") + ".tmp"
+	if err := os.WriteFile(tmp, []byte(strconv.Itoa(c.Process.Pid)), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Rename(tmp, os.Getenv("ENMA_FOREIGN_MEMBER_FILE")); err != nil {
+		t.Fatal(err)
+	}
+	time.Sleep(time.Hour) // never reap c; holdGroupOpen kills this process
 }
 
 // newChangeRunner is a daemon runner whose build always succeeds, for the real
@@ -415,16 +499,25 @@ func TestLifecycle_NoNewDaemonWhenStopFails(t *testing.T) {
 	pids := filepath.Join(dir, "pids")
 	killLeftovers(t, pids)
 	r := newChangeRunner(t, `trap '' TERM; echo $$ >> '`+pids+`'; while :; do sleep 0.05; done`)
-	core.SetStopTimeoutsForTest(r, time.Nanosecond, time.Nanosecond)
+	core.SetStopTimeoutsForTest(r, 50*time.Millisecond, 50*time.Millisecond)
 	if err := core.StartDaemonForTest(r); err != nil {
 		t.Fatal(err)
 	}
-	waitFor(t, 2*time.Second, func() bool { return len(readPids(t, pids)) == 1 })
+	if !waitFor(t, 2*time.Second, func() bool { return len(readPids(t, pids)) == 1 }) {
+		t.Fatal("daemon did not start")
+	}
+	release := holdGroupOpen(t, readPids(t, pids)[0])
 	core.HandleChangeForTest(r, "") // stop cannot be confirmed: must not start a second daemon
+	// HandleChange returned without starting a daemon; give one that was started
+	// anyway the time to record its pid.
 	time.Sleep(300 * time.Millisecond)
 	if n := len(readPids(t, pids)); n != 1 {
 		t.Fatalf("L3/L5 violated: %d daemons started although the previous stop failed", n)
 	}
+	if err := core.StartDaemonForTest(r); !errors.Is(err, core.ErrDaemonRunningForTest) {
+		t.Fatalf("L5 violated: the unconfirmed daemon is no longer tracked (start: %v)", err)
+	}
+	release()
 	core.SetStopTimeoutsForTest(r, testGrace, testKill)
 	if err := stopWithin(t, stopBound, func() error { return core.StopDaemonForTest(r) }); err != nil {
 		t.Fatal(err)
