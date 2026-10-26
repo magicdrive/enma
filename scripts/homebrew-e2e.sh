@@ -36,9 +36,18 @@ if brew list --formula enma >/dev/null 2>&1; then
   fail "a formula named enma is already installed; run this test on a disposable machine"
 fi
 
+# Homebrew 7.0.11 and later load a formula of a tap that is not official only
+# once it is trusted (brew trust): brew audit refuses the formula of an
+# untrusted tap. Only the throw-away tap is trusted, while it exists (when
+# this Homebrew has brew trust); brew untrust also forgets the formula brew
+# install trusts.
+trusts=false
+brew trust --help >/dev/null 2>&1 && trusts=true
+
 cleanup() {
   set +e
   brew uninstall --force "$tap/enma" >/dev/null 2>&1
+  if [[ "$trusts" == true ]]; then brew untrust --tap "$tap" >/dev/null 2>&1; fi
   brew untap --force "$tap" >/dev/null 2>&1
 }
 trap cleanup EXIT
@@ -50,6 +59,7 @@ version="${tag#v}"
 
 step "Formula for $tag, pointed at $dist"
 brew tap-new --no-git "$tap" >/dev/null
+if [[ "$trusts" == true ]]; then brew trust --tap "$tap"; fi
 formula="$(brew --repository "$tap")/Formula/enma.rb"
 # The download URLs become local files; everything else is the generated
 # formula as it would be published. Homebrew reads the version from the
