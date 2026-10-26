@@ -59,6 +59,11 @@ jobs:
       - name: Test process stopping (race, shuffled, 10 times)
         run: go test -count=10 -race -shuffle=on -run 'TestCommandStop_|TestLifecycle_|TestStartAtOnce_|TestStopLeftovers|TestRunInScope|TestScheduler_ShutdownSendsTermFirst' ./internal/core/
 
+      # directories created under load (the watch of new directories on
+      # kqueue, G4-04, the descriptors of deleted new directories) repeated
+      - name: Test new directories under load (race, 20 times)
+        run: go test -count=20 -race -run 'TestNewDirWatches_|TestE2E_Load_NewDirectoriesDuringBurst' ./internal/core/ ./internal/e2e/
+
       - name: G4-04 observations
         if: always()
         run: sh scripts/g404-report.sh

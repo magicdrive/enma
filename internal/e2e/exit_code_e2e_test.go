@@ -32,6 +32,7 @@ func runEnma(t *testing.T, dir string, args ...string) result {
 	t.Helper()
 	cmd := exec.Command(enmaBin, args...)
 	cmd.Dir = dir
+	cmd.Env = enmaEnv()
 	var stdout, stderr bytes.Buffer
 	cmd.Stdout, cmd.Stderr = &stdout, &stderr
 	cmd.SysProcAttr = &syscall.SysProcAttr{Setpgid: true}
