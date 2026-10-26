@@ -8,7 +8,10 @@ import (
 
 // Test hooks for the unexported process lifecycle (compiled only into tests).
 
-var ErrShuttingDownForTest = errShuttingDown
+var (
+	ErrShuttingDownForTest  = errShuttingDown
+	ErrDaemonRunningForTest = errDaemonRunning
+)
 
 // AdaptShellForTest prepares a `sh -c` command as enma does for its commands.
 func AdaptShellForTest(cmd *exec.Cmd) { adaptShell(cmd) }
