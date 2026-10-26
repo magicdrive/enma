@@ -1,6 +1,6 @@
 # Releasing enma
 
-enma is released with [Hephaestus](https://github.com/magicdrive/hephaestus) v1.2.0
+enma is released with [Hephaestus](https://github.com/magicdrive/hephaestus) v1.3.0
 (`hephaestus.yaml`; the action and `HEPHAESTUS_VERSION` in the `Makefile` are pinned to the
 same release). A release is published only by the release workflow
 (`.github/workflows/release.yml`) when a `v*` tag is pushed; nothing is published from a
