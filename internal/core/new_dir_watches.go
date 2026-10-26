@@ -31,13 +31,23 @@ import (
 // own, watched for this only, whose times enma updates after queuing a
 // directory. Its event (a Chmod) is not a change.
 //
+// A fence removed or renamed from outside (a cleaner of the temporary
+// directory) loses its watch: it is replaced by a new one, so that new
+// directories still wait for fsnotify and the next event still comes.
+//
 // Every watch of enma has an absolute path, so does every event of it; an
 // event with another name ("" or ".") is one of a descriptor fsnotify lost
 // track of, and is not a change either.
 //
-// All methods are called from the watcher goroutine only.
+// This relies on fsnotify v1.10.1's kqueue backend, not on its documented API:
+// one reader goroutine sends every event and error, on unbuffered channels
+// (NewWatcher), and registers an entry right after sending its Create. The
+// tests in new_dir_watches_internal_test.go check the outcome on a real watcher.
+//
+// All methods are called from the watcher goroutine only (after Start's setup).
 type newDirWatches struct {
 	watcher *fsnotify.Watcher
+	env     *startEnv
 	fence   string   // the fence directory; "" adds new directories at once
 	pending []string // created directories waiting for the next event
 }
@@ -55,23 +65,28 @@ func kqueueBackend() bool {
 // enma exits. Without a fence (another backend, or no fence could be made),
 // new directories are added as soon as their Create arrives.
 func newNewDirWatches(watcher *fsnotify.Watcher, env *startEnv) *newDirWatches {
-	n := &newDirWatches{watcher: watcher}
-	if !kqueueBackend() {
-		return n
+	n := &newDirWatches{watcher: watcher, env: env}
+	if kqueueBackend() {
+		n.fence = n.newFence()
 	}
+	return n
+}
+
+// newFence makes a fence, watches it and has env remove it at exit; "" (new
+// directories are then added at once) when it cannot.
+func (n *newDirWatches) newFence() string {
 	fence, err := os.MkdirTemp("", "enma-fence-")
 	if err == nil {
-		if err = watcher.Add(fence); err != nil {
+		if err = n.watcher.Add(fence); err != nil {
 			_ = os.Remove(fence)
 		}
 	}
 	if err != nil {
 		log.Printf("⚠️  New directories are added without waiting for the watcher (no fence: %v)", err)
-		return n
+		return ""
 	}
-	n.fence = filepath.Clean(fence)
-	env.atExit(func() { _ = os.Remove(fence) })
-	return n
+	n.env.atExit(func() { _ = os.Remove(fence) })
+	return filepath.Clean(fence)
 }
 
 // received is called first for every event: it adds the queued directories
@@ -79,7 +94,13 @@ func newNewDirWatches(watcher *fsnotify.Watcher, env *startEnv) *newDirWatches {
 // ignored, not being a change: the fence's, or one without an absolute path.
 func (n *newDirWatches) received(event fsnotify.Event, add func(dir string)) (ignore bool) {
 	n.flush(add)
-	return !filepath.IsAbs(event.Name) || (n.fence != "" && filepath.Clean(event.Name) == n.fence)
+	if n.fence != "" && filepath.Clean(event.Name) == n.fence {
+		if event.Has(fsnotify.Remove) || event.Has(fsnotify.Rename) {
+			n.fence = n.newFence() // fsnotify dropped its watch
+		}
+		return true
+	}
+	return !filepath.IsAbs(event.Name)
 }
 
 // flush adds the queued directories. It is called for every event and error
@@ -101,7 +122,14 @@ func (n *newDirWatches) created(dir string, add func(dir string)) {
 	}
 	n.pending = append(n.pending, dir)
 	now := time.Now()
-	if err := os.Chtimes(n.fence, now, now); err != nil {
+	err := os.Chtimes(n.fence, now, now)
+	if err != nil {
+		// gone before its Remove arrived: a new fence
+		if n.fence = n.newFence(); n.fence != "" {
+			err = os.Chtimes(n.fence, now, now)
+		}
+	}
+	if err != nil {
 		// no fence event will come: from now on, add at once
 		log.Printf("⚠️  New directories are added without waiting for the watcher (fence: %v)", err)
 		n.fence = ""

@@ -24,6 +24,7 @@ type startEnv struct {
 	logFile  *os.File
 	mu       sync.Mutex
 	cleanups []func()
+	exited   bool // runAtExit ran: atExit runs what it gets at once
 }
 
 // openStartEnv writes the pid file and sends the log to the log file as well as
@@ -82,11 +83,17 @@ func (e *startEnv) releasePid() {
 }
 
 // atExit registers f to run when Start returns an error or the signal handler
-// exits the process.
+// exits the process. After that (a signal while Start still sets up), f runs
+// at once.
 func (e *startEnv) atExit(f func()) {
 	e.mu.Lock()
-	defer e.mu.Unlock()
+	if e.exited {
+		e.mu.Unlock()
+		f()
+		return
+	}
 	e.cleanups = append(e.cleanups, f)
+	e.mu.Unlock()
 }
 
 // runAtExit runs what atExit registered, once.
@@ -94,6 +101,7 @@ func (e *startEnv) runAtExit() {
 	e.mu.Lock()
 	cleanups := e.cleanups
 	e.cleanups = nil
+	e.exited = true
 	e.mu.Unlock()
 	for _, f := range cleanups {
 		f()

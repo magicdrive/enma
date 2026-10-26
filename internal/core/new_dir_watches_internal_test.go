@@ -7,7 +7,9 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"runtime"
 	"slices"
+	"strings"
 	"sync"
 	"syscall"
 	"testing"
@@ -29,6 +31,18 @@ func eventually(d time.Duration, cond func() bool) bool {
 }
 
 type inode struct{ dev, ino uint64 }
+
+// openCount returns the number of this process's open descriptors.
+func openCount() int {
+	n := 0
+	for fd := 0; fd < 4096; fd++ {
+		var st syscall.Stat_t
+		if syscall.Fstat(fd, &st) == nil {
+			n++
+		}
+	}
+	return n
+}
 
 func inodeOf(t *testing.T, path string) inode {
 	t.Helper()
@@ -63,6 +77,21 @@ func openOn(inodes map[inode]string) []string {
 // (fsnotify v1.10.1, fsnotify/fsnotify#783); see newDirWatches.
 func TestNewDirWatches_BurstOfNewDirsKeepsNoDescriptor(t *testing.T) {
 	const rounds, dirs = 5, 15
+	// repeated watchers leave nothing behind: descriptors, goroutines (checked
+	// once every round's watcher is closed)
+	fdsBefore, goroutinesBefore := openCount(), runtime.NumGoroutine()
+	defer func() {
+		if t.Failed() {
+			return
+		}
+		var fds, goroutines int
+		if !eventually(5*time.Second, func() bool {
+			fds, goroutines = openCount(), runtime.NumGoroutine()
+			return fds <= fdsBefore && goroutines <= goroutinesBefore
+		}) {
+			t.Errorf("after %d watchers: descriptors %d -> %d, goroutines %d -> %d", rounds, fdsBefore, fds, goroutinesBefore, goroutines)
+		}
+	}()
 	for round := range rounds {
 		base, err := filepath.EvalSymlinks(t.TempDir())
 		if err != nil {
@@ -264,7 +293,8 @@ func TestNewDirWatches_Received(t *testing.T) {
 
 // Without a fence, a new directory is added at once (the other backends; and
 // kqueue when no fence could be made). A fence that cannot be touched any more
-// (removed) turns into that: what is queued is added, then everything at once.
+// (removed) and cannot be replaced (here: no temporary directory) turns into
+// that: what is queued is added, then everything at once.
 func TestNewDirWatches_WithoutFenceAddsAtOnce(t *testing.T) {
 	var added []string
 	add := func(dir string) { added = append(added, dir) }
@@ -285,6 +315,7 @@ func TestNewDirWatches_WithoutFenceAddsAtOnce(t *testing.T) {
 	if err := os.Remove(fence); err != nil {
 		t.Fatal(err)
 	}
+	t.Setenv("TMPDIR", filepath.Join(t.TempDir(), "missing")) // no new fence can be made
 	n.created("/w/src/d01", add)
 	if !slices.Equal(added, []string{"/w/src/d00", "/w/src/d01"}) || n.fence != "" {
 		t.Fatalf("fence gone: added %v, fence %q", added, n.fence)
@@ -310,5 +341,202 @@ func TestStartEnv_AtExitRunsOnce(t *testing.T) {
 	e.runAtExit()
 	if runs != 1 {
 		t.Fatalf("ran %d times", runs)
+	}
+}
+
+// fenceLoop runs Start's event loop on watcher with n (new directories are
+// added with watcher.Add) and records what it adds and what it ignores.
+type fenceLoop struct {
+	mu      sync.Mutex
+	added   []string
+	ignored []fsnotify.Event
+	done    chan struct{}
+}
+
+func runFenceLoop(t *testing.T, watcher *fsnotify.Watcher, n *newDirWatches) *fenceLoop {
+	t.Helper()
+	l := &fenceLoop{done: make(chan struct{})}
+	add := func(dir string) {
+		if err := watcher.Add(dir); err != nil {
+			t.Errorf("Add %s: %v", dir, err)
+			return
+		}
+		l.mu.Lock()
+		l.added = append(l.added, dir)
+		l.mu.Unlock()
+	}
+	go func() {
+		defer close(l.done)
+		for {
+			select {
+			case event, ok := <-watcher.Events:
+				if !ok {
+					return
+				}
+				if n.received(event, add) {
+					l.mu.Lock()
+					l.ignored = append(l.ignored, event)
+					l.mu.Unlock()
+					continue
+				}
+				if event.Has(fsnotify.Create) {
+					if fi, err := os.Lstat(event.Name); err == nil && fi.IsDir() {
+						n.created(event.Name, add)
+					}
+				}
+			case _, ok := <-watcher.Errors:
+				if !ok {
+					return
+				}
+				n.flush(add)
+			}
+		}
+	}()
+	t.Cleanup(func() { _ = watcher.Close(); <-l.done })
+	return l
+}
+
+func (l *fenceLoop) hasAdded(dir string) bool {
+	l.mu.Lock()
+	defer l.mu.Unlock()
+	return slices.Contains(l.added, dir)
+}
+
+func (l *fenceLoop) hasIgnored(name string, op fsnotify.Op) bool {
+	l.mu.Lock()
+	defer l.mu.Unlock()
+	return slices.ContainsFunc(l.ignored, func(e fsnotify.Event) bool { return e.Name == name && e.Has(op) })
+}
+
+// newFenceTest is a watcher on a new directory src with newDirWatches, and its
+// startEnv (run at the end).
+func newFenceTest(t *testing.T) (src string, watcher *fsnotify.Watcher, n *newDirWatches) {
+	t.Helper()
+	if !kqueueBackend() {
+		t.Skip("the fence exists on kqueue platforms only (other backends add at once)")
+	}
+	base, err := filepath.EvalSymlinks(t.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
+	src = filepath.Join(base, "src")
+	if err := os.Mkdir(src, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if watcher, err = fsnotify.NewWatcher(); err != nil {
+		t.Fatal(err)
+	}
+	if err := watcher.Add(src); err != nil {
+		t.Fatal(err)
+	}
+	env := &startEnv{}
+	t.Cleanup(env.runAtExit)
+	n = newNewDirWatches(watcher, env)
+	if n.fence == "" {
+		t.Fatal("no fence on a kqueue platform")
+	}
+	return src, watcher, n
+}
+
+// Liveness: a new directory after which nothing else happens is still added:
+// the fence's event is the next event.
+func TestNewDirWatches_FenceAloneAddsTheLastDirectory(t *testing.T) {
+	src, watcher, n := newFenceTest(t)
+	fence := n.fence // read before the loop, its only user, starts
+	l := runFenceLoop(t, watcher, n)
+	dir := filepath.Join(src, "only")
+	if err := os.Mkdir(dir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if !eventually(5*time.Second, func() bool { return l.hasAdded(dir) }) {
+		t.Fatalf("the only new directory was not added")
+	}
+	if !l.hasIgnored(fence, fsnotify.Chmod) {
+		t.Fatalf("added without the fence's event")
+	}
+}
+
+// A fence removed from outside (e.g. a cleaner of the temporary directory),
+// even if something makes a directory at its path again, is replaced: the new
+// directories after it are still added, and only after fsnotify's own
+// registration (a fence that is a directory nobody watches would keep them
+// waiting for an unrelated event).
+func TestNewDirWatches_RemovedFenceIsReplaced(t *testing.T) {
+	src, watcher, n := newFenceTest(t)
+	old := n.fence // read before the loop, its only user, starts
+	l := runFenceLoop(t, watcher, n)
+	if err := os.Remove(old); err != nil {
+		t.Fatal(err)
+	}
+	if !eventually(5*time.Second, func() bool { return l.hasIgnored(old, fsnotify.Remove) }) {
+		t.Fatal("the fence's Remove did not arrive")
+	}
+	// a directory again at the old path, not watched
+	if err := os.Mkdir(old, 0o700); err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = os.Remove(old) })
+
+	dir := filepath.Join(src, "after")
+	if err := os.Mkdir(dir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if !eventually(5*time.Second, func() bool { return l.hasAdded(dir) }) {
+		t.Fatalf("a new directory after the fence was removed was not added")
+	}
+	// the new fence: the one whose Chmod the loop ignored
+	l.mu.Lock()
+	var fence string
+	for _, e := range l.ignored {
+		if e.Has(fsnotify.Chmod) && e.Name != old && strings.HasPrefix(filepath.Base(e.Name), "enma-fence-") {
+			fence = e.Name
+		}
+	}
+	l.mu.Unlock()
+	if fence == "" {
+		t.Fatalf("added without a new fence's event (the fence %s was removed)", old)
+	}
+	if fi, err := os.Stat(fence); err != nil || !fi.IsDir() {
+		t.Fatalf("the new fence %s: %v", fence, err)
+	}
+}
+
+// What is registered after the exit cleanups ran (the signal handler, while
+// Start still sets up) runs at once: nothing is left for after os.Exit.
+func TestStartEnv_AtExitAfterExitRunsAtOnce(t *testing.T) {
+	e := &startEnv{}
+	e.runAtExit()
+	runs := 0
+	e.atExit(func() { runs++ })
+	if runs != 1 {
+		t.Fatalf("registered after the exit cleanups: ran %d times", runs)
+	}
+	e.runAtExit()
+	if runs != 1 {
+		t.Fatalf("ran %d times", runs)
+	}
+}
+
+// Two watchers at once (two enmas, or two runners): each has its own fence,
+// and each adds only its own new directories, ignoring only its own fence.
+func TestNewDirWatches_TwoWatchersKeepTheirOwnFences(t *testing.T) {
+	srcA, watcherA, a := newFenceTest(t)
+	srcB, watcherB, b := newFenceTest(t)
+	fenceA, fenceB := a.fence, b.fence // read before the loops start
+	if fenceA == fenceB {
+		t.Fatalf("one fence for two watchers: %s", fenceA)
+	}
+	la, lb := runFenceLoop(t, watcherA, a), runFenceLoop(t, watcherB, b)
+	dirA, dirB := filepath.Join(srcA, "a"), filepath.Join(srcB, "b")
+	for _, d := range []string{dirA, dirB} {
+		if err := os.Mkdir(d, 0o755); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if !eventually(5*time.Second, func() bool { return la.hasAdded(dirA) && lb.hasAdded(dirB) }) {
+		t.Fatal("a new directory was not added by its watcher")
+	}
+	if la.hasAdded(dirB) || lb.hasAdded(dirA) || la.hasIgnored(fenceB, fsnotify.Chmod) || lb.hasIgnored(fenceA, fsnotify.Chmod) {
+		t.Fatal("the watchers saw each other's directories or fences")
 	}
 }
