@@ -30,7 +30,7 @@ STATICCHECK := honnef.co/go/tools/cmd/staticcheck@v0.7.0-0.dev.0.20261009230814-
 HEPHAESTUS_VERSION ?= v1.2.0
 HEPHAESTUS ?= go run github.com/magicdrive/hephaestus@$(HEPHAESTUS_VERSION)
 # renovate: datasource=go depName=golang.org/x/vuln
-GOVULNCHECK_VERSION ?= v1.8.0
+GOVULNCHECK_VERSION ?= v1.9.0
 # renovate: datasource=go depName=github.com/rhysd/actionlint
 ACTIONLINT_VERSION ?= v1.7.12
 # renovate: datasource=npm depName=renovate
