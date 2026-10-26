@@ -8,6 +8,7 @@ import (
 	"os/signal"
 	"path/filepath"
 	"runtime"
+	"sync"
 	"syscall"
 
 	"github.com/magicdrive/enma/internal/common"
@@ -16,10 +17,13 @@ import (
 // startEnv is what a runner's Start sets up around its work, the same in every
 // mode: the pid file, the log file and the signal handler. The pid file is
 // owned by Start: it is removed when Start returns an error and when the signal
-// handler exits the process. Nothing removes it after SIGKILL or a crash.
+// handler exits the process. Nothing removes it after SIGKILL or a crash. The
+// same goes for what is registered with atExit.
 type startEnv struct {
-	pidPath string
-	logFile *os.File
+	pidPath  string
+	logFile  *os.File
+	mu       sync.Mutex
+	cleanups []func()
 }
 
 // openStartEnv writes the pid file and sends the log to the log file as well as
@@ -77,10 +81,30 @@ func (e *startEnv) releasePid() {
 	}
 }
 
+// atExit registers f to run when Start returns an error or the signal handler
+// exits the process.
+func (e *startEnv) atExit(f func()) {
+	e.mu.Lock()
+	defer e.mu.Unlock()
+	e.cleanups = append(e.cleanups, f)
+}
+
+// runAtExit runs what atExit registered, once.
+func (e *startEnv) runAtExit() {
+	e.mu.Lock()
+	cleanups := e.cleanups
+	e.cleanups = nil
+	e.mu.Unlock()
+	for _, f := range cleanups {
+		f()
+	}
+}
+
 // failed is deferred by Start: when Start returns an error, the pid file it
-// wrote is removed.
+// wrote is removed (and what atExit registered runs).
 func (e *startEnv) failed(err *error) {
 	if *err != nil {
+		e.runAtExit()
 		e.releasePid()
 	}
 }
@@ -116,6 +140,7 @@ func (e *startEnv) handleSignals(stopping string, shutdown func() error, forceKi
 			forceKill()
 			code = 1
 		}
+		e.runAtExit()
 		e.releasePid()
 		os.Exit(code)
 	}()

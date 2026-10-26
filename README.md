@@ -537,11 +537,15 @@ This layered approach ensures clarity in behavior while keeping Enma fast and cu
   are not affected. From the code, the same race is presumed possible (not observed) for a
   directory being added while its parent changes, e.g. at startup.
   The cause is a race in the file-watching library (fsnotify, kqueue backend) between its own
-  registration of a new directory and enma's: it was reproduced with fsnotify alone. A related
-  symptom, one file descriptor kept open after such a directory is deleted, is presumed to have
-  the same cause (seen only in enma). It has not been observed on Linux (inotify backend, which
-  registers directories differently); that is not a proof that Linux cannot be affected. This
-  will be revisited once fsnotify fixes it.
+  registration of a new directory and enma's: it was reproduced with fsnotify alone
+  ([fsnotify#783](https://github.com/fsnotify/fsnotify/issues/783)). It has not been observed on
+  Linux (inotify backend, which registers directories differently); that is not a proof that
+  Linux cannot be affected. This will be revisited once fsnotify fixes it.
+  The same race made new directories' file descriptors stay open after they were deleted, and
+  made enma watch its working directory: this is fixed. On macOS and BSD, enma adds a new
+  directory to its watch only once fsnotify has registered it, and for that it keeps an empty
+  directory of its own (`enma-fence-*` in the temporary directory, removed when enma stops; like
+  the pid file, it is left behind if enma is killed with SIGKILL).
 
 ### Processes a command leaves behind
 
