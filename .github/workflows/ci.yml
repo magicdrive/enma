@@ -171,6 +171,12 @@ jobs:
 
       - name: Lint the workflows (actionlint)
         run: make actionlint  # version pinned in the Makefile (ACTIONLINT_VERSION)
+      # The release workflow's tag provenance check (release.yml, job
+      # provenance), against local repositories: shellcheck and its tests.
+      - name: Release tag provenance check
+        run: |
+          shellcheck .github/release/verify-tag-provenance.sh .github/release/verify-tag-provenance_test.sh
+          .github/release/verify-tag-provenance_test.sh
 
       # The Node.js Renovate's engines require (run.sh installs with
       # --engine-strict). The npm cache holds only tarballs; `npm ci` checks
