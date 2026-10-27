@@ -214,7 +214,10 @@ jobs:
           want=$(sed -n 's/^ *GOTOOLCHAIN: *"\{0,1\}go\([0-9.]*\)"\{0,1\}$/\1/p' hephaestus.yaml)
           got=$(sed -n 's/^ *go-version: *"\([0-9.]*\)"$/\1/p' .github/workflows/release.yml)
           echo "hephaestus.yaml GOTOOLCHAIN=go$want release.yml go-version=$got"
-          [ -n "$want" ] && [ "$want" = "$got" ] || { echo "::error::release.yml go-version ($got) differs from GOTOOLCHAIN in hephaestus.yaml (go$want)"; exit 1; }
+          if [ -z "$want" ] || [ "$want" != "$got" ]; then
+            echo "::error::release.yml go-version ($got) differs from GOTOOLCHAIN in hephaestus.yaml (go$want)"
+            exit 1
+          fi
 
       - name: Check hephaestus.yaml
         uses: magicdrive/hephaestus@e544acf59c79cbafa04a48002b0f30f91a02f8ba # v1.3.0
