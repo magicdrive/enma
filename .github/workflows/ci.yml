@@ -172,8 +172,21 @@ jobs:
       - name: Lint the workflows (actionlint)
         run: make actionlint  # version pinned in the Makefile (ACTIONLINT_VERSION)
 
+      # The Node.js Renovate's engines require (run.sh installs with
+      # --engine-strict). The npm cache holds only tarballs; `npm ci` checks
+      # each against the lockfile's integrity.
+      - name: Set up Node.js
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version-file: '.github/renovate-check/.node-version'
+          cache: npm
+          cache-dependency-path: '.github/renovate-check/package-lock.json'
+
+      - name: Test the pinned Renovate install
+        run: make renovate-check-test
+
       - name: Validate renovate.json
-        run: make renovate-check  # version pinned in the Makefile (RENOVATE_VERSION)
+        run: make renovate-check  # Renovate pinned by .github/renovate-check/package-lock.json
 
   # Builds every release archive with Hephaestus exactly as the build job of
   # release.yml does, but without a tag (version 0.0.0-SNAPSHOT), and checks
