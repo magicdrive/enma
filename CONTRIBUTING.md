@@ -38,7 +38,11 @@ green.
 
 Dependencies and GitHub Actions (the Hephaestus action included) are updated by Renovate, and
 so are the tool versions in the Makefile marked with a `# renovate:` comment
-(`HEPHAESTUS_VERSION`, `GOVULNCHECK_VERSION`, `ACTIONLINT_VERSION`, `RENOVATE_VERSION`).
+(`HEPHAESTUS_VERSION`, `GOVULNCHECK_VERSION`, `ACTIONLINT_VERSION`). The Renovate of
+`make renovate-check` is pinned, with its whole dependency tree, by
+`.github/renovate-check/package-lock.json` and installed with `npm ci` (Node.js of
+`.github/renovate-check/.node-version`); Renovate updates it and refreshes the lockfile weekly.
+`make renovate-check-test` tests that install against a fake registry.
 `STATICCHECK` is updated by hand. Run `make staticcheck` (Go 1.26 or later; CI uses the newest Go) to use the same
 staticcheck as CI.
 
