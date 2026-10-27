@@ -27,7 +27,9 @@ jobs:
       contents: read
 
   build:
-    runs-on: ubuntu-latest
+    # Pinned: ubuntu-latest moves to 26.04 in November 2026 (actions/runner-images#14748);
+    # the release path changes its image only through a reviewed pull request.
+    runs-on: ubuntu-24.04
     timeout-minutes: 30
     permissions:
       contents: read
@@ -40,8 +42,12 @@ jobs:
       - name: Set up Go
         uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7
         with:
-          go-version: stable
-          check-latest: true
+          # The release toolchain: equal to builds[].env.GOTOOLCHAIN in
+          # hephaestus.yaml (the dist job of ci.yml checks this), so nothing
+          # is fetched through GOTOOLCHAIN and the build never follows
+          # whatever "stable" is on the day of the tag.
+          # renovate: datasource=golang-version depName=go
+          go-version: "1.27.3"
 
       - name: Build, archive and checksum
         uses: magicdrive/hephaestus@e544acf59c79cbafa04a48002b0f30f91a02f8ba # v1.3.0
@@ -76,7 +82,9 @@ jobs:
 
   release:
     needs: [ci, build]
-    runs-on: ubuntu-latest
+    # Pinned: ubuntu-latest moves to 26.04 in November 2026 (actions/runner-images#14748);
+    # the release path changes its image only through a reviewed pull request.
+    runs-on: ubuntu-24.04
     timeout-minutes: 30
     environment: release
     permissions:

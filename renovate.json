@@ -23,6 +23,11 @@
   },
   "packageRules": [
     {
+      "description": "Release toolchain: GOTOOLCHAIN (hephaestus.yaml) and release.yml go-version move in one pull request",
+      "matchDatasources": ["golang-version"],
+      "groupName": "Go release toolchain"
+    },
+    {
       "description": "The Renovate of make renovate-check (.github/renovate-check): package.json, its lockfile and the Node.js its engines require move together",
       "matchFileNames": [".github/renovate-check/**"],
       "groupName": "Renovate validator",
@@ -86,6 +91,14 @@
       "managerFilePatterns": ["/(^|/)hephaestus\\.yaml$/"],
       "matchStrings": [
         "# renovate: datasource=(?<datasource>golang-version) depName=(?<depName>\\S+)\\s+GOTOOLCHAIN:\\s*\"?go(?<currentValue>[0-9][0-9.]*)\"?"
+      ]
+    },
+    {
+      "customType": "regex",
+      "description": "The Go that release.yml sets up; it moves with GOTOOLCHAIN above (ci.yml checks they are equal)",
+      "managerFilePatterns": ["/(^|/)\\.github/workflows/release\\.yml$/"],
+      "matchStrings": [
+        "# renovate: datasource=(?<datasource>golang-version) depName=(?<depName>\\S+)\\s+go-version:\\s*\"(?<currentValue>[0-9][0-9.]*)\""
       ]
     }
   ],
