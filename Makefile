@@ -92,10 +92,11 @@ staticcheck:
 fmt:
 	@gofmt -w .
 
-# Fail when a Go source is not gofmt-formatted
+# Fail when a Go source is not gofmt-formatted, or when gofmt fails (it
+# then prints nothing, which must not read as "formatted")
 .PHONY: fmt-check
 fmt-check:
-	@unformatted="$$(gofmt -l .)"; \
+	@unformatted="$$(gofmt -l .)" || { echo "fmt-check: gofmt failed"; exit 1; }; \
 	if [ -n "$$unformatted" ]; then echo "gofmt needed (run make fmt):"; echo "$$unformatted"; exit 1; fi
 
 # Run go vet for the host and for Windows
@@ -126,10 +127,14 @@ shellcheck:
 	@shellcheck scripts/homebrew-e2e.sh
 
 # Build, then run the binary: --version and --help
+# (each command's exit status counts, not only its output: a pipe into grep
+# would take grep's status alone)
 .PHONY: smoke
 smoke: build
-	@$(BUILD_DIR)/$(BINARY_NAME) --version | grep -q '^enma version .' || { echo "smoke: unexpected --version output"; exit 1; }
-	@$(BUILD_DIR)/$(BINARY_NAME) --help | grep -q '^Usage: enma ' || { echo "smoke: unexpected --help output"; exit 1; }
+	@out=$$($(BUILD_DIR)/$(BINARY_NAME) --version) || { echo "smoke: --version failed"; exit 1; }; \
+	printf '%s\n' "$$out" | grep -q '^enma version .' || { echo "smoke: unexpected --version output"; exit 1; }
+	@out=$$($(BUILD_DIR)/$(BINARY_NAME) --help) || { echo "smoke: --help failed"; exit 1; }; \
+	printf '%s\n' "$$out" | grep -q '^Usage: enma ' || { echo "smoke: unexpected --help output"; exit 1; }
 	@echo "smoke: ok ($$($(BUILD_DIR)/$(BINARY_NAME) --version))"
 
 # Every local quality gate that CI runs on each pull request (the test jobs
