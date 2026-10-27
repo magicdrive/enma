@@ -114,7 +114,13 @@ jobs:
       - name: Set up Go
         uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7
         with:
-          go-version-file: 'go.mod'
+          # The release toolchain (hephaestus.yaml GOTOOLCHAIN), not go.mod's
+          # minimum: before Go 1.27.0 a -fuzztime run can fail with "context
+          # deadline exceeded" and no crashing input when the time is up
+          # (go.dev/issue/75804, not backported to 1.25 or 1.26), a false
+          # failure seen in ark (run 37137725199). The other jobs keep
+          # testing go.mod's minimum version.
+          go-version: '1.27.3'
 
       - name: Fuzz every target for 30s
         run: |
