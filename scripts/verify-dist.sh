@@ -93,8 +93,8 @@ for target in linux_amd64 linux_arm64 darwin_amd64 darwin_arm64 windows_amd64 \
 		darwin_amd64) pat='Mach-O 64-bit*x86_64*' ;;
 		darwin_arm64) pat='Mach-O 64-bit*arm64*' ;;
 		windows_amd64) pat='PE32+*x86-64*' ;;
-		linux_386) pat='ELF 32-bit*Intel 80386*' ;;
-		windows_386) pat='PE32 *Intel 80386*' ;;
+		linux_386) pat='ELF 32-bit*Intel*386*' ;; # "Intel 80386", or "Intel i386" (file on ubuntu-26.04)
+		windows_386) pat='PE32 *Intel*386*' ;;
 		windows_arm64) pat='PE32+*Aarch64*' ;;
 		esac
 		# shellcheck disable=SC2254
