@@ -87,18 +87,20 @@ for target in linux_amd64 linux_arm64 darwin_amd64 darwin_arm64 windows_amd64 \
 
 	if command -v file >/dev/null 2>&1; then
 		kind=$(file -b "$out/$bin")
+		# pat, or alt: how the file on ubuntu-26.04 names the machine
+		alt=
 		case "$target" in
 		linux_amd64) pat='ELF 64-bit*x86-64*' ;;
 		linux_arm64) pat='ELF 64-bit*aarch64*' ;;
 		darwin_amd64) pat='Mach-O 64-bit*x86_64*' ;;
 		darwin_arm64) pat='Mach-O 64-bit*arm64*' ;;
 		windows_amd64) pat='PE32+*x86-64*' ;;
-		linux_386) pat='ELF 32-bit*Intel*386*' ;; # "Intel 80386", or "Intel i386" (file on ubuntu-26.04)
-		windows_386) pat='PE32 *Intel*386*' ;;
-		windows_arm64) pat='PE32+*Aarch64*' ;;
+		linux_386) pat='ELF 32-bit*Intel 80386*' alt='ELF 32-bit*Intel i386*' ;;
+		windows_386) pat='PE32 *Intel 80386*' alt='PE32 *Intel i386*' ;;
+		windows_arm64) pat='PE32+*Aarch64*' alt='PE32+*ARM64*' ;;
 		esac
 		# shellcheck disable=SC2254
-		case "$kind" in $pat) ;; *) fail "$archive: $bin is \"$kind\"" ;; esac
+		case "$kind" in $pat | ${alt:-$pat}) ;; *) fail "$archive: $bin is \"$kind\"" ;; esac
 	fi
 
 	if [ "$target" = "$host" ]; then
