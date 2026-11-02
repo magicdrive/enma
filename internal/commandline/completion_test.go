@@ -952,8 +952,14 @@ func expectations(t *testing.T, sh *shell) []expectation {
 	add(exactly(), false, "hotload", "--pattern-regex", "-")
 	// a short flag takes its value in the next word or after "=", never
 	// attached (-SSIGTERM is an unknown flag to Go)
-	add(func(_ *shell, got []string) string {
+	add(func(sh *shell, got []string) string {
 		for _, g := range got {
+			if sh.name == "fish" && !strings.HasPrefix(strings.ToLower(g), "-s") {
+				// fish 4.2 also offers the flags that only match fuzzily
+				// (--signal, --start-at-once): fish's matching, not a word
+				// the script offers for -S
+				continue
+			}
 			if g != "-S" && g != "-s" { // fish 3 also offers -s (it ignores case)
 				return fmt.Sprintf("offers %q, want -S", got)
 			}

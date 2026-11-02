@@ -179,9 +179,12 @@ func TestCommandStop_ForceKillCutsTheGracePeriod(t *testing.T) {
 	killLeftovers(t, pids)
 	// The leader notes SIGTERM and keeps running; its child ignores SIGTERM.
 	// The pids are written once the child's trap is set (startSeq waits for them).
+	// The leader loops on short sleeps, not on `wait`: a SIGTERM that comes
+	// just before bash 3.2 (macOS /bin/sh) blocks in `wait` runs its trap only
+	// when the child exits, 30s later, and S1 would fail for want of the mark.
 	command := `trap 'echo term >> "` + mark + `"' TERM; (trap '' TERM; : > '` + ready + `'; exec sleep 30) & ` +
 		awaitReadySh(ready) + `; ` +
-		`echo $! >> '` + pids + `'; echo $$ >> '` + pids + `'; while :; do wait; done`
+		`echo $! >> '` + pids + `'; echo $$ >> '` + pids + `'; while :; do sleep 0.1; done`
 	for _, p := range commandPaths(t, command, time.Minute, 5*time.Second, testKill, 0) {
 		t.Run(p.name, func(t *testing.T) {
 			_ = os.Remove(mark)

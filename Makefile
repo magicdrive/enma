@@ -17,12 +17,10 @@ PLATFORMS := linux/amd64 linux/arm64 darwin/amd64 darwin/arm64 windows/amd64
 GO := GO111MODULE=on CGO_ENABLED=0 go
 
 # staticcheck, pinned (CI runs `make staticcheck` too; needs Go 1.26 or later).
-# 2026.2.1 (v0.8.1) cannot read Go 1.27.2's export data ("export data version 5
-# is greater than maximum supported version 4"). This development commit can; it
-# was verified with Go 1.27.2 (no finding here, findings still reported) and is
-# the one used by a sibling project's CI. The release 2026.2.2 (v0.8.2) also
-# works with Go 1.27.2: moving to it is a separate decision.
-STATICCHECK := honnef.co/go/tools/cmd/staticcheck@v0.7.0-0.dev.0.20261009230814-452d5bb86b45
+# 2026.2.2 (v0.8.2) is the first release that reads Go 1.27.2's export data.
+# renovate: datasource=go depName=honnef.co/go/tools
+STATICCHECK_VERSION ?= v0.8.2
+STATICCHECK := honnef.co/go/tools/cmd/staticcheck@$(STATICCHECK_VERSION)
 
 # Tool versions. CI runs these targets, so the versions here are the ones CI
 # uses; Renovate updates them through the `# renovate:` comments.
