@@ -75,7 +75,7 @@ jobs:
           go-version: "1.27.3"
 
       - name: Build, archive and checksum
-        uses: magicdrive/hephaestus@83721c3ebfc9a9abc4bdc1ade8da0c46240ef0c7 # v1.4.0
+        uses: magicdrive/hephaestus@97e0a978588918853d65886b594ee34df368f022 # v1.5.1
         with:
           command: run
           stages: build,archive,checksum
@@ -136,7 +136,7 @@ jobs:
       # prerelease whose plan would update the tap fails here.
       - name: Plan the release
         id: plan
-        uses: magicdrive/hephaestus@83721c3ebfc9a9abc4bdc1ade8da0c46240ef0c7 # v1.4.0
+        uses: magicdrive/hephaestus@97e0a978588918853d65886b594ee34df368f022 # v1.5.1
         with:
           command: plan
           github-token: ""
@@ -156,7 +156,7 @@ jobs:
       # this step and the tap step below by their names.
       - name: Rehearse the formula and tap pull request (read-only)
         if: steps.plan.outputs.tap == 'publish'
-        uses: magicdrive/hephaestus@83721c3ebfc9a9abc4bdc1ade8da0c46240ef0c7 # v1.4.0
+        uses: magicdrive/hephaestus@97e0a978588918853d65886b594ee34df368f022 # v1.5.1
         with:
           command: run
           stages: formula,tap
@@ -175,13 +175,13 @@ jobs:
             dist/enma_checksums.txt
 
       - name: Publish the GitHub Release
-        uses: magicdrive/hephaestus@83721c3ebfc9a9abc4bdc1ade8da0c46240ef0c7 # v1.4.0
+        uses: magicdrive/hephaestus@97e0a978588918853d65886b594ee34df368f022 # v1.5.1
         with:
           command: release
 
       - name: Generate the formula and open a tap pull request
         if: steps.plan.outputs.tap == 'publish'
-        uses: magicdrive/hephaestus@83721c3ebfc9a9abc4bdc1ade8da0c46240ef0c7 # v1.4.0
+        uses: magicdrive/hephaestus@97e0a978588918853d65886b594ee34df368f022 # v1.5.1
         with:
           command: run
           stages: formula,tap

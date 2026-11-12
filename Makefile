@@ -25,7 +25,7 @@ STATICCHECK := honnef.co/go/tools/cmd/staticcheck@$(STATICCHECK_VERSION)
 # Tool versions. CI runs these targets, so the versions here are the ones CI
 # uses; Renovate updates them through the `# renovate:` comments.
 # renovate: datasource=go depName=github.com/magicdrive/hephaestus
-HEPHAESTUS_VERSION ?= v1.4.0
+HEPHAESTUS_VERSION ?= v1.5.1
 HEPHAESTUS ?= go run github.com/magicdrive/hephaestus@$(HEPHAESTUS_VERSION)
 # renovate: datasource=go depName=golang.org/x/vuln
 GOVULNCHECK_VERSION ?= v1.9.0
