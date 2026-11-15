@@ -51,7 +51,7 @@ builds:
       # v2.1.0 were built with go1.27.2; scripts/release-toolchain.sh checks
       # the binaries against this value. Renovate updates it.
       # renovate: datasource=golang-version depName=go
-      GOTOOLCHAIN: go1.27.3
+      GOTOOLCHAIN: go1.27.4
     output: "dist/bin/{{ .OS }}_{{ .Arch }}/enma{{ .Ext }}"
 
 archives:
